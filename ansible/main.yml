@@ -1,0 +1,4 @@
+---
+- import_playbook: setup_elasticsearch.yml
+- import_playbook: setup_kibana.yml
+- import_playbook: setup_fleet_server.yml

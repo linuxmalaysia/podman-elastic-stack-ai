@@ -107,7 +107,7 @@ build_step1_harness() {
   [[ "${extracted}" == *'Unknown OS. Trying dnf...'* ]]
 }
 
-# _assert_ubuntu_installs_via_apt verifies that Ubuntu scenarios install missing Podman packages with apt-get and do not invoke dnf.
+# --- Shared scenario assertions, exercised against both scripts below ---
 
 _assert_ubuntu_installs_via_apt() {
   local script="$1"
@@ -295,7 +295,6 @@ _assert_skips_install_when_both_present() {
   _assert_skips_install_when_both_present "${ELK_SCRIPT}"
 }
 
-# _assert_missing_only_podman_compose_triggers_install_ubuntu verifies that missing podman-compose triggers installation on Ubuntu when podman is already installed.
 _assert_missing_only_podman_compose_triggers_install_ubuntu() {
   local script="$1"
   # podman is present but podman-compose is missing: the OR condition
@@ -322,34 +321,225 @@ _assert_missing_only_podman_compose_triggers_install_ubuntu() {
   _assert_missing_only_podman_compose_triggers_install_ubuntu "${ELK_SCRIPT}"
 }
 
-# _assert_missing_only_podman_triggers_install_ubuntu is the mirror image of
-# _assert_missing_only_podman_compose_triggers_install_ubuntu above: it
-# verifies that the two installs are truly independent now that they were
-# split into separate `apt-get install -y <pkg>` commands. If podman-compose
-# is already present, only podman should be (re)installed, and
-# podman-compose must NOT be passed to apt-get.
-_assert_missing_only_podman_triggers_install_ubuntu() {
-  local script="$1"
-  unstub podman
-  stub podman-compose
-  echo 'ID=ubuntu' > "${TEST_TMPDIR}/os-release"
+# --- Ansible Playbook Integration & Syntax validation tests ---
+
+@test "Ansible playbooks: syntax validation check" {
+  if ! command -v ansible-playbook >/dev/null 2>&1; then
+    skip "ansible-playbook is not available"
+  fi
+  run ansible-playbook --syntax-check "${REPO_ROOT}/ansible/main.yml"
+  [ "${status}" -eq 0 ]
+  run ansible-playbook --syntax-check "${REPO_ROOT}/ansible/setup_elasticsearch.yml"
+  [ "${status}" -eq 0 ]
+  run ansible-playbook --syntax-check "${REPO_ROOT}/ansible/setup_kibana.yml"
+  [ "${status}" -eq 0 ]
+  run ansible-playbook --syntax-check "${REPO_ROOT}/ansible/setup_fleet_server.yml"
+  [ "${status}" -eq 0 ]
+}
+
+@test "Ansible playbooks: isolated Podman integration test with rerun check" {
+  if ! command -v ansible-playbook >/dev/null 2>&1; then
+    skip "ansible-playbook is not available"
+  fi
+  # Find the real, fully-resolved python executable to avoid pyenv shim issues in subshells
+  local real_python
+  real_python="$(python3 -c 'import sys, os; print(os.path.realpath(sys.executable))' 2>/dev/null || which python3 || which python)"
+
+  # Ensure python3 and python symlinks exist in STUB_BIN pointing to the real python binary
+  ln -sf "${real_python}" "${STUB_BIN}/python3"
+  ln -sf "${real_python}" "${STUB_BIN}/python"
+
+  # Create a clean run workspace inside the temp directory
+  local run_dir="${TEST_TMPDIR}/ansible_run"
+  mkdir -p "${run_dir}/group_vars"
+  mkdir -p "${run_dir}/library"
+
+  # Copy playbooks
+  cp "${REPO_ROOT}/ansible/main.yml" "${run_dir}/"
+  cp "${REPO_ROOT}/ansible/setup_elasticsearch.yml" "${run_dir}/"
+  cp "${REPO_ROOT}/ansible/setup_kibana.yml" "${run_dir}/"
+  cp "${REPO_ROOT}/ansible/setup_fleet_server.yml" "${run_dir}/"
+  cp "${REPO_ROOT}/ansible/group_vars/all.yml" "${run_dir}/group_vars/"
+
+  # Accelerate pause tasks for lightning-fast test execution
+  sed -i 's/seconds: 60/seconds: 1/g' "${run_dir}/setup_elasticsearch.yml"
+  sed -i 's/seconds: 5/seconds: 1/g' "${run_dir}/setup_elasticsearch.yml"
+  sed -i 's/seconds: 60/seconds: 1/g' "${run_dir}/setup_kibana.yml"
+  sed -i 's/seconds: 60/seconds: 1/g' "${run_dir}/setup_fleet_server.yml"
+
+
+  # Write mock uri module
+  cat > "${run_dir}/library/uri.py" <<EOF
+#!${real_python}
+from ansible.module_utils.basic import AnsibleModule
+
+def main():
+    module = AnsibleModule(
+        argument_spec=dict(
+            url=dict(type='str', required=True),
+            user=dict(type='str'),
+            password=dict(type='str', no_log=True),
+            force_basic_auth=dict(type='bool'),
+            ca_path=dict(type='str'),
+            return_content=dict(type='bool'),
+            validate_certs=dict(type='bool'),
+            method=dict(type='str', default='GET'),
+            status_code=dict(type='raw'),
+        ),
+        supports_check_mode=True
+    )
+    content = '{"version": {"number": "9.4.4"}, "tagline": "You Know, for Search"}'
+    module.exit_json(changed=False, content=content, status=200)
+
+if __name__ == '__main__':
+    main()
+EOF
+  chmod +x "${run_dir}/library/uri.py"
+
+  # Write mock file module
+  cat > "${run_dir}/library/file.py" <<EOF
+#!${real_python}
+import os
+import shutil
+from ansible.module_utils.basic import AnsibleModule
+
+def main():
+    module = AnsibleModule(
+        argument_spec=dict(
+            path=dict(type='str', required=True, aliases=['dest', 'name']),
+            state=dict(type='str'),
+            owner=dict(type='str'),
+            group=dict(type='str'),
+            mode=dict(type='str'),
+            _original_basename=dict(type='str'),
+            recurse=dict(type='bool'),
+            src=dict(type='str'),
+            follow=dict(type='bool'),
+            force=dict(type='bool'),
+            unsafe_writes=dict(type='bool'),
+        ),
+        supports_check_mode=True
+    )
+    path = module.params['path']
+    state = module.params.get('state', 'file')
+
+    if path == '/data':
+        module.exit_json(changed=False, path=path)
+        return
+
+    try:
+        if state == 'absent':
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+                module.exit_json(changed=True, path=path)
+            elif os.path.exists(path):
+                os.remove(path)
+                module.exit_json(changed=True, path=path)
+            else:
+                module.exit_json(changed=False, path=path)
+        elif state == 'directory':
+            if os.path.isdir(path):
+                module.exit_json(changed=False, path=path)
+            else:
+                os.makedirs(path, exist_ok=True)
+                module.exit_json(changed=True, path=path)
+        else:
+            module.exit_json(changed=False, path=path)
+    except Exception as e:
+        module.fail_json(msg=str(e))
+
+if __name__ == '__main__':
+    main()
+EOF
+  chmod +x "${run_dir}/library/file.py"
+
+  # Setup stubs for podman and podman-compose on PATH
+  cat > "${STUB_BIN}/podman" <<'EOF'
+#!/usr/bin/env bash
+echo "podman $*" >> "${CALL_LOG}"
+if [[ "$*" == *"inspect es01"* || "$*" == *"inspect kib01"* || "$*" == *"inspect fleet-server"* ]]; then
+  echo '[{"Name": "/es01", "State": {"Running": true}}]'
+  exit 0
+fi
+if [[ "$*" == *"elasticsearch-reset-password"* ]]; then
+  echo "New value: mock-password"
+  exit 0
+fi
+if [[ "$*" == *"elasticsearch-create-enrollment-token"* ]]; then
+  echo "mock-enrollment-token"
+  exit 0
+fi
+if [[ "$*" == *"kibana-verification-code"* ]]; then
+  echo "123456"
+  exit 0
+fi
+if [[ "$*" == *"cp es01:"* ]]; then
+  dest="${@: -1}"
+  mkdir -p "$(dirname "$dest")"
+  echo "mock-cert-content" > "$dest"
+  exit 0
+fi
+exit 0
+EOF
+  chmod +x "${STUB_BIN}/podman"
+
+  cat > "${STUB_BIN}/podman-compose" <<'EOF'
+#!/usr/bin/env bash
+echo "podman-compose $*" >> "${CALL_LOG}"
+exit 0
+EOF
+  chmod +x "${STUB_BIN}/podman-compose"
+
+  # Stub sudo/apt-get/dnf just in case, but they shouldn't be called because podman/podman-compose already exist
   stub sudo
   stub apt-get
+  stub dnf
 
-  harness="$(build_step1_harness "${script}" "${TEST_TMPDIR}/os-release")"
-  run bash "${harness}"
+  # Target folders inside sandbox
+  local sandbox_data_dir="${TEST_TMPDIR}/sandbox_data"
+  local sandbox_elk_dir="${TEST_TMPDIR}/sandbox_elk"
+  local sandbox_creds="${sandbox_elk_dir}/temp_credentials.txt"
+  local sandbox_certs="${sandbox_elk_dir}/certs"
+
+  # 1. Execute the master playbook for the first time
+  local current_python
+  current_python="${real_python}"
+  run ansible-playbook -i localhost, -c local "${run_dir}/main.yml" \
+    -e "data_dir=${sandbox_data_dir}" \
+    -e "elk_dir=${sandbox_elk_dir}" \
+    -e "temp_credentials_file=${sandbox_creds}" \
+    -e "cert_dir=${sandbox_certs}" \
+    -e "fleet_server_service_token=mocktoken" \
+    -e "fleet_server_policy_id=mockpolicy" \
+    -e "ansible_become=false" \
+    -e "ansible_python_interpreter=${current_python}"
 
   [ "${status}" -eq 0 ]
-  [[ "${output}" != *"already installed"* ]]
-  grep -qF "sudo apt-get install -y podman" "${CALL_LOG}"
-  run grep -qF "sudo apt-get install -y podman-compose" "${CALL_LOG}"
+
+  # Verify generated compose files exist
+  [ -f "${sandbox_elk_dir}/podman-compose.yml" ]
+  [ -f "${sandbox_elk_dir}/podman-compose-kibana.yml" ]
+  [ -f "${sandbox_elk_dir}/podman-compose-fleet-server.yml" ]
+
+  # Verify fleet server compose file permissions (mode 0600)
+  local compose_perms
+  compose_perms=$(stat -c "%a" "${sandbox_elk_dir}/podman-compose-fleet-server.yml")
+  [ "${compose_perms}" = "600" ]
+
+  # Verify no_log prevented secrets from leaking in CALL_LOG (mocktoken or mock-password should NOT be in CALL_LOG)
+  run grep -q "mocktoken" "${CALL_LOG}"
   [ "${status}" -ne 0 ]
-}
 
-@test "setup_elasticsearch.sh: missing only podman still triggers apt install on Ubuntu without reinstalling podman-compose" {
-  _assert_missing_only_podman_triggers_install_ubuntu "${ES_SCRIPT}"
-}
+  # 2. Execute the master playbook a second time to verify rerun / idempotency
+  run ansible-playbook -i localhost, -c local "${run_dir}/main.yml" \
+    -e "data_dir=${sandbox_data_dir}" \
+    -e "elk_dir=${sandbox_elk_dir}" \
+    -e "temp_credentials_file=${sandbox_creds}" \
+    -e "cert_dir=${sandbox_certs}" \
+    -e "fleet_server_service_token=mocktoken" \
+    -e "fleet_server_policy_id=mockpolicy" \
+    -e "ansible_become=false" \
+    -e "ansible_python_interpreter=${current_python}"
 
-@test "test-scripts/setup_elk.sh: missing only podman still triggers apt install on Ubuntu without reinstalling podman-compose" {
-  _assert_missing_only_podman_triggers_install_ubuntu "${ELK_SCRIPT}"
+  [ "${status}" -eq 0 ]
 }

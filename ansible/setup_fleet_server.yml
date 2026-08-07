@@ -1,0 +1,236 @@
+---
+- name: Set up Fleet Server
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Ensure variables are loaded
+      include_vars:
+        file: group_vars/all.yml
+
+    - name: "Step 1 - Check Prerequisites"
+      block:
+        - name: Check if podman is installed
+          command: which podman
+          register: podman_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Check if podman-compose is installed
+          command: which podman-compose
+          register: compose_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Fail if podman or podman-compose missing
+          fail:
+            msg: "Error: Podman or podman-compose is not installed."
+          when: podman_check.rc != 0 or compose_check.rc != 0
+
+    - name: "Step 2 - Check for Elasticsearch Certificate"
+      block:
+        - name: Check if certificate file exists
+          stat:
+            path: "{{ cert_dir }}/http_ca.crt"
+          register: cert_stat
+
+        - name: Fail if certificate missing
+          fail:
+            msg: "Error: Elasticsearch certificate file not found at '{{ cert_dir }}/http_ca.crt'."
+          when: not cert_stat.stat.exists
+
+    - name: "Step 3 - Check Elasticsearch Network"
+      block:
+        - name: Check if network exists
+          command: podman network exists "{{ network_name }}"
+          register: network_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Fail if network missing
+          fail:
+            msg: "Error: The Podman network '{{ network_name }}' does not exist."
+          when: network_check.rc != 0
+
+    - name: "Step 4 - Check Elasticsearch Status and Get Version"
+      block:
+        - name: Check if temporary credentials file exists
+          stat:
+            path: "{{ temp_credentials_file }}"
+          register: creds_stat
+
+        - name: Fail if credentials file missing
+          fail:
+            msg: "Error: Temporary credentials file '{{ temp_credentials_file }}' not found."
+          when: not creds_stat.stat.exists
+
+        - name: Read elastic password
+          shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
+          register: es_password_grep
+          changed_when: false
+          no_log: true
+
+        - name: Set elastic password fact
+          set_fact:
+            elastic_password: "{{ es_password_grep.stdout | trim }}"
+          no_log: true
+
+        - name: Check status of Elasticsearch
+          uri:
+            url: https://localhost:9200
+            user: elastic
+            password: "{{ elastic_password }}"
+            force_basic_auth: yes
+            ca_path: "{{ cert_dir }}/http_ca.crt"
+            return_content: yes
+            validate_certs: yes
+          register: es_status_out
+          failed_when: false
+          no_log: true
+
+        - name: Fail if Elasticsearch check fails
+          fail:
+            msg: "Error: Elasticsearch status check failed (HTTP {{ es_status_out.status | default('N/A') }}). Output: {{ es_status_out.content | default('No content') }}"
+          when: "es_status_out.status != 200 or 'You Know, for Search' not in es_status_out.content"
+
+        - name: Set elasticsearch_version fact
+          set_fact:
+            elasticsearch_version: "{{ (es_status_out.content | from_json).version.number }}"
+
+        - name: Display Elasticsearch version
+          debug:
+            msg: "Elasticsearch is running. Version found: {{ elasticsearch_version }}"
+
+    - name: "Step 5 - Pull Fleet Server Docker Image"
+      block:
+        - name: Set Fleet Server image coordinate
+          set_fact:
+            fleet_server_image: "{{ fleet_server_image_name }}:{{ elasticsearch_version }}"
+
+        - name: Pull Fleet Server image
+          command: podman pull "{{ fleet_server_image }}"
+
+    - name: "Step 6 - Optional: Install and Verify Cosign"
+      block:
+        - name: Check if cosign is installed
+          command: which cosign
+          register: cosign_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Verify Fleet Server image signature with cosign
+          block:
+            - name: Download Elastic public key
+              get_url:
+                url: https://artifacts.elastic.co/cosign.pub
+                dest: /tmp/cosign.pub
+                mode: "0644"
+
+            - name: Run cosign verify on Fleet Server
+              command: cosign verify --key /tmp/cosign.pub "{{ fleet_server_image }}"
+
+            - name: Clean up public key
+              file:
+                path: /tmp/cosign.pub
+                state: absent
+          when: cosign_check.rc == 0
+
+    - name: "Step 6.5 - Get Elasticsearch Container Name"
+      block:
+        - name: Get Elasticsearch container name
+          command: podman inspect {{ container_name }}
+          register: es_inspect
+          changed_when: false
+
+        - name: Parse container name
+          set_fact:
+            es_container_name: "{{ (es_inspect.stdout | from_json)[0].Name | regex_replace('^/', '') }}"
+
+        - name: Display container name
+          debug:
+            msg: "Elasticsearch container name: {{ es_container_name }}"
+
+    - name: "Step 7 - Validate Fleet Service Token and Policy ID"
+      block:
+        - name: Prompt or set Fleet Server Service Token
+          pause:
+            prompt: "Enter the Fleet Service Token (generated from Fleet policy in Kibana):"
+          register: user_token_input
+          when: fleet_server_service_token | length == 0
+          no_log: true
+
+        - name: Prompt or set Fleet Server Policy ID
+          pause:
+            prompt: "Enter the Fleet Server Policy ID:"
+          register: user_policy_input
+          when: fleet_server_policy_id | length == 0
+
+        - name: Resolve facts for Token and Policy
+          set_fact:
+            resolved_fleet_token: "{{ fleet_server_service_token if (fleet_server_service_token | length > 0) else user_token_input.user_input }}"
+            resolved_policy_id: "{{ fleet_server_policy_id if (fleet_server_policy_id | length > 0) else user_policy_input.user_input }}"
+          no_log: true
+
+        - name: Fail if token or policy ID are missing
+          fail:
+            msg: "Error: Fleet Service Token and Fleet Server Policy ID are both required."
+          when: (resolved_fleet_token | length == 0) or (resolved_policy_id | length == 0)
+
+    - name: "Step 8 - Start Fleet Server Container using podman-compose"
+      block:
+        - name: Create podman-compose-fleet-server.yml
+          copy:
+            content: |
+              version: '3.8'
+              services:
+                fleet-server:
+                  image: {{ fleet_server_image }}
+                  container_name: {{ fleet_server_container_name }}
+                  restart: unless-stopped
+                  ports:
+                    - "{{ fleet_server_port }}:{{ fleet_server_port }}"
+                  environment:
+                    - FLEET_SERVER_ENABLE=true
+                    - FLEET_SERVER_ELASTICSEARCH_HOST=https://{{ es_container_name }}:9200
+                    - FLEET_SERVER_SERVICE_TOKEN={{ resolved_fleet_token }}
+                    - FLEET_SERVER_POLICY_ID={{ resolved_policy_id }}
+                    - FLEET_SERVER_ELASTICSEARCH_CA=/http_ca.crt
+                  user: root
+                  volumes:
+                    - fleet_server_data:/data/fleet_server
+                    - "{{ cert_dir }}/http_ca.crt:/http_ca.crt:ro"
+                  networks:
+                    - {{ network_name }}
+              volumes:
+                fleet_server_data:
+              networks:
+                {{ network_name }}:
+                  external: true
+            dest: "{{ elk_dir }}/podman-compose-fleet-server.yml"
+            mode: "0600"
+          no_log: true
+
+        - name: Start Fleet Server service via podman-compose
+          command: podman-compose -p {{ compose_project_name }} -f podman-compose-fleet-server.yml up -d
+          args:
+            chdir: "{{ elk_dir }}"
+
+    - name: "Step 9 - Wait for Fleet Server to Start"
+      block:
+        - name: Inspect Fleet Server container
+          command: "podman inspect {{ fleet_server_container_name }}"
+          register: fleet_inspect
+          until: "(fleet_inspect.stdout | from_json)[0].State.Running"
+          retries: 30
+          delay: 2
+          changed_when: false
+
+        - name: Fail unless Fleet Server is running
+          fail:
+            msg: "Fleet Server container {{ fleet_server_container_name }} is not running!"
+          when: "not (fleet_inspect.stdout | from_json)[0].State.Running"
+
+        - name: Output final instructions
+          debug:
+            msg:
+              - "Fleet Server setup complete! Running on port {{ fleet_server_port }}."
+              - "To run Synthetics Browser tests, you should change the 'user' parameter in '{{ elk_dir }}/podman-compose-fleet-server.yml' from 'root' to 'elastic-agent' and restart the container."
