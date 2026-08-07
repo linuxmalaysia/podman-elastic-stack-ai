@@ -69,7 +69,7 @@
         - name: Abort if data directory exists
           fail:
             msg: "Data directory '{{ data_dir }}' already exists. Aborting installation. Please back up any important data, delete or move it, and run the script again."
-          when: data_dir_stat.stat.exists and data_dir_stat.stat.isdir
+          when: data_dir_stat.stat.exists and not data_dir_stat.stat.isdir
 
         - name: Create data directories
           file:

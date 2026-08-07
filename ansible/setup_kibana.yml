@@ -71,10 +71,12 @@
           shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
           register: es_password_grep
           changed_when: false
+          no_log: true
 
         - name: Set elastic password fact
           set_fact:
             elastic_password: "{{ es_password_grep.stdout | trim }}"
+          no_log: true
 
         - name: Fail if elastic password empty
           fail:
@@ -82,18 +84,25 @@
           when: elastic_password | length == 0
 
         - name: Check Elasticsearch status
-          command: curl -s --cacert "{{ cert_dir }}/http_ca.crt" -u "elastic:{{ elastic_password }}" https://localhost:9200
+          uri:
+            url: https://localhost:9200
+            user: elastic
+            password: "{{ elastic_password }}"
+            force_basic_auth: yes
+            ca_path: "{{ cert_dir }}/http_ca.crt"
+            return_content: yes
+            validate_certs: yes
           register: es_status_out
-          changed_when: false
+          no_log: true
 
         - name: Fail if Elasticsearch is not running
           fail:
-            msg: "Error: Elasticsearch is not running or status check failed. Output: {{ es_status_out.stdout }}"
-          when: "'You Know, for Search' not in es_status_out.stdout"
+            msg: "Error: Elasticsearch is not running or status check failed. Output: {{ es_status_out.content }}"
+          when: "'You Know, for Search' not in es_status_out.content"
 
         - name: Parse Elasticsearch version from output
           set_fact:
-            elasticsearch_version: "{{ (es_status_out.stdout | from_json).version.number }}"
+            elasticsearch_version: "{{ (es_status_out.content | from_json).version.number }}"
 
         - name: Display Elasticsearch version
           debug:
@@ -125,13 +134,11 @@
 
         - name: Copy default kibana.yml from container
           command: podman cp "{{ temp_kibana_container }}:/usr/share/kibana/config/kibana.yml" "{{ elk_dir }}/kibana.yml"
-
+      always:
         - name: Stop and remove temporary container
-          command: "podman {{ item }} {{ temp_kibana_container }}"
-          loop:
-            - stop
-            - rm
+          command: "podman rm -f {{ temp_kibana_container }}"
           ignore_errors: true
+          when: temp_kibana_container is defined
 
     - name: Step 6 - Start Kibana container using podman-compose with volume and custom config
       block:
@@ -169,14 +176,15 @@
           pause:
             seconds: 60
 
-        - name: Check Kibana container status
-          command: podman ps -a --filter name={{ kibana_container_name }}
-          register: kibana_status
+        - name: Inspect Kibana container
+          command: "podman inspect {{ kibana_container_name }}"
+          register: kibana_inspect
           changed_when: false
 
-        - name: Output Kibana container status
-          debug:
-            var: kibana_status.stdout
+        - name: Fail unless Kibana is running
+          fail:
+            msg: "Kibana container {{ kibana_container_name }} is not running!"
+          when: "not (kibana_inspect.stdout | from_json)[0].State.Running"
 
     - name: Step 8 - Get Elasticsearch Container IP Address
       block:
@@ -209,7 +217,6 @@
         - name: Retrieve Kibana Verification Code
           command: podman exec {{ kibana_container_name }} /usr/share/kibana/bin/kibana-verification-code
           register: verification_code_out
-          ignore_errors: true
 
         - name: Display final details
           debug:

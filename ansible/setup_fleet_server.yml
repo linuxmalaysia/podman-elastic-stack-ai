@@ -67,24 +67,33 @@
           shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
           register: es_password_grep
           changed_when: false
+          no_log: true
 
         - name: Set elastic password fact
           set_fact:
             elastic_password: "{{ es_password_grep.stdout | trim }}"
+          no_log: true
 
         - name: Check status of Elasticsearch
-          command: curl -s --cacert "{{ cert_dir }}/http_ca.crt" -u "elastic:{{ elastic_password }}" https://localhost:9200
+          uri:
+            url: https://localhost:9200
+            user: elastic
+            password: "{{ elastic_password }}"
+            force_basic_auth: yes
+            ca_path: "{{ cert_dir }}/http_ca.crt"
+            return_content: yes
+            validate_certs: yes
           register: es_status_out
-          changed_when: false
+          no_log: true
 
         - name: Fail if Elasticsearch check fails
           fail:
-            msg: "Error: Elasticsearch is not running. Output: {{ es_status_out.stdout }}"
-          when: "'You Know, for Search' not in es_status_out.stdout"
+            msg: "Error: Elasticsearch is not running. Output: {{ es_status_out.content }}"
+          when: "'You Know, for Search' not in es_status_out.content"
 
         - name: Set elasticsearch_version fact
           set_fact:
-            elasticsearch_version: "{{ (es_status_out.stdout | from_json).version.number }}"
+            elasticsearch_version: "{{ (es_status_out.content | from_json).version.number }}"
 
         - name: Display Elasticsearch version
           debug:
@@ -146,6 +155,7 @@
             prompt: "Enter the Fleet Service Token (generated from Fleet policy in Kibana):"
           register: user_token_input
           when: fleet_server_service_token | length == 0
+          no_log: true
 
         - name: Prompt or set Fleet Server Policy ID
           pause:
@@ -157,6 +167,7 @@
           set_fact:
             resolved_fleet_token: "{{ fleet_server_service_token if (fleet_server_service_token | length > 0) else user_token_input.user_input }}"
             resolved_policy_id: "{{ fleet_server_policy_id if (fleet_server_policy_id | length > 0) else user_policy_input.user_input }}"
+          no_log: true
 
         - name: Fail if token or policy ID are missing
           fail:
@@ -180,9 +191,11 @@
                     - FLEET_SERVER_ELASTICSEARCH_HOST=https://{{ es_container_name }}:9200
                     - FLEET_SERVER_SERVICE_TOKEN={{ resolved_fleet_token }}
                     - FLEET_SERVER_POLICY_ID={{ resolved_policy_id }}
+                    - FLEET_SERVER_ELASTICSEARCH_CA=/http_ca.crt
                   user: root
                   volumes:
                     - fleet_server_data:/data/fleet_server
+                    - "{{ cert_dir }}/http_ca.crt:/http_ca.crt:ro"
                   networks:
                     - {{ network_name }}
               volumes:
@@ -191,7 +204,8 @@
                 {{ network_name }}:
                   external: true
             dest: "{{ elk_dir }}/podman-compose-fleet-server.yml"
-            mode: "0644"
+            mode: "0600"
+          no_log: true
 
         - name: Start Fleet Server service via podman-compose
           command: podman-compose -f podman-compose-fleet-server.yml up -d
@@ -204,14 +218,15 @@
           pause:
             seconds: 60
 
-        - name: Check Fleet Server container status
-          command: podman ps -a --filter name={{ fleet_server_container_name }}
-          register: fleet_status
+        - name: Inspect Fleet Server container
+          command: "podman inspect {{ fleet_server_container_name }}"
+          register: fleet_inspect
           changed_when: false
 
-        - name: Output status
-          debug:
-            var: fleet_status.stdout
+        - name: Fail unless Fleet Server is running
+          fail:
+            msg: "Fleet Server container {{ fleet_server_container_name }} is not running!"
+          when: "not (fleet_inspect.stdout | from_json)[0].State.Running"
 
         - name: Output final instructions
           debug:
