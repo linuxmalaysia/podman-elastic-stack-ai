@@ -14,7 +14,7 @@ The telemetry and feedback pipeline operates under a strict segregation model. T
 
 | Metric / Feature | Developer / Feedback Mode (`dev`) | User / Production Mode (`user`) |
 | :--- | :--- | :--- |
-| **Trigger Mechanism** | `EXECUTION_MODE=dev` or Ansible `-e "execution_mode=dev"` | `EXECUTION_MODE=user` or Ansible `-e "execution_mode=user"` |
+| **Trigger Mechanism** | `EXECUTION_MODE=dev ansible-playbook -i inventory/hosts.yml playbooks/matrix_test.yml` or `ansible-playbook -i inventory/hosts.yml playbooks/matrix_test.yml --extra-vars "execution_mode=dev"` | `EXECUTION_MODE=user ansible-playbook -i inventory/hosts.yml playbooks/matrix_test.yml` or `ansible-playbook -i inventory/hosts.yml playbooks/matrix_test.yml` |
 | **Telemetry Capture** | Full (CPU, Memory, dmesg, container logs, exit codes) | Zero telemetry gathered, no diagnostic files written |
 | **API / CLI Dependencies** | Requires `jules` CLI, local API endpoint, and `gh` CLI | Zero external CLI or API dependencies |
 | **Reporting Output** | Generated `/tmp/jules_telemetry.json` and Markdown PR comments | Standard clean execution without temporary file state |
@@ -31,11 +31,13 @@ Ansible playbooks implement this boundary dynamically via variable-driven condit
   when: execution_mode == "dev"
 ```
 
-In the bridge bash scripts, standard environment variable checks verify state prior to running any external tooling:
+In the bridge bash scripts, standard checks are performed prior to running any external tooling:
+- **Mode Source Resolution**: The execution mode is resolved consistently. The bridge script first checks the `EXECUTION_MODE` environment variable. If empty, it extracts the `execution_mode` attribute from `/tmp/jules_telemetry.json`. If still unresolved, it defaults to `user`.
+- **Feedback Dispatch Requirement**: Feedback dispatch must be run in developer mode. If the resolved mode is not `dev`, the bridge script aborts report generation and feedback dispatch early, exiting with status `0` to avoid disrupting standard pipelines:
 
 ```bash
-if [ "${EXECUTION_MODE:-user}" != "dev" ]; then
-    log_info "Production execution mode active. Bypassing telemetry collection and API feedback loops."
+if [ "${MODE}" != "dev" ]; then
+    log_info "Execution mode is '${MODE}' (not 'dev'). Bypassing report generation and feedback dispatch early."
     exit 0
 fi
 ```
@@ -51,11 +53,19 @@ The matrix orchestration engine automates parallel test runs across multi-distro
 ### 2.1 Multi-OS Distribution Targets
 
 * **Ubuntu 24.04 LTS (Noble Numbat)** (`docker.io/library/ubuntu:24.04`)
-* **Ubuntu 26.04 LTS (Plucky Puffin)** (`docker.io/library/ubuntu:plucky`)
+* **Ubuntu 26.04 LTS (Resolute Raccoon)** (`docker.io/library/ubuntu:26.04`)
 * **AlmaLinux 9 (RHEL Compatible)** (`docker.io/library/almalinux:9`)
 * **Debian 12 (Bookworm)** (`docker.io/library/debian:12`)
 
-### 2.2 Error Management Pattern (`block/rescue/always`)
+### 2.2 Dependencies
+
+This playbook uses the `containers.podman` collection to orchestrate Podman container targets. The version-pinned dependency is declared in `collections/requirements.yml` and must be installed prior to running the playbook using the following command:
+
+```bash
+ansible-galaxy collection install -r collections/requirements.yml
+```
+
+### 2.3 Error Management Pattern (`block/rescue/always`)
 
 To guarantee telemetry capture even in severe failure scenarios, tasks are structured inside an Ansible `block/rescue/always` framework:
 
@@ -75,7 +85,7 @@ To guarantee telemetry capture even in severe failure scenarios, tasks are struc
         name: feedback_collector
 ```
 
-### 2.3 Telemetry Schema (`/tmp/jules_telemetry.json`)
+### 2.4 Telemetry Schema (`/tmp/jules_telemetry.json`)
 
 The `feedback_collector` role compiles diagnostic facts into a structured JSON schema saved locally at `/tmp/jules_telemetry.json`. This schema contains the following details:
 
@@ -123,7 +133,7 @@ The bridge script is an idempotent Bash runner responsible for parsing the JSON 
 
 ### 3.1 Idempotence and Error Resilience
 * **Strict POSIX and Bash Options:** Runs with `set -euo pipefail` to abort immediately on uncaught errors or unbound variables.
-* **Signal Traps:** Traps `EXIT`, `ERR`, `SIGINT`, and `SIGTERM` to perform temporary file cleanup and log terminal states.
+* **Signal Traps:** Traps `EXIT` to clean up mktemp-generated files and logs. Traps `SIGINT` and `SIGTERM` separately to log termination warnings and exit with standard non-zero codes (e.g., `130`, `143`), automatically triggering the `EXIT` cleanup logic.
 * **Dynamic Logging Functions:** Custom logger prints timestamped outputs colored by message severity:
   - Green `[SUCCESS]`
   - Cyan `[INFO]`
@@ -133,7 +143,7 @@ The bridge script is an idempotent Bash runner responsible for parsing the JSON 
 ### 3.2 Feedback Channels
 1. **Google Jules CLI Integration:** Invokes `jules feed` or `jules chat` command pipelines to register the telemetry output directly back into the active LLM context.
 2. **GitHub Pull Request Integration:** Uses `gh pr comment` to comment directly on the specific Pull Request, keeping human operators informed in real-time.
-3. **Graceful Fallbacks:** If the CLI tools (`jules` or `gh`) are not logged in or missing tokens, the script logs warning messages, saves the markdown payload to `/tmp/jules_telemetry_report.md` for manual action, and exits cleanly with `0` to prevent breaking developers' local pipelines.
+3. **Graceful Fallbacks:** If the CLI tools (`jules` or `gh`) are not logged in or missing tokens, the script logs warning messages, saves the markdown payload to a private, non-predictable mktemp-generated file under `/tmp` with secure mode `0600` for manual action, and exits cleanly with `0` to prevent breaking developers' local pipelines.
 
 ---
 
@@ -196,16 +206,16 @@ The bridge script is an idempotent Bash runner responsible for parsing the JSON 
 3. **Execute Local Multi-OS Test Orchestration:**
    From the WSL2 Ubuntu 26.04 terminal, run the target matrix playbook under developer mode, supplying the Pull Request ID:
    ```bash
-   ansible-playbook -i inventory/hosts.yml playbooks/matrix_test.yml --extra-vars "execution_mode=dev pr_id=12"
+   EXECUTION_MODE=dev ansible-playbook -i inventory/hosts.yml playbooks/matrix_test.yml --extra-vars "pr_id=12"
    ```
 4. **Automated Feedback Pipeline:**
-   The playbook runs tests within isolated container environments. On task completion (regardless of success or failure), the `feedback_collector` compiles `/tmp/jules_telemetry.json`.
+   The playbook runs tests within isolated container environments. On task completion (regardless of success or failure), the `feedback_collector` compiles `/tmp/jules_telemetry.json` and automatically triggers `scripts/jules_gh_feedback.sh`.
 5. **Bridge Dispatch:**
-   The `scripts/jules_gh_feedback.sh` script is triggered automatically (or run manually by the developer):
+   The `scripts/jules_gh_feedback.sh` script is triggered automatically:
    ```bash
    ./scripts/jules_gh_feedback.sh
    ```
-   This formats a detailed Markdown table of system stats, container resource usage, and error outputs, and posts it directly to GitHub PR #12 and streams it to Google Jules.
+   This formats a detailed Markdown table of system stats, container resource usage in bytes, and error outputs, and posts it directly to GitHub PR #12 and streams it to Google Jules.
 6. **Iterate:**
    Read the posted diagnostics, prompt Jules to adjust the code based on exact container failures, and run the matrix again.
 
@@ -217,6 +227,8 @@ The bridge script is an idempotent Bash runner responsible for parsing the JSON 
 
 ```
 .
+├── collections
+│   └── requirements.yml
 ├── ansible.cfg
 ├── inventory
 │   └── hosts.yml

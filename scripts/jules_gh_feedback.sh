@@ -9,36 +9,58 @@
 
 set -euo pipefail
 
-# log_info prints an informational message with a timestamp and colored label.
+# Define Color Loggers
 log_info()    { echo -e "\033[1;36m[INFO]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
-# log_success logs a timestamped success message with colored output.
 log_success() { echo -e "\033[1;32m[SUCCESS]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
-# log_warn logs a warning message with a timestamp and warning formatting.
 log_warn()    { echo -e "\033[1;33m[WARN]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
-# log_error prints a timestamped error message in red to standard output.
 log_error()   { echo -e "\033[1;31m[ERROR]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
 
-# cleanup reports whether the feedback bridge completed successfully or exited with an error status.
+# Establish variables
+TELEMETRY_JSON="/tmp/jules_telemetry.json"
+REPORT_MD=""
+
+# Establish Trap for Cleanup and Exit Status Tracking on EXIT
 cleanup() {
     local exit_code=$?
+    if [ -n "${REPORT_MD}" ] && [ -f "${REPORT_MD}" ]; then
+        rm -f "${REPORT_MD}"
+    fi
     if [ "${exit_code}" -eq 0 ]; then
         log_success "Feedback bridge finished successfully."
     else
         log_error "Feedback bridge execution aborted or failed with status code ${exit_code}."
     fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
 
-# Ensure Telemetry Data Exists
-TELEMETRY_JSON="/tmp/jules_telemetry.json"
-REPORT_MD="/tmp/jules_telemetry_report.md"
+# Separate traps for SIGINT and SIGTERM to terminate with non-zero exit statuses
+trap 'log_warn "SIGINT received, aborting..."; exit 130' INT
+trap 'log_warn "SIGTERM received, aborting..."; exit 143' TERM
 
+# Ensure Telemetry Data Exists before checking mode
 if [ ! -f "${TELEMETRY_JSON}" ]; then
     log_error "Telemetry data file '${TELEMETRY_JSON}' not found! Please run the matrix test playbook first."
     exit 1
 fi
 
+# Get EXECUTION_MODE from environment, or from /tmp/jules_telemetry.json fallback
+MODE="${EXECUTION_MODE:-}"
+if [ -z "${MODE}" ]; then
+    MODE=$(python3 -c "import json; print(json.load(open('${TELEMETRY_JSON}')).get('execution_mode', 'user'))" 2>/dev/null || echo "user")
+fi
+MODE="${MODE:-user}"
+
+# Early Developer-Mode Guard: return 0 before report generation or dispatch if mode is not dev
+if [ "${MODE}" != "dev" ]; then
+    log_info "Execution mode is '${MODE}' (not 'dev'). Bypassing report generation and feedback dispatch early."
+    exit 0
+fi
+
 log_info "Parsing telemetry data and compiling Markdown report..."
+
+# Replace predictable REPORT_MD creation with a mktemp-generated path enforcing mode 0600
+REPORT_MD=$(mktemp /tmp/jules_telemetry_report.XXXXXX.md)
+chmod 0600 "${REPORT_MD}"
 
 # Inline Python parser for structured conversion of JSON to robust Markdown
 python3 - <<EOF
@@ -86,7 +108,7 @@ for res in results:
     emoji = "✅ PASSED" if status == "PASSED" else "❌ FAILED"
     code = res.get("exit_code", -1)
     cpu = res.get("cpu_percentage", "0.0%")
-    mem = res.get("memory_usage_bytes", "0B")
+    mem = str(res.get("memory_usage_bytes", "0"))
     err = res.get("error_summary", "") or "-"
     md.append(f"| **{distro}** | \`{img}\` | **{emoji}** | \`{code}\` | \`{cpu}\` | \`{mem}\` | {err} |")
 
@@ -176,7 +198,8 @@ fi
 if [ "${JULES_POSTED}" = "false" ] && [ -n "${JULES_API_ENDPOINT:-}" ]; then
     log_info "Attempting to post telemetry to local Google Jules REST API at '${JULES_API_ENDPOINT}'..."
     if command -v curl >/dev/null 2>&1; then
-        HTTP_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+        # Updated curl invocation to include connection timeout (10s) and total request timeout (30s)
+        HTTP_RESPONSE=$(curl -s --connect-timeout 10 --max-time 30 -o /dev/null -w "%{http_code}" \
             -X POST "${JULES_API_ENDPOINT}/telemetry" \
             -H "Authorization: Bearer ${JULES_SESSION_TOKEN:-}" \
             -H "Content-Type: application/json" \
