@@ -107,7 +107,7 @@ build_step1_harness() {
   [[ "${extracted}" == *'Unknown OS. Trying dnf...'* ]]
 }
 
-# --- Shared scenario assertions, exercised against both scripts below ---
+# _assert_ubuntu_installs_via_apt verifies that Ubuntu scenarios install missing Podman packages with apt-get and do not invoke dnf.
 
 _assert_ubuntu_installs_via_apt() {
   local script="$1"
@@ -295,6 +295,7 @@ _assert_skips_install_when_both_present() {
   _assert_skips_install_when_both_present "${ELK_SCRIPT}"
 }
 
+# _assert_missing_only_podman_compose_triggers_install_ubuntu verifies that missing podman-compose triggers installation on Ubuntu when podman is already installed.
 _assert_missing_only_podman_compose_triggers_install_ubuntu() {
   local script="$1"
   # podman is present but podman-compose is missing: the OR condition
@@ -527,4 +528,34 @@ EOF
 
   echo "Ansible Output 2: ${output}"
   [ "${status}" -eq 0 ]
+# _assert_missing_only_podman_triggers_install_ubuntu is the mirror image of
+# _assert_missing_only_podman_compose_triggers_install_ubuntu above: it
+# verifies that the two installs are truly independent now that they were
+# split into separate `apt-get install -y <pkg>` commands. If podman-compose
+# is already present, only podman should be (re)installed, and
+# podman-compose must NOT be passed to apt-get.
+_assert_missing_only_podman_triggers_install_ubuntu() {
+  local script="$1"
+  unstub podman
+  stub podman-compose
+  echo 'ID=ubuntu' > "${TEST_TMPDIR}/os-release"
+  stub sudo
+  stub apt-get
+
+  harness="$(build_step1_harness "${script}" "${TEST_TMPDIR}/os-release")"
+  run bash "${harness}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"already installed"* ]]
+  grep -qF "sudo apt-get install -y podman" "${CALL_LOG}"
+  run grep -qF "sudo apt-get install -y podman-compose" "${CALL_LOG}"
+  [ "${status}" -ne 0 ]
+}
+
+@test "setup_elasticsearch.sh: missing only podman still triggers apt install on Ubuntu without reinstalling podman-compose" {
+  _assert_missing_only_podman_triggers_install_ubuntu "${ES_SCRIPT}"
+}
+
+@test "test-scripts/setup_elk.sh: missing only podman still triggers apt install on Ubuntu without reinstalling podman-compose" {
+  _assert_missing_only_podman_triggers_install_ubuntu "${ELK_SCRIPT}"
 }
