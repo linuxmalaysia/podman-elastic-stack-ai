@@ -33,7 +33,7 @@ Before proceeding, ensure the following prerequisites are met:
 
 * **Podman:** Podman must be installed on your system.  Refer to the [Podman Installation Guide](https://podman.io/getting-started/installation) for instructions.
 * **Podman Compose:** Podman Compose is required to manage the Elasticsearch and Kibana containers. Installation instructions can be found on the Podman website or through your distribution's package manager.
-* **Operating System:** This setup is primarily designed for Linux-based systems.  For Windows, it is expected to work within a WSL2 environment.
+* **Operating System:** This setup is primarily designed for Linux-based systems. It fully supports Ubuntu 24.04 and Podman 5+. For Windows, it is expected to work within a WSL2 environment.
 * **Network Connectivity:** Ensure that your system has network connectivity to download the required container images and packages.
 * **Git (Optional):** If you want to clone the repository containing the setup scripts, Git needs to be installed.
 
@@ -76,7 +76,8 @@ The setup involves running two separate scripts: first for Elasticsearch, and th
 
 The `setup_elasticsearch.sh` script performs the following actions:
 
-1.  **Installs Podman and Podman Compose (If Necessary):** The script attempts to install Podman and Podman Compose using `dnf` (for Fedora, CentOS, etc.) if they are not already installed.
+1.  **Installs Podman and Podman Compose (If Necessary):** On Debian and Ubuntu systems (including Ubuntu 24.04), the script automatically installs `podman` and `podman-compose` using standard `apt-get` if they are not found. On RPM-based systems, it uses `dnf`.
+    * **Podman 5+ on Ubuntu 24.04:** Since standard Ubuntu 24.04 repositories contain Podman 4.9.x, users requiring Podman 5+ should pre-install it manually (for example, by building from source or utilizing community APT pinning from the Ubuntu Plucky archive). The script will seamlessly detect and run on pre-installed Podman 5+ environments.
 2.  **Pulls Elasticsearch Image:** Downloads the official Elasticsearch 8.17.4 hardened Wolfi image from Docker Hub.
 3.  **Optional Cosign Verification:** If `cosign` is installed, the script downloads the Elastic public key and verifies the signature of the Elasticsearch image for added security.
 4.  **Starts Elasticsearch Container:** Creates and starts an Elasticsearch container named `es01` using `podman-compose`. The container exposes port 9200.

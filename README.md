@@ -22,7 +22,8 @@ This script automates the setup of Elasticsearch version 8.17.4 using Podman and
 
 ## What the Script Does
 
-1.  **Installs Podman and Podman Compose:** If not already installed, the script attempts to install Podman and Podman Compose using `dnf` (for Fedora, CentOS, etc.).
+1.  **Installs Podman and Podman Compose:** If not already installed, the script automatically detects the host operating system. On Debian and Ubuntu systems (including Ubuntu 24.04), it uses standard `apt-get` to install the package-manager provided versions of `podman` and `podman-compose`. On RPM-based systems (like Fedora, CentOS, etc.), it installs them using `dnf`.
+    * **Note on Podman 5+ on Ubuntu 24.04:** Since Ubuntu 24.04's default repositories ship Podman 4.9.x, if you explicitly require Podman 5+, you should install it manually beforehand (e.g., via building from source or utilizing community-backed APT pinning repositories). The script will automatically detect and use your pre-installed Podman 5+ environment.
 2.  **Pulls Elasticsearch Image:** Downloads the official Elasticsearch 8.17.4 hardened Wolfi image from Docker Hub.
 3.  **Optional Cosign Verification:** If `cosign` is installed, the script downloads the Elastic public key and verifies the signature of the Elasticsearch image.
 4.  **Starts Elasticsearch Container:** Creates and starts an Elasticsearch container named `es01` using `podman-compose`. The container exposes port 9200.

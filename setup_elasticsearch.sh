@@ -50,21 +50,39 @@ command_exists() {
 # --- Step 1: Install Podman and Podman Compose ---
 info "Step 1: Install Podman and Podman Compose"
 
-if ! command_exists podman; then
-  info "Podman not found. Installing..."
-  sudo dnf update -y
-  sudo dnf install epel-release -y
-  sudo dnf install podman -y
+if ! command_exists podman || ! command_exists podman-compose; then
+  if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    if [ "$ID" = "ubuntu" ] || [ "$ID" = "debian" ]; then
+      info "Debian/Ubuntu detected. Installing via apt..."
+      sudo apt-get update -y
+      sudo apt-get install -y podman podman-compose
+    else
+      info "Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."
+      if ! command_exists podman; then
+        sudo dnf update -y
+        sudo dnf install epel-release -y
+        sudo dnf install podman -y
+      fi
+      if ! command_exists podman-compose; then
+        sudo dnf install epel-release -y
+        sudo dnf install podman-compose -y
+      fi
+    fi
+  else
+    info "Unknown OS. Trying dnf..."
+    if ! command_exists podman; then
+      sudo dnf update -y
+      sudo dnf install epel-release -y
+      sudo dnf install podman -y
+    fi
+    if ! command_exists podman-compose; then
+      sudo dnf install epel-release -y
+      sudo dnf install podman-compose -y
+    fi
+  fi
 else
-  info "Podman is already installed."
-fi
-
-if ! command_exists podman-compose; then
-  info "podman-compose not found. Installing from EPEL repository..."
-  sudo dnf install epel-release -y # Ensure EPEL is enabled
-  sudo dnf install podman-compose -y
-else
-  info "podman-compose is already installed."
+  info "Podman and podman-compose are already installed."
 fi
 
 # --- Step 2: Create Data Directory ---
