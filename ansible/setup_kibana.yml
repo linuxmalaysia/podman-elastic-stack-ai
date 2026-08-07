@@ -1,0 +1,219 @@
+---
+- name: Set up Kibana
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Ensure variables are loaded
+      include_vars:
+        file: group_vars/all.yml
+
+    - name: Step 1 - Check Prerequisites
+      block:
+        - name: Check if podman is installed
+          command: which podman
+          register: podman_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Check if podman-compose is installed
+          command: which podman-compose
+          register: compose_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Fail if podman or podman-compose are not installed
+          fail:
+            msg: "Error: Podman or podman-compose is not installed. Please run setup_elasticsearch.yml first."
+          when: podman_check.rc != 0 or compose_check.rc != 0
+
+    - name: Step 2 - Check for Elasticsearch Certificate
+      block:
+        - name: Check if certificate file exists
+          stat:
+            path: "{{ cert_dir }}/http_ca.crt"
+          register: cert_stat
+
+        - name: Fail if certificate missing
+          fail:
+            msg: "Error: Elasticsearch certificate file not found at '{{ cert_dir }}/http_ca.crt'. Please run setup_elasticsearch.yml successfully."
+          when: not cert_stat.stat.exists
+
+    - name: Step 2.1 - Check Elasticsearch Network
+      block:
+        - name: Check if Podman network exists
+          command: podman network exists "{{ network_name }}"
+          register: network_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Fail if network missing
+          fail:
+            msg: "Error: The Podman network '{{ network_name }}' does not exist. Please run setup_elasticsearch.yml successfully."
+          when: network_check.rc != 0
+
+        - name: Display network status
+          debug:
+            msg: "Podman network '{{ network_name }}' exists."
+
+    - name: Step 3 - Check Elasticsearch Status and Get Version
+      block:
+        - name: Check if temporary credentials file exists
+          stat:
+            path: "{{ temp_credentials_file }}"
+          register: creds_stat
+
+        - name: Fail if credentials file missing
+          fail:
+            msg: "Error: Temporary credentials file '{{ temp_credentials_file }}' not found."
+          when: not creds_stat.stat.exists
+
+        - name: Read password from credentials file
+          shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
+          register: es_password_grep
+          changed_when: false
+
+        - name: Set elastic password fact
+          set_fact:
+            elastic_password: "{{ es_password_grep.stdout | trim }}"
+
+        - name: Fail if elastic password empty
+          fail:
+            msg: "Error: Elasticsearch password not found in '{{ temp_credentials_file }}'."
+          when: elastic_password | length == 0
+
+        - name: Check Elasticsearch status
+          command: curl -s --cacert "{{ cert_dir }}/http_ca.crt" -u "elastic:{{ elastic_password }}" https://localhost:9200
+          register: es_status_out
+          changed_when: false
+
+        - name: Fail if Elasticsearch is not running
+          fail:
+            msg: "Error: Elasticsearch is not running or status check failed. Output: {{ es_status_out.stdout }}"
+          when: "'You Know, for Search' not in es_status_out.stdout"
+
+        - name: Parse Elasticsearch version from output
+          set_fact:
+            elasticsearch_version: "{{ (es_status_out.stdout | from_json).version.number }}"
+
+        - name: Display Elasticsearch version
+          debug:
+            msg: "Elasticsearch is running. Version found: {{ elasticsearch_version }}"
+
+    - name: Step 4 - Pull Kibana Docker Image
+      block:
+        - name: Set Kibana image coordinate
+          set_fact:
+            kibana_image: "{{ kibana_image_name }}:{{ elasticsearch_version }}"
+
+        - name: Pull Kibana image
+          command: podman pull "{{ kibana_image }}"
+
+    - name: Step 5 - Get Default Kibana Configuration
+      block:
+        - name: Set temporary container name
+          set_fact:
+            temp_kibana_container: "temp_kib01"
+
+        - name: Ensure ELK directory exists on host
+          file:
+            path: "{{ elk_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Start temporary Kibana container to extract configuration
+          command: podman run --name "{{ temp_kibana_container }}" --network "{{ network_name }}" -d "{{ kibana_image }}" sleep infinity
+
+        - name: Copy default kibana.yml from container
+          command: podman cp "{{ temp_kibana_container }}:/usr/share/kibana/config/kibana.yml" "{{ elk_dir }}/kibana.yml"
+
+        - name: Stop and remove temporary container
+          command: "podman {{ item }} {{ temp_kibana_container }}"
+          loop:
+            - stop
+            - rm
+          ignore_errors: true
+
+    - name: Step 6 - Start Kibana container using podman-compose with volume and custom config
+      block:
+        - name: Create podman-compose-kibana.yml for Kibana
+          copy:
+            content: |
+              version: '3.8'
+              services:
+                kibana:
+                  image: {{ kibana_image }}
+                  container_name: {{ kibana_container_name }}
+                  networks:
+                    - {{ network_name }}
+                  ports:
+                    - "{{ kibana_port }}:{{ kibana_port }}"
+                  volumes:
+                    - kibana_data:/data/kibana_data
+                    - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+              volumes:
+                kibana_data:
+              networks:
+                {{ network_name }}:
+                  external: true
+            dest: "{{ elk_dir }}/podman-compose-kibana.yml"
+            mode: "0644"
+
+        - name: Start Kibana service via podman-compose
+          command: podman-compose -f podman-compose-kibana.yml up -d
+          args:
+            chdir: "{{ elk_dir }}"
+
+    - name: Step 7 - Wait for Kibana Container to be Running
+      block:
+        - name: Wait process
+          pause:
+            seconds: 60
+
+        - name: Check Kibana container status
+          command: podman ps -a --filter name={{ kibana_container_name }}
+          register: kibana_status
+          changed_when: false
+
+        - name: Output Kibana container status
+          debug:
+            var: kibana_status.stdout
+
+    - name: Step 8 - Get Elasticsearch Container IP Address
+      block:
+        - name: Inspect Elasticsearch container IP on external network
+          shell: "podman inspect es01 | grep \"{{ network_name }}\" -A 10 | grep \"IPAddress\" | sed -e 's/.*: \"//' -e 's/\",//' -e 's/ //g'"
+          register: es_ip_out
+          changed_when: false
+
+        - name: Display Elasticsearch IP Address
+          debug:
+            msg: "Elasticsearch (es01) IP Address: {{ es_ip_out.stdout | trim }}"
+
+    - name: Step 9 - Retrieve and Clean Kibana Enrollment Token
+      block:
+        - name: Generate enrollment token
+          command: podman exec es01 /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
+          register: token_out
+
+        - name: Set enrollment token fact
+          set_fact:
+            kibana_enrollment_token: "{{ token_out.stdout | trim }}"
+
+        - name: Update temporary credentials file with Kibana enrollment token
+          lineinfile:
+            path: "{{ temp_credentials_file }}"
+            regexp: "^Kibana enrollment token:"
+            line: "Kibana enrollment token: {{ kibana_enrollment_token }}"
+            create: yes
+
+        - name: Retrieve Kibana Verification Code
+          command: podman exec {{ kibana_container_name }} /usr/share/kibana/bin/kibana-verification-code
+          register: verification_code_out
+          ignore_errors: true
+
+        - name: Display final details
+          debug:
+            msg:
+              - "Kibana setup complete! Access Kibana in your browser at http://localhost:{{ kibana_port }}"
+              - "Kibana Verification Code: {{ verification_code_out.stdout | default('Not found') | trim }}"
+              - "Enrollment token has been saved or updated in {{ temp_credentials_file }}"

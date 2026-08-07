@@ -1,0 +1,21 @@
+---
+elk_version: "9.4.4"
+elk_base_dir: "{{ playbook_dir | dirname }}"
+elk_dir: "{{ elk_base_dir }}/elk-wolfi"
+cert_dir: "{{ elk_dir }}/certs"
+container_name: "es01"
+data_dir: "/data/{{ container_name }}"
+elasticsearch_image: "docker.elastic.co/elasticsearch/elasticsearch-wolfi:{{ elk_version }}"
+kibana_image_name: "docker.elastic.co/kibana/kibana-wolfi"
+kibana_container_name: "kib01"
+kibana_port: "5601"
+network_name: "elk-wolfi_elastic"
+temp_credentials_file: "{{ elk_dir }}/temp_credentials.txt"
+
+fleet_server_image_name: "docker.elastic.co/elastic-agent/elastic-agent-complete-wolfi"
+fleet_server_container_name: "fleet-server"
+fleet_server_port: "8220"
+
+# User inputs can be overridden during command line run if needed, e.g., -e "fleet_server_service_token=XYZ"
+fleet_server_service_token: ""
+fleet_server_policy_id: ""

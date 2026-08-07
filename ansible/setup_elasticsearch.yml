@@ -1,0 +1,244 @@
+---
+- name: Set up Elasticsearch
+  hosts: localhost
+  connection: local
+  tasks:
+    - name: Ensure variables are loaded
+      include_vars:
+        file: group_vars/all.yml
+
+    - name: "Step 1 - Check and Install Podman and Podman Compose"
+      block:
+        - name: Check if podman or podman-compose are missing
+          command: which {{ item }}
+          loop:
+            - podman
+            - podman-compose
+          register: commands_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Set missing command flag
+          set_fact:
+            commands_missing: "{{ commands_check.results | selectattr('rc', 'ne', 0) | list | length > 0 }}"
+
+        - name: Install dependencies on Debian/Ubuntu
+          block:
+            - name: Update apt cache
+              apt:
+                update_cache: yes
+              become: true
+
+            - name: Install podman and podman-compose via apt
+              apt:
+                name:
+                  - podman
+                  - podman-compose
+                state: present
+              become: true
+          when:
+            - commands_missing
+            - ansible_os_family == 'Debian'
+
+        - name: Install dependencies on RedHat/CentOS/AlmaLinux
+          block:
+            - name: Install EPEL release via dnf
+              dnf:
+                name: epel-release
+                state: present
+              become: true
+
+            - name: Install podman and podman-compose via dnf
+              dnf:
+                name:
+                  - podman
+                  - podman-compose
+                state: present
+              become: true
+          when:
+            - commands_missing
+            - ansible_os_family == 'RedHat'
+
+    - name: "Step 2 - Create Data Directory"
+      block:
+        - name: Check if data directory already exists
+          stat:
+            path: "{{ data_dir }}"
+          register: data_dir_stat
+
+        - name: Abort if data directory exists
+          fail:
+            msg: "Data directory '{{ data_dir }}' already exists. Aborting installation. Please back up any important data, delete or move it, and run the script again."
+          when: data_dir_stat.stat.exists and data_dir_stat.stat.isdir
+
+        - name: Create data directories
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: "1000"
+            group: "1000"
+            mode: "0755"
+          become: true
+          loop:
+            - "/data"
+            - "{{ data_dir }}"
+
+    - name: "Step 3 - Pull Elasticsearch Docker Image"
+      command: podman pull "{{ elasticsearch_image }}"
+
+    - name: "Step 4 - Optional: Install and Verify Cosign"
+      block:
+        - name: Check if cosign is installed
+          command: which cosign
+          register: cosign_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Verify image with cosign
+          block:
+            - name: Download Elastic public key
+              get_url:
+                url: https://artifacts.elastic.co/cosign.pub
+                dest: /tmp/cosign.pub
+                mode: "0644"
+
+            - name: Run cosign verify
+              command: cosign verify --key /tmp/cosign.pub "{{ elasticsearch_image }}"
+
+            - name: Clean up public key
+              file:
+                path: /tmp/cosign.pub
+                state: absent
+          when: cosign_check.rc == 0
+
+    - name: "Step 5 - Start Elasticsearch Container using podman-compose"
+      block:
+        - name: Ensure ELK directory exists
+          file:
+            path: "{{ elk_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Create podman-compose.yml for Elasticsearch
+          copy:
+            content: |
+              version: '3.8'
+              services:
+                elasticsearch:
+                  image: {{ elasticsearch_image }}
+                  container_name: {{ container_name }}
+                  networks:
+                    - elastic
+                  ports:
+                    - "9200:9200"
+                  environment:
+                    - discovery.type=single-node
+                  mem_limit: 1GB
+                  volumes:
+                    - "{{ data_dir }}:/usr/share/elasticsearch/data"
+              networks:
+                elastic:
+                  driver: bridge
+            dest: "{{ elk_dir }}/podman-compose.yml"
+            mode: "0644"
+
+        - name: Start Elasticsearch service
+          command: podman-compose up -d
+          args:
+            chdir: "{{ elk_dir }}"
+
+    - name: "Step 6 - Retrieve and Store Elasticsearch Password"
+      block:
+        - name: Wait for Elasticsearch to start
+          pause:
+            seconds: 60
+
+        - name: Initialize temporary credentials file
+          copy:
+            content: |
+              --- Step 6: Retrieve and Store Elasticsearch Password ---
+              {{ ansible_date_time.iso8601 | default('N/A') }}
+            dest: "{{ temp_credentials_file }}"
+            mode: "0600"
+
+        - name: Reset elastic user password
+          command: podman exec {{ container_name }} /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -a -f -b
+          register: password_output
+
+        - name: Parse elastic password
+          shell: "echo '{{ password_output.stdout }}' | grep -oP 'New value: \\K.*' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
+          register: parsed_password
+          changed_when: false
+
+        - name: Set elastic password fact
+          set_fact:
+            elastic_password: "{{ parsed_password.stdout | trim }}"
+
+        - name: Save elastic password to file
+          lineinfile:
+            path: "{{ temp_credentials_file }}"
+            line: "Elastic password set to: {{ elastic_password }}"
+            create: yes
+
+    - name: "Step 7 - Copy SSL Certificate"
+      block:
+        - name: Check and clean certificate directory
+          file:
+            path: "{{ cert_dir }}"
+            state: "{{ item }}"
+            mode: "0755"
+          loop:
+            - absent
+            - directory
+
+        - name: Copy http_ca.crt from container
+          command: podman cp {{ container_name }}:/usr/share/elasticsearch/config/certs/http_ca.crt {{ cert_dir }}/http_ca.crt
+
+    - name: "Step 8 - Make REST API Call"
+      block:
+        - name: Verify with curl using Authorization header
+          shell: "curl --cacert {{ cert_dir }}/http_ca.crt -H \"Authorization: Basic {{ ('elastic:' ~ elastic_password) | b64encode }}\" https://localhost:9200"
+          register: api_call_h
+          ignore_errors: true
+
+        - name: Print Authorization header response
+          debug:
+            var: api_call_h.stdout
+
+        - name: Wait 5 seconds
+          pause:
+            seconds: 5
+
+        - name: Verify with curl using basic auth parameter
+          command: curl --cacert {{ cert_dir }}/http_ca.crt -u "elastic:{{ elastic_password }}" https://localhost:9200
+          register: api_call_u
+          ignore_errors: true
+
+        - name: Print basic auth response
+          debug:
+            var: api_call_u.stdout
+
+    - name: "Step 9 - Retrieve and Clean Kibana Enrollment Token"
+      block:
+        - name: Create Kibana enrollment token
+          command: podman exec {{ container_name }} /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
+          register: token_output
+
+        - name: Parse enrollment token
+          shell: echo "{{ token_output.stdout }}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+          register: parsed_token
+          changed_when: false
+
+        - name: Save enrollment token to file
+          lineinfile:
+            path: "{{ temp_credentials_file }}"
+            line: "Kibana enrollment token: {{ parsed_token.stdout | trim }}"
+            create: yes
+
+        - name: Output final success message
+          debug:
+            msg:
+              - "Elasticsearch setup complete! Access it at https://localhost:9200."
+              - "Credentials saved in {{ temp_credentials_file }}"
+              - "Elastic password: {{ elastic_password }}"
+              - "Kibana enrollment token: {{ parsed_token.stdout | trim }}"

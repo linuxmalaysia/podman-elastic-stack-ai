@@ -88,7 +88,8 @@ build_step1_harness() {
   [[ "${extracted}" == *'! command_exists podman || ! command_exists podman-compose'* ]]
   [[ "${extracted}" == *'"$ID" = "ubuntu"'* ]]
   [[ "${extracted}" == *'"$ID" = "debian"'* ]]
-  [[ "${extracted}" == *'sudo apt-get install -y podman podman-compose'* ]]
+  [[ "${extracted}" == *'sudo apt-get install -y podman'* ]]
+  [[ "${extracted}" == *'sudo apt-get install -y podman-compose'* ]]
   [[ "${extracted}" == *'Unknown OS. Trying dnf...'* ]]
 }
 
@@ -101,7 +102,8 @@ build_step1_harness() {
   [[ "${extracted}" == *'! command_exists podman || ! command_exists podman-compose'* ]]
   [[ "${extracted}" == *'"$ID" = "ubuntu"'* ]]
   [[ "${extracted}" == *'"$ID" = "debian"'* ]]
-  [[ "${extracted}" == *'sudo apt-get install -y podman podman-compose'* ]]
+  [[ "${extracted}" == *'sudo apt-get install -y podman'* ]]
+  [[ "${extracted}" == *'sudo apt-get install -y podman-compose'* ]]
   [[ "${extracted}" == *'Unknown OS. Trying dnf...'* ]]
 }
 
@@ -119,9 +121,10 @@ _assert_ubuntu_installs_via_apt() {
   run bash "${harness}"
 
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *"Debian/Ubuntu detected. Installing via apt..."* ]]
+  [[ "${output}" == *"Debian/Ubuntu detected. Checking for missing dependencies..."* ]]
   grep -qF "sudo apt-get update -y" "${CALL_LOG}"
-  grep -qF "sudo apt-get install -y podman podman-compose" "${CALL_LOG}"
+  grep -qF "sudo apt-get install -y podman" "${CALL_LOG}"
+  grep -qF "sudo apt-get install -y podman-compose" "${CALL_LOG}"
   run grep -q "dnf" "${CALL_LOG}"
   [ "${status}" -ne 0 ]
 }
@@ -146,8 +149,9 @@ _assert_debian_installs_via_apt() {
   run bash "${harness}"
 
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *"Debian/Ubuntu detected. Installing via apt..."* ]]
-  grep -qF "sudo apt-get install -y podman podman-compose" "${CALL_LOG}"
+  [[ "${output}" == *"Debian/Ubuntu detected. Checking for missing dependencies..."* ]]
+  grep -qF "sudo apt-get install -y podman" "${CALL_LOG}"
+  grep -qF "sudo apt-get install -y podman-compose" "${CALL_LOG}"
 }
 
 @test "setup_elasticsearch.sh: Debian host installs podman and podman-compose via apt-get" {
@@ -171,7 +175,7 @@ _assert_ubuntu_quoted_id_detected() {
   run bash "${harness}"
 
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *"Debian/Ubuntu detected. Installing via apt..."* ]]
+  [[ "${output}" == *"Debian/Ubuntu detected. Checking for missing dependencies..."* ]]
 }
 
 @test "setup_elasticsearch.sh: quoted ID=\"ubuntu\" in os-release is still detected" {
@@ -306,7 +310,7 @@ _assert_missing_only_podman_compose_triggers_install_ubuntu() {
 
   [ "${status}" -eq 0 ]
   [[ "${output}" != *"already installed"* ]]
-  grep -qF "sudo apt-get install -y podman podman-compose" "${CALL_LOG}"
+  grep -qF "sudo apt-get install -y podman-compose" "${CALL_LOG}"
 }
 
 @test "setup_elasticsearch.sh: missing only podman-compose still triggers apt install on Ubuntu" {
