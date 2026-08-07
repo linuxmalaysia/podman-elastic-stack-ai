@@ -107,7 +107,7 @@ build_step1_harness() {
   [[ "${extracted}" == *'Unknown OS. Trying dnf...'* ]]
 }
 
-# --- Shared scenario assertions, exercised against both scripts below ---
+# _assert_ubuntu_installs_via_apt verifies that Ubuntu scenarios install missing Podman packages with apt-get and do not invoke dnf.
 
 _assert_ubuntu_installs_via_apt() {
   local script="$1"
@@ -295,6 +295,7 @@ _assert_skips_install_when_both_present() {
   _assert_skips_install_when_both_present "${ELK_SCRIPT}"
 }
 
+# _assert_missing_only_podman_compose_triggers_install_ubuntu verifies that missing podman-compose triggers installation on Ubuntu when podman is already installed.
 _assert_missing_only_podman_compose_triggers_install_ubuntu() {
   local script="$1"
   # podman is present but podman-compose is missing: the OR condition
