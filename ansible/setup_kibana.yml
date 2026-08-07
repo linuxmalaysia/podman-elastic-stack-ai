@@ -92,14 +92,14 @@
             ca_path: "{{ cert_dir }}/http_ca.crt"
             return_content: yes
             validate_certs: yes
-            status_code: -1
           register: es_status_out
+          failed_when: false
           no_log: true
 
         - name: Fail if Elasticsearch is not running
           fail:
-            msg: "Error: Elasticsearch is not running or status check failed. Output: {{ es_status_out.content }}"
-          when: "'You Know, for Search' not in es_status_out.content"
+            msg: "Error: Elasticsearch status check failed (HTTP {{ es_status_out.status | default('N/A') }}). Output: {{ es_status_out.content | default('No content') }}"
+          when: "es_status_out.status != 200 or 'You Know, for Search' not in es_status_out.content"
 
         - name: Parse Elasticsearch version from output
           set_fact:

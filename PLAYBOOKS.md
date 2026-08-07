@@ -19,7 +19,9 @@ ansible/
 ## Playbook Directory and Listing
 
 ### 1. `ansible/group_vars/all.yml` (Variables File)
+
 Defines all global variables used across the playbooks.
+
 - **Key Variables:**
   - `elk_version`: Set to `"9.4.4"` as required.
   - `container_name`: Elasticsearch container name (`es01`).
@@ -30,7 +32,9 @@ Defines all global variables used across the playbooks.
   - `fleet_server_image_name`: Wolfi complete agent image coordinate for Fleet.
 
 ### 2. `ansible/setup_elasticsearch.yml` (Elasticsearch Setup Playbook)
+
 Automates the installation of Elasticsearch.
+
 - **Actions:**
   - Detects host OS and installs `podman` and `podman-compose` using `apt` (Ubuntu/Debian) or `dnf` (RHEL/CentOS/AlmaLinux).
   - Prepares the host data directory `/data/es01` with proper permissions (`1000:1000`).
@@ -43,7 +47,9 @@ Automates the installation of Elasticsearch.
   - Generates the Kibana enrollment token.
 
 ### 3. `ansible/setup_kibana.yml` (Kibana Setup Playbook)
+
 Automates the installation and configuration of Kibana.
+
 - **Actions:**
   - Checks if Elasticsearch certificate, password, and Podman networks exist.
   - Runs a temporary Kibana container to copy and extract the default `kibana.yml` configuration to the host.
@@ -52,7 +58,9 @@ Automates the installation and configuration of Kibana.
   - Retrieves the Kibana verification code using `podman exec`.
 
 ### 4. `ansible/setup_fleet_server.yml` (Fleet Server Setup Playbook)
+
 Deploys and registers the Elastic Fleet Server agent.
+
 - **Actions:**
   - Confirms Elasticsearch and Kibana setup and retrieves the password.
   - Prompts for (or reads from variables) the Fleet Service Token and Fleet Server Policy ID.
@@ -60,7 +68,9 @@ Deploys and registers the Elastic Fleet Server agent.
   - Starts the Fleet Server container as the root user (or configured user).
 
 ### 5. `ansible/main.yml` (Primary / Master Playbook)
+
 Import-based playbook that calls the individual playbooks in sequence:
+
 1. `setup_elasticsearch.yml`
 2. `setup_kibana.yml`
 3. `setup_fleet_server.yml`
@@ -70,6 +80,7 @@ Import-based playbook that calls the individual playbooks in sequence:
 ## Executing the Playbooks
 
 ### Running via the Master Bash Script (Recommended)
+
 You can call all playbooks sequentially using the master execution bash script `run_playbooks.sh`:
 
 ```bash
@@ -78,6 +89,7 @@ chmod +x run_playbooks.sh
 ```
 
 ### Running Playbooks Individually
+
 If you want to run any of the playbooks individually with Ansible, use:
 
 ```bash
@@ -92,6 +104,7 @@ ansible-playbook -i localhost, -c local ansible/setup_fleet_server.yml
 ```
 
 You can pass extra variables (e.g. for Fleet registration) dynamically:
+
 ```bash
 ansible-playbook -i localhost, -c local ansible/main.yml \
   -e "fleet_server_service_token=YOUR_TOKEN_HERE" \
