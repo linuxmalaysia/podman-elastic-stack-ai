@@ -33,7 +33,7 @@ Before proceeding, ensure the following prerequisites are met:
 
 * **Podman:** Podman must be installed on your system.  Refer to the [Podman Installation Guide](https://podman.io/getting-started/installation) for instructions.
 * **Podman Compose:** Podman Compose is required to manage the Elasticsearch and Kibana containers. Installation instructions can be found on the Podman website or through your distribution's package manager.
-* **Operating System:** This setup is primarily designed for Linux-based systems.  For Windows, it is expected to work within a WSL2 environment.
+* **Operating System:** This setup is primarily designed for Linux-based systems. It fully supports Ubuntu 24.04 and Podman 5+. For Windows, it is expected to work within a WSL2 environment.
 * **Network Connectivity:** Ensure that your system has network connectivity to download the required container images and packages.
 * **Git (Optional):** If you want to clone the repository containing the setup scripts, Git needs to be installed.
 
@@ -76,7 +76,20 @@ The setup involves running two separate scripts: first for Elasticsearch, and th
 
 The `setup_elasticsearch.sh` script performs the following actions:
 
-1.  **Installs Podman and Podman Compose (If Necessary):** The script attempts to install Podman and Podman Compose using `dnf` (for Fedora, CentOS, etc.) if they are not already installed.
+1.  **Installs Podman and Podman Compose (If Necessary):** On Debian and Ubuntu systems (including Ubuntu 24.04), the script automatically installs `podman` and `podman-compose` using standard `apt-get` if they are not found. On RPM-based systems, it uses `dnf`.
+    * **Podman 5+ on Ubuntu 24.04:** Since standard Ubuntu 24.04 repositories contain Podman 4.9.x, if you explicitly require Podman 5+, you can manually install it beforehand from a verified community repository (such as `home:alvistack` on the OpenSUSE Build Service) with secure GPG repository-key verification:
+      ```bash
+      # 1. Download and dearmor the GPG key
+      curl -fsSL https://download.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key | gpg --dearmor | sudo tee /etc/apt/keyrings/home_alvistack.gpg > /dev/null
+
+      # 2. Add the verified repository source
+      echo "deb [signed-by=/etc/apt/keyrings/home_alvistack.gpg] http://download.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /" | sudo tee /etc/apt/sources.list.d/home-alvistack.list
+
+      # 3. Update APT cache and install Podman 5+
+      sudo apt-get update
+      sudo apt-get install -y podman podman-compose
+      ```
+      The setup scripts will automatically detect and leverage your pre-installed Podman 5+ environment seamlessly.
 2.  **Pulls Elasticsearch Image:** Downloads the official Elasticsearch 8.17.4 hardened Wolfi image from Docker Hub.
 3.  **Optional Cosign Verification:** If `cosign` is installed, the script downloads the Elastic public key and verifies the signature of the Elasticsearch image for added security.
 4.  **Starts Elasticsearch Container:** Creates and starts an Elasticsearch container named `es01` using `podman-compose`. The container exposes port 9200.
