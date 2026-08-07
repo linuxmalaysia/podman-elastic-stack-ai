@@ -54,9 +54,18 @@ if ! command_exists podman || ! command_exists podman-compose; then
   if [ -f /etc/os-release ]; then
     . /etc/os-release
     if [ "$ID" = "ubuntu" ] || [ "$ID" = "debian" ]; then
-      info "Debian/Ubuntu detected. Installing via apt..."
-      sudo apt-get update -y
-      sudo apt-get install -y podman podman-compose
+      info "Debian/Ubuntu detected. Checking for missing dependencies..."
+      if ! command_exists podman || ! command_exists podman-compose; then
+        sudo apt-get update -y
+        if ! command_exists podman; then
+          info "Installing podman via apt..."
+          sudo apt-get install -y podman
+        fi
+        if ! command_exists podman-compose; then
+          info "Installing podman-compose via apt..."
+          sudo apt-get install -y podman-compose
+        fi
+      fi
     else
       info "Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."
       if ! command_exists podman; then

@@ -77,7 +77,19 @@ The setup involves running two separate scripts: first for Elasticsearch, and th
 The `setup_elasticsearch.sh` script performs the following actions:
 
 1.  **Installs Podman and Podman Compose (If Necessary):** On Debian and Ubuntu systems (including Ubuntu 24.04), the script automatically installs `podman` and `podman-compose` using standard `apt-get` if they are not found. On RPM-based systems, it uses `dnf`.
-    * **Podman 5+ on Ubuntu 24.04:** Since standard Ubuntu 24.04 repositories contain Podman 4.9.x, users requiring Podman 5+ should pre-install it manually (for example, by building from source or utilizing community APT pinning from the Ubuntu Plucky archive). The script will seamlessly detect and run on pre-installed Podman 5+ environments.
+    * **Podman 5+ on Ubuntu 24.04:** Since standard Ubuntu 24.04 repositories contain Podman 4.9.x, if you explicitly require Podman 5+, you can manually install it beforehand from a verified community repository (such as `home:alvistack` on the OpenSUSE Build Service) with secure GPG repository-key verification:
+      ```bash
+      # 1. Download and dearmor the GPG key
+      curl -fsSL https://download.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key | gpg --dearmor | sudo tee /etc/apt/keyrings/home_alvistack.gpg > /dev/null
+
+      # 2. Add the verified repository source
+      echo "deb [signed-by=/etc/apt/keyrings/home_alvistack.gpg] http://download.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /" | sudo tee /etc/apt/sources.list.d/home-alvistack.list
+
+      # 3. Update APT cache and install Podman 5+
+      sudo apt-get update
+      sudo apt-get install -y podman podman-compose
+      ```
+      The setup scripts will automatically detect and leverage your pre-installed Podman 5+ environment seamlessly.
 2.  **Pulls Elasticsearch Image:** Downloads the official Elasticsearch 8.17.4 hardened Wolfi image from Docker Hub.
 3.  **Optional Cosign Verification:** If `cosign` is installed, the script downloads the Elastic public key and verifies the signature of the Elasticsearch image for added security.
 4.  **Starts Elasticsearch Container:** Creates and starts an Elasticsearch container named `es01` using `podman-compose`. The container exposes port 9200.
