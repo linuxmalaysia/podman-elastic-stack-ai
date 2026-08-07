@@ -9,13 +9,16 @@
 
 set -euo pipefail
 
-# Define Color Loggers
+# log_info prints an informational message with a timestamp and colored label.
 log_info()    { echo -e "\033[1;36m[INFO]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
+# log_success logs a timestamped success message with colored output.
 log_success() { echo -e "\033[1;32m[SUCCESS]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
+# log_warn logs a warning message with a timestamp and warning formatting.
 log_warn()    { echo -e "\033[1;33m[WARN]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
+# log_error prints a timestamped error message in red to standard output.
 log_error()   { echo -e "\033[1;31m[ERROR]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
 
-# Establish Trap for Cleanup and Exit Status Tracking
+# cleanup reports whether the feedback bridge completed successfully or exited with an error status.
 cleanup() {
     local exit_code=$?
     if [ "${exit_code}" -eq 0 ]; then
