@@ -92,6 +92,7 @@
             ca_path: "{{ cert_dir }}/http_ca.crt"
             return_content: yes
             validate_certs: yes
+            status_code: -1
           register: es_status_out
           no_log: true
 
@@ -129,6 +130,10 @@
             state: directory
             mode: "0755"
 
+        - name: Ensure stale temporary container is removed
+          command: "podman rm -f {{ temp_kibana_container }}"
+          ignore_errors: true
+
         - name: Start temporary Kibana container to extract configuration
           command: podman run --name "{{ temp_kibana_container }}" --network "{{ network_name }}" -d "{{ kibana_image }}" sleep infinity
 
@@ -150,6 +155,7 @@
                 kibana:
                   image: {{ kibana_image }}
                   container_name: {{ kibana_container_name }}
+                  restart: unless-stopped
                   networks:
                     - {{ network_name }}
                   ports:
@@ -166,19 +172,18 @@
             mode: "0644"
 
         - name: Start Kibana service via podman-compose
-          command: podman-compose -f podman-compose-kibana.yml up -d
+          command: podman-compose -p {{ compose_project_name }} -f podman-compose-kibana.yml up -d
           args:
             chdir: "{{ elk_dir }}"
 
     - name: Step 7 - Wait for Kibana Container to be Running
       block:
-        - name: Wait process
-          pause:
-            seconds: 60
-
         - name: Inspect Kibana container
           command: "podman inspect {{ kibana_container_name }}"
           register: kibana_inspect
+          until: "(kibana_inspect.stdout | from_json)[0].State.Running"
+          retries: 30
+          delay: 2
           changed_when: false
 
         - name: Fail unless Kibana is running
@@ -189,23 +194,25 @@
     - name: Step 8 - Get Elasticsearch Container IP Address
       block:
         - name: Inspect Elasticsearch container IP on external network
-          shell: "podman inspect es01 | grep \"{{ network_name }}\" -A 10 | grep \"IPAddress\" | sed -e 's/.*: \"//' -e 's/\",//' -e 's/ //g'"
+          shell: "podman inspect {{ container_name }} | grep \"{{ network_name }}\" -A 10 | grep \"IPAddress\" | sed -e 's/.*: \"//' -e 's/\",//' -e 's/ //g'"
           register: es_ip_out
           changed_when: false
 
         - name: Display Elasticsearch IP Address
           debug:
-            msg: "Elasticsearch (es01) IP Address: {{ es_ip_out.stdout | trim }}"
+            msg: "Elasticsearch ({{ container_name }}) IP Address: {{ es_ip_out.stdout | trim }}"
 
     - name: Step 9 - Retrieve and Clean Kibana Enrollment Token
       block:
         - name: Generate enrollment token
-          command: podman exec es01 /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
+          command: podman exec {{ container_name }} /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
           register: token_out
+          no_log: true
 
         - name: Set enrollment token fact
           set_fact:
             kibana_enrollment_token: "{{ token_out.stdout | trim }}"
+          no_log: true
 
         - name: Update temporary credentials file with Kibana enrollment token
           lineinfile:
@@ -213,6 +220,7 @@
             regexp: "^Kibana enrollment token:"
             line: "Kibana enrollment token: {{ kibana_enrollment_token }}"
             create: yes
+          no_log: true
 
         - name: Retrieve Kibana Verification Code
           command: podman exec {{ kibana_container_name }} /usr/share/kibana/bin/kibana-verification-code

@@ -9,7 +9,8 @@ elasticsearch_image: "docker.elastic.co/elasticsearch/elasticsearch-wolfi:{{ elk
 kibana_image_name: "docker.elastic.co/kibana/kibana-wolfi"
 kibana_container_name: "kib01"
 kibana_port: "5601"
-network_name: "elk-wolfi_elastic"
+compose_project_name: "elk-wolfi"
+network_name: "{{ compose_project_name }}_elastic"
 temp_credentials_file: "{{ elk_dir }}/temp_credentials.txt"
 
 fleet_server_image_name: "docker.elastic.co/elastic-agent/elastic-agent-complete-wolfi"

@@ -127,6 +127,7 @@
                 elasticsearch:
                   image: {{ elasticsearch_image }}
                   container_name: {{ container_name }}
+                  restart: unless-stopped
                   networks:
                     - elastic
                   ports:
@@ -143,7 +144,7 @@
             mode: "0644"
 
         - name: Start Elasticsearch service
-          command: podman-compose up -d
+          command: podman-compose -p {{ compose_project_name }} up -d
           args:
             chdir: "{{ elk_dir }}"
 
@@ -164,21 +165,19 @@
         - name: Reset elastic user password
           command: podman exec {{ container_name }} /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -a -f -b
           register: password_output
-
-        - name: Parse elastic password
-          shell: "echo '{{ password_output.stdout }}' | grep -oP 'New value: \\K.*' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
-          register: parsed_password
-          changed_when: false
+          no_log: true
 
         - name: Set elastic password fact
           set_fact:
-            elastic_password: "{{ parsed_password.stdout | trim }}"
+            elastic_password: "{{ password_output.stdout | regex_search('New value: (.*)', '\\1') | first | trim }}"
+          no_log: true
 
         - name: Save elastic password to file
           lineinfile:
             path: "{{ temp_credentials_file }}"
             line: "Elastic password set to: {{ elastic_password }}"
             create: yes
+          no_log: true
 
     - name: "Step 7 - Copy SSL Certificate"
       block:
@@ -196,49 +195,68 @@
 
     - name: "Step 8 - Make REST API Call"
       block:
-        - name: Verify with curl using Authorization header
-          shell: "curl --cacert {{ cert_dir }}/http_ca.crt -H \"Authorization: Basic {{ ('elastic:' ~ elastic_password) | b64encode }}\" https://localhost:9200"
+        - name: Verify with uri using Authorization header
+          uri:
+            url: https://localhost:9200
+            user: elastic
+            password: "{{ elastic_password }}"
+            force_basic_auth: yes
+            ca_path: "{{ cert_dir }}/http_ca.crt"
+            validate_certs: yes
+            status_code: -1
           register: api_call_h
           ignore_errors: true
+          no_log: true
 
         - name: Print Authorization header response
           debug:
-            var: api_call_h.stdout
+            var: api_call_h.content
+          no_log: true
 
         - name: Wait 5 seconds
           pause:
             seconds: 5
 
-        - name: Verify with curl using basic auth parameter
-          command: curl --cacert {{ cert_dir }}/http_ca.crt -u "elastic:{{ elastic_password }}" https://localhost:9200
+        - name: Verify with uri using basic auth parameter
+          uri:
+            url: https://localhost:9200
+            user: elastic
+            password: "{{ elastic_password }}"
+            force_basic_auth: yes
+            ca_path: "{{ cert_dir }}/http_ca.crt"
+            validate_certs: yes
+            status_code: -1
           register: api_call_u
           ignore_errors: true
+          no_log: true
 
         - name: Print basic auth response
           debug:
-            var: api_call_u.stdout
+            var: api_call_u.content
+          no_log: true
 
     - name: "Step 9 - Retrieve and Clean Kibana Enrollment Token"
       block:
         - name: Create Kibana enrollment token
           command: podman exec {{ container_name }} /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
           register: token_output
+          no_log: true
 
         - name: Parse enrollment token
           shell: echo "{{ token_output.stdout }}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
           register: parsed_token
           changed_when: false
+          no_log: true
 
         - name: Save enrollment token to file
           lineinfile:
             path: "{{ temp_credentials_file }}"
             line: "Kibana enrollment token: {{ parsed_token.stdout | trim }}"
             create: yes
+          no_log: true
 
         - name: Output final success message
           debug:
             msg:
               - "Elasticsearch setup complete! Access it at https://localhost:9200."
               - "Credentials saved in {{ temp_credentials_file }}"
-              - "Elastic password: {{ elastic_password }}"
-              - "Kibana enrollment token: {{ parsed_token.stdout | trim }}"

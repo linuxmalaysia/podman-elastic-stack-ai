@@ -83,6 +83,7 @@
             ca_path: "{{ cert_dir }}/http_ca.crt"
             return_content: yes
             validate_certs: yes
+            status_code: -1
           register: es_status_out
           no_log: true
 
@@ -136,7 +137,7 @@
     - name: "Step 6.5 - Get Elasticsearch Container Name"
       block:
         - name: Get Elasticsearch container name
-          command: podman inspect es01
+          command: podman inspect {{ container_name }}
           register: es_inspect
           changed_when: false
 
@@ -184,6 +185,7 @@
                 fleet-server:
                   image: {{ fleet_server_image }}
                   container_name: {{ fleet_server_container_name }}
+                  restart: unless-stopped
                   ports:
                     - "{{ fleet_server_port }}:{{ fleet_server_port }}"
                   environment:
@@ -208,19 +210,18 @@
           no_log: true
 
         - name: Start Fleet Server service via podman-compose
-          command: podman-compose -f podman-compose-fleet-server.yml up -d
+          command: podman-compose -p {{ compose_project_name }} -f podman-compose-fleet-server.yml up -d
           args:
             chdir: "{{ elk_dir }}"
 
     - name: "Step 9 - Wait for Fleet Server to Start"
       block:
-        - name: Pause to allow startup
-          pause:
-            seconds: 60
-
         - name: Inspect Fleet Server container
           command: "podman inspect {{ fleet_server_container_name }}"
           register: fleet_inspect
+          until: "(fleet_inspect.stdout | from_json)[0].State.Running"
+          retries: 30
+          delay: 2
           changed_when: false
 
         - name: Fail unless Fleet Server is running
