@@ -1,0 +1,313 @@
+---
+- name: Multi-OS Target Matrix Test Orchestrator
+  hosts: localhost
+  gather_facts: true
+  vars:
+    execution_mode: "user"
+    pr_id: "0"
+
+  tasks:
+    - name: Initialize Telemetry Context Facts
+      set_fact:
+        telemetry_results: {}
+        overall_status: "passed"
+
+    # ==========================================
+    # 1. UBUNTU 24.04 MATRIX TARGET
+    # ==========================================
+    - name: "Test Target Matrix: Ubuntu 24.04"
+      block:
+        - name: "Start Ubuntu 24.04 Container"
+          containers.podman.podman_container:
+            name: "jules_test_ubuntu_24_04"
+            image: "docker.io/library/ubuntu:24.04"
+            state: started
+            command: sleep 3600
+            detach: true
+            recreate: true
+          register: u24_start
+
+        - name: "Profile Ubuntu 24.04 Resource Usage (Pre-test)"
+          shell: "podman stats --no-stream --format '{\"cpu_percent\": \"{{ '{{' }}.CPUPerc{{ '}}' }}\", \"mem_usage\": \"{{ '{{' }}.MemUsage{{ '}}' }}\"}' jules_test_ubuntu_24_04"
+          register: u24_stats_pre
+          ignore_errors: true
+
+        - name: "Execute Verification Suite on Ubuntu 24.04"
+          shell: "podman exec jules_test_ubuntu_24_04 bash -c 'apt-get update && apt-get install -y curl && curl --version'"
+          register: u24_test_exec
+
+        - name: "Profile Ubuntu 24.04 Resource Usage (Post-test)"
+          shell: "podman stats --no-stream --format '{\"cpu_percent\": \"{{ '{{' }}.CPUPerc{{ '}}' }}\", \"mem_usage\": \"{{ '{{' }}.MemUsage{{ '}}' }}\"}' jules_test_ubuntu_24_04"
+          register: u24_stats_post
+          ignore_errors: true
+
+        - name: "Record Ubuntu 24.04 Success Telemetry"
+          set_fact:
+            telemetry_results: >-
+              {{
+                telemetry_results | combine({
+                  'ubuntu_24_04': {
+                    'status': 'passed',
+                    'image': 'docker.io/library/ubuntu:24.04',
+                    'exit_code': 0,
+                    'cpu_percentage': (u24_stats_post.stdout | default('{}') | from_json).cpu_percent | default('0.0%'),
+                    'memory_usage_bytes': (u24_stats_post.stdout | default('{}') | from_json).mem_usage | default('0B'),
+                    'logs': u24_test_exec.stdout | default(''),
+                    'error_summary': ''
+                  }
+                })
+              }}
+
+      rescue:
+        - name: "Capture Ubuntu 24.04 Failure Details"
+          set_fact:
+            overall_status: "failed"
+            telemetry_results: >-
+              {{
+                telemetry_results | combine({
+                  'ubuntu_24_04': {
+                    'status': 'failed',
+                    'image': 'docker.io/library/ubuntu:24.04',
+                    'exit_code': 1,
+                    'cpu_percentage': 'N/A',
+                    'memory_usage_bytes': 'N/A',
+                    'logs': ansible_failed_result.msg | default('Unknown failure in Ubuntu 24.04 matrix test execution'),
+                    'error_summary': 'Task failed during Ubuntu 24.04 validation sequence'
+                  }
+                })
+              }}
+
+      always:
+        - name: "Cleanup Ubuntu 24.04 Container"
+          containers.podman.podman_container:
+            name: "jules_test_ubuntu_24_04"
+            state: absent
+          ignore_errors: true
+
+
+    # ==========================================
+    # 2. UBUNTU 26.04 MATRIX TARGET
+    # ==========================================
+    - name: "Test Target Matrix: Ubuntu 26.04"
+      block:
+        - name: "Start Ubuntu 26.04 Container"
+          containers.podman.podman_container:
+            name: "jules_test_ubuntu_26_04"
+            image: "docker.io/library/ubuntu:plucky"
+            state: started
+            command: sleep 3600
+            detach: true
+            recreate: true
+          register: u26_start
+
+        - name: "Profile Ubuntu 26.04 Resource Usage (Pre-test)"
+          shell: "podman stats --no-stream --format '{\"cpu_percent\": \"{{ '{{' }}.CPUPerc{{ '}}' }}\", \"mem_usage\": \"{{ '{{' }}.MemUsage{{ '}}' }}\"}' jules_test_ubuntu_26_04"
+          register: u26_stats_pre
+          ignore_errors: true
+
+        - name: "Execute Verification Suite on Ubuntu 26.04"
+          shell: "podman exec jules_test_ubuntu_26_04 bash -c 'apt-get update && apt-get install -y curl && curl --version'"
+          register: u26_test_exec
+
+        - name: "Profile Ubuntu 26.04 Resource Usage (Post-test)"
+          shell: "podman stats --no-stream --format '{\"cpu_percent\": \"{{ '{{' }}.CPUPerc{{ '}}' }}\", \"mem_usage\": \"{{ '{{' }}.MemUsage{{ '}}' }}\"}' jules_test_ubuntu_26_04"
+          register: u26_stats_post
+          ignore_errors: true
+
+        - name: "Record Ubuntu 26.04 Success Telemetry"
+          set_fact:
+            telemetry_results: >-
+              {{
+                telemetry_results | combine({
+                  'ubuntu_26_04': {
+                    'status': 'passed',
+                    'image': 'docker.io/library/ubuntu:plucky',
+                    'exit_code': 0,
+                    'cpu_percentage': (u26_stats_post.stdout | default('{}') | from_json).cpu_percent | default('0.0%'),
+                    'memory_usage_bytes': (u26_stats_post.stdout | default('{}') | from_json).mem_usage | default('0B'),
+                    'logs': u26_test_exec.stdout | default(''),
+                    'error_summary': ''
+                  }
+                })
+              }}
+
+      rescue:
+        - name: "Capture Ubuntu 26.04 Failure Details"
+          set_fact:
+            overall_status: "failed"
+            telemetry_results: >-
+              {{
+                telemetry_results | combine({
+                  'ubuntu_26_04': {
+                    'status': 'failed',
+                    'image': 'docker.io/library/ubuntu:plucky',
+                    'exit_code': 1,
+                    'cpu_percentage': 'N/A',
+                    'memory_usage_bytes': 'N/A',
+                    'logs': ansible_failed_result.msg | default('Unknown failure in Ubuntu 26.04 matrix test execution'),
+                    'error_summary': 'Task failed during Ubuntu 26.04 validation sequence'
+                  }
+                })
+              }}
+
+      always:
+        - name: "Cleanup Ubuntu 26.04 Container"
+          containers.podman.podman_container:
+            name: "jules_test_ubuntu_26_04"
+            state: absent
+          ignore_errors: true
+
+
+    # ==========================================
+    # 3. ALMALINUX 9 MATRIX TARGET
+    # ==========================================
+    - name: "Test Target Matrix: AlmaLinux 9"
+      block:
+        - name: "Start AlmaLinux 9 Container"
+          containers.podman.podman_container:
+            name: "jules_test_almalinux_9"
+            image: "docker.io/library/almalinux:9"
+            state: started
+            command: sleep 3600
+            detach: true
+            recreate: true
+          register: alma_start
+
+        - name: "Profile AlmaLinux 9 Resource Usage (Pre-test)"
+          shell: "podman stats --no-stream --format '{\"cpu_percent\": \"{{ '{{' }}.CPUPerc{{ '}}' }}\", \"mem_usage\": \"{{ '{{' }}.MemUsage{{ '}}' }}\"}' jules_test_almalinux_9"
+          register: alma_stats_pre
+          ignore_errors: true
+
+        - name: "Execute Verification Suite on AlmaLinux 9"
+          shell: "podman exec jules_test_almalinux_9 bash -c 'dnf clean all && dnf install -y curl && curl --version'"
+          register: alma_test_exec
+
+        - name: "Profile AlmaLinux 9 Resource Usage (Post-test)"
+          shell: "podman stats --no-stream --format '{\"cpu_percent\": \"{{ '{{' }}.CPUPerc{{ '}}' }}\", \"mem_usage\": \"{{ '{{' }}.MemUsage{{ '}}' }}\"}' jules_test_almalinux_9"
+          register: alma_stats_post
+          ignore_errors: true
+
+        - name: "Record AlmaLinux 9 Success Telemetry"
+          set_fact:
+            telemetry_results: >-
+              {{
+                telemetry_results | combine({
+                  'almalinux_9': {
+                    'status': 'passed',
+                    'image': 'docker.io/library/almalinux:9',
+                    'exit_code': 0,
+                    'cpu_percentage': (alma_stats_post.stdout | default('{}') | from_json).cpu_percent | default('0.0%'),
+                    'memory_usage_bytes': (alma_stats_post.stdout | default('{}') | from_json).mem_usage | default('0B'),
+                    'logs': alma_test_exec.stdout | default(''),
+                    'error_summary': ''
+                  }
+                })
+              }}
+
+      rescue:
+        - name: "Capture AlmaLinux 9 Failure Details"
+          set_fact:
+            overall_status: "failed"
+            telemetry_results: >-
+              {{
+                telemetry_results | combine({
+                  'almalinux_9': {
+                    'status': 'failed',
+                    'image': 'docker.io/library/almalinux:9',
+                    'exit_code': 1,
+                    'cpu_percentage': 'N/A',
+                    'memory_usage_bytes': 'N/A',
+                    'logs': ansible_failed_result.msg | default('Unknown failure in AlmaLinux 9 matrix test execution'),
+                    'error_summary': 'Task failed during AlmaLinux 9 validation sequence'
+                  }
+                })
+              }}
+
+      always:
+        - name: "Cleanup AlmaLinux 9 Container"
+          containers.podman.podman_container:
+            name: "jules_test_almalinux_9"
+            state: absent
+          ignore_errors: true
+
+
+    # ==========================================
+    # 4. DEBIAN 12 MATRIX TARGET
+    # ==========================================
+    - name: "Test Target Matrix: Debian 12"
+      block:
+        - name: "Start Debian 12 Container"
+          containers.podman.podman_container:
+            name: "jules_test_debian_12"
+            image: "docker.io/library/debian:12"
+            state: started
+            command: sleep 3600
+            detach: true
+            recreate: true
+          register: debian_start
+
+        - name: "Profile Debian 12 Resource Usage (Pre-test)"
+          shell: "podman stats --no-stream --format '{\"cpu_percent\": \"{{ '{{' }}.CPUPerc{{ '}}' }}\", \"mem_usage\": \"{{ '{{' }}.MemUsage{{ '}}' }}\"}' jules_test_debian_12"
+          register: debian_stats_pre
+          ignore_errors: true
+
+        - name: "Execute Verification Suite on Debian 12"
+          shell: "podman exec jules_test_debian_12 bash -c 'apt-get update && apt-get install -y curl && curl --version'"
+          register: debian_test_exec
+
+        - name: "Profile Debian 12 Resource Usage (Post-test)"
+          shell: "podman stats --no-stream --format '{\"cpu_percent\": \"{{ '{{' }}.CPUPerc{{ '}}' }}\", \"mem_usage\": \"{{ '{{' }}.MemUsage{{ '}}' }}\"}' jules_test_debian_12"
+          register: debian_stats_post
+          ignore_errors: true
+
+        - name: "Record Debian 12 Success Telemetry"
+          set_fact:
+            telemetry_results: >-
+              {{
+                telemetry_results | combine({
+                  'debian_12': {
+                    'status': 'passed',
+                    'image': 'docker.io/library/debian:12',
+                    'exit_code': 0,
+                    'cpu_percentage': (debian_stats_post.stdout | default('{}') | from_json).cpu_percent | default('0.0%'),
+                    'memory_usage_bytes': (debian_stats_post.stdout | default('{}') | from_json).mem_usage | default('0B'),
+                    'logs': debian_test_exec.stdout | default(''),
+                    'error_summary': ''
+                  }
+                })
+              }}
+
+      rescue:
+        - name: "Capture Debian 12 Failure Details"
+          set_fact:
+            overall_status: "failed"
+            telemetry_results: >-
+              {{
+                telemetry_results | combine({
+                  'debian_12': {
+                    'status': 'failed',
+                    'image': 'docker.io/library/debian:12',
+                    'exit_code': 1,
+                    'cpu_percentage': 'N/A',
+                    'memory_usage_bytes': 'N/A',
+                    'logs': ansible_failed_result.msg | default('Unknown failure in Debian 12 matrix test execution'),
+                    'error_summary': 'Task failed during Debian 12 validation sequence'
+                  }
+                })
+              }}
+
+      always:
+        - name: "Cleanup Debian 12 Container"
+          containers.podman.podman_container:
+            name: "jules_test_debian_12"
+            state: absent
+          ignore_errors: true
+
+
+    # ==========================================
+    # TELEMETRY COMPILATION DISPATCH
+    # ==========================================
+    - name: "Invoke Telemetry Compilation and Reporting Role"
+      include_role:
+        name: feedback_collector
+      when: execution_mode == "dev"
