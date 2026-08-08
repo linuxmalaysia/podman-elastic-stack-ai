@@ -34,7 +34,6 @@ CONTAINER_NAME="es01" # Define the Elasticsearch container name
 DATA_DIR="/data/${CONTAINER_NAME}" # Dedicated directory for Elasticsearch data, based on container name.
 # Using hardened Wolfi image
 ELASTICSEARCH_IMAGE="docker.elastic.co/elasticsearch/elasticsearch-wolfi:${ELK_VERSION}"
-KIBANA_IMAGE="docker.elastic.co/kibana/kibana:${ELK_VERSION}"
 NETWORK_NAME="elastic"
 TEMP_CREDENTIALS_FILE="${ELK_DIR}/temp_credentials.txt"
 
