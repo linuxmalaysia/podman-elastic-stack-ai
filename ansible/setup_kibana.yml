@@ -1,7 +1,7 @@
 ---
 - name: Set up Kibana
-  hosts: localhost
-  connection: local
+  hosts: "{{ target_hosts | default('localhost') }}"
+  connection: "{{ 'local' if (target_hosts | default('localhost') == 'localhost') else ansible_connection | default('ssh') }}"
   tasks:
     - name: Ensure variables are loaded
       include_vars:
@@ -60,7 +60,7 @@
                   networks:
                     - {{ network_name }}
                   ports:
-                    - "127.0.0.1:{{ kibana_port }}:{{ kibana_port }}"
+                    - "{{ kibana_bind_address | default('127.0.0.1') }}:{{ kibana_port }}:{{ kibana_port }}"
                   volumes:
                     - kibana_data:/data/kibana_data
                     - ./kibana.yml:/usr/share/kibana/config/kibana.yml

@@ -40,9 +40,35 @@ Before proceeding, ensure the following prerequisites are met:
 
 ---
 
+## Deployment Options and Architecture
+
+This Ansible installation project with Podman 5+ is highly flexible, supporting multiple hardware and virtual environment designs based on the [Elasticsearch Support Matrix](https://www.elastic.co/support/matrix) and the official guidelines for [Elastic Node Roles and Distributed Architecture](https://www.elastic.co/docs/deploy-manage/distributed-architecture/clusters-nodes-shards/node-roles).
+
+The project supports the following installation options:
+
+### Option 1: WSL2 (Windows 11 Linux WSL2 Environment)
+- **Use Case:** Localhost deployments inside Windows 11 Linux WSL2.
+- **Distro:** Works with any Linux distribution available for WSL2 and Elastic Stack (including Ubuntu 26.04 and AlmaLinux 10).
+- **Cluster/Topology:** Minimum 3 Podman nodes/pods for local high availability and testing.
+
+### Option 2: Single Hardware or Single VM
+- **Use Case:** Deploying to a single dedicated physical hardware host or a single Virtual Machine.
+- **Distro:** Installed with any Linux distro supported by Elastic Stack (Ubuntu, AlmaLinux, Debian, etc.).
+- **Cluster/Topology:** Runs 3 Podman pods/nodes to form a self-contained cluster.
+
+### Option 3: Multiple Dedicated Hardware or VM Clusters
+- **Use Case:** Production or distributed designs spread across multiple physical hardware hosts or VM environments.
+- **Distro:** Installed with any supported Linux distribution.
+- **Cluster/Topology:** Tailored for dedicated Podman nodes/pods per node. This option makes the project suitable for any kind of hardware or VM environments.
+
+### Special Option: Google Jules Environment
+- **Use Case:** Automated testing and feedback loops optimized specifically for the Google Jules cloud execution environment.
+
+---
+
 ## WSL2 Deployment in Windows 11 (Ubuntu 26.04 and AlmaLinux 10)
 
-This project fully supports and is designed for only **localhost** deployments inside a Windows 11 Linux WSL2 environment. Below are the steps to deploy WSL2 and execute the playbooks or shell scripts.
+Below are the steps to deploy WSL2 and execute the playbooks or shell scripts (representing Option 1).
 
 ### Step 1: Install WSL2 on Windows 11
 

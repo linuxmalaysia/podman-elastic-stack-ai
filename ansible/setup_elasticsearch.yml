@@ -1,7 +1,7 @@
 ---
 - name: Set up Elasticsearch
-  hosts: localhost
-  connection: local
+  hosts: "{{ target_hosts | default('localhost') }}"
+  connection: "{{ 'local' if (target_hosts | default('localhost') == 'localhost') else ansible_connection | default('ssh') }}"
   tasks:
     - name: Ensure variables are loaded
       include_vars:
@@ -152,7 +152,7 @@
                   networks:
                     - elastic
                   ports:
-                    - "127.0.0.1:9200:9200"
+                    - "{{ elasticsearch_bind_address | default('127.0.0.1') }}:9200:9200"
                   environment:
                     - discovery.type=single-node
                   mem_limit: 1GB

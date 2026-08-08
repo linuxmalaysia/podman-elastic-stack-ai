@@ -16,5 +16,18 @@ if ! command -v ansible-playbook >/dev/null 2>&1; then
   exit 1
 fi
 
+# Check if an inventory option is already provided in the arguments
+HAS_INVENTORY=false
+for arg in "$@"; do
+  if [[ "$arg" == "-i" || "$arg" == "--inventory" || "$arg" == "--inventory-file" ]]; then
+    HAS_INVENTORY=true
+    break
+  fi
+done
+
 echo "--- Running Elastic Stack 9.4.4 setup using Ansible ---"
-ansible-playbook -i localhost, -c local "${ANSIBLE_DIR}/main.yml" "$@"
+if [ "$HAS_INVENTORY" = true ]; then
+  ansible-playbook "${ANSIBLE_DIR}/main.yml" "$@"
+else
+  ansible-playbook -i "${SCRIPT_DIR}/inventory/hosts.yml" "${ANSIBLE_DIR}/main.yml" "$@"
+fi
