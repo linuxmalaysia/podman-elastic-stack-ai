@@ -21,17 +21,17 @@ This repository automates the setup, testing, and deployment of Elasticsearch 9.
 
 ## Ansible Directories
 
-- `ansible/main.yml`: Unified playbooks orchestrator.
-- `ansible/group_vars/all.yml`: Global variables definition for Elastic stack components (versioning, network ports, connection configurations, execution mode thresholds).
-- `ansible/setup_elasticsearch.yml`: Hardened Ansible playbook deploying the wolfi-based Elasticsearch container.
-- `ansible/setup_kibana.yml`: Deployer for Kibana with clean dependency and lifecycle validations.
-- `ansible/setup_fleet_server.yml`: Deployer for secure Fleet Server instance with strict telemetry blocks.
-- `ansible/tasks/check_elasticsearch_status.yml`: Reusable, consolidated cluster and system status checks.
-- `playbooks/matrix_test.yml`: Cross-platform testing matrix orchestration playbook (Ubuntu, AlmaLinux, Debian).
+- [`ansible/main.yml`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/ansible/main.yml): Unified playbooks orchestrator.
+- [`ansible/group_vars/all.yml`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/ansible/group_vars/all.yml): Global variables definition for Elastic stack components (versioning, network ports, connection configurations, execution mode thresholds).
+- [`ansible/setup_elasticsearch.yml`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/ansible/setup_elasticsearch.yml): Hardened Ansible playbook deploying the wolfi-based Elasticsearch container.
+- [`ansible/setup_kibana.yml`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/ansible/setup_kibana.yml): Deployer for Kibana with clean dependency and lifecycle validations.
+- [`ansible/setup_fleet_server.yml`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/ansible/setup_fleet_server.yml): Deployer for secure Fleet Server instance with strict telemetry blocks.
+- [`ansible/tasks/check_elasticsearch_status.yml`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/ansible/tasks/check_elasticsearch_status.yml): Reusable, consolidated cluster and system status checks.
+- [`playbooks/matrix_test.yml`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/playbooks/matrix_test.yml): Cross-platform testing matrix orchestration playbook (Ubuntu, AlmaLinux, Debian).
 
 ## Automated Test Suites (BATS)
 
-- `test-scripts/setup_step1_install.bats`: Installation logic and package dependency test cases.
-- `test-scripts/setup_elasticsearch_variables.bats`: Evaluates variables, default bind addresses, and helper positioning of configuration blocks.
-- `test-scripts/feedback_docs.bats`: Verifies consistency, matrices, and telemetry feedback reporting structures.
-- `test-scripts/docs_content.bats`: Document consistency checks.
+- [`test-scripts/setup_step1_install.bats`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/test-scripts/setup_step1_install.bats): Installation logic and package dependency test cases.
+- [`test-scripts/setup_elasticsearch_variables.bats`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/test-scripts/setup_elasticsearch_variables.bats): Evaluates variables, default bind addresses, and helper positioning of configuration blocks.
+- [`test-scripts/feedback_docs.bats`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/test-scripts/feedback_docs.bats): Verifies consistency, matrices, and telemetry feedback reporting structures.
+- [`test-scripts/docs_content.bats`](https://github.com/linuxmalaysia/podman-elastic-stack-ai/blob/main/test-scripts/docs_content.bats): Document consistency checks.
