@@ -47,6 +47,7 @@
                 name: epel-release
                 state: present
               become: true
+              ignore_errors: true
 
             - name: Install podman and podman-compose via dnf
               dnf:

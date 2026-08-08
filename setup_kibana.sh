@@ -15,6 +15,7 @@ set -e
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 
 # --- Variables ---
+ELK_VERSION="9.4.4"
 ELK_BASE_DIR="${SCRIPT_DIR}" # Base directory is where the script is located
 ELK_DIR="${ELK_BASE_DIR}/elk-wolfi"
 CERT_DIR="${ELK_DIR}/certs"

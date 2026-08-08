@@ -1,11 +1,12 @@
 # Setup Elasticsearch and Kibana with Podman (Wolfi Hardened Images)
 
-This document provides instructions for setting up Elasticsearch 8.17.4 and Kibana 8.17.4 using Podman with hardened Wolfi images.  The setup uses Podman for container management.
+This document provides instructions for setting up Elasticsearch 9.4.4 and Kibana 9.4.4 using Podman with hardened Wolfi images. The setup uses Podman for container management.
 
 ## Table of Contents
 
 * [Description](#description)
 * [Prerequisites](#prerequisites)
+* [WSL2 Deployment in Windows 11](#wsl2-deployment-in-windows-11-ubuntu-2604-and-almalinux-10)
 * [Usage](#usage)
 * [Elasticsearch Setup](#elasticsearch-setup)
 * [Kibana Setup](#kibana-setup)
@@ -20,10 +21,10 @@ This document provides instructions for setting up Elasticsearch 8.17.4 and Kiba
 
 This setup involves two primary components:
 
-* **Elasticsearch:** Elasticsearch is set up using a bash script (`setup_elasticsearch.sh`) which automates the process of installing and configuring Elasticsearch 8.17.4 with Podman and a hardened Wolfi image.
-* **Kibana:** Kibana is set up using a bash script (`setup_kibana.sh`) and is configured to connect to the Elasticsearch instance.
+* **Elasticsearch:** Elasticsearch is set up using a bash script (`setup_elasticsearch.sh`) or Ansible playbook which automates the process of installing and configuring Elasticsearch 9.4.4 with Podman and a hardened Wolfi image.
+* **Kibana:** Kibana is set up using a bash script (`setup_kibana.sh`) or Ansible playbook and is configured to connect to the Elasticsearch instance.
 
-Both scripts aim to simplify the deployment of Elasticsearch and Kibana, leveraging Podman for containerization and hardened Wolfi images for enhanced security.
+Both approaches aim to simplify the deployment of Elasticsearch and Kibana, leveraging Podman for containerization and hardened Wolfi images for enhanced security.
 
 **Important Note:** Wolfi images might have specific kernel or dependency requirements.
 
@@ -31,19 +32,59 @@ Both scripts aim to simplify the deployment of Elasticsearch and Kibana, leverag
 
 Before proceeding, ensure the following prerequisites are met:
 
-* **Podman:** Podman must be installed on your system.  Refer to the [Podman Installation Guide](https://podman.io/getting-started/installation) for instructions.
+* **Podman:** Podman must be installed on your system. Refer to the [Podman Installation Guide](https://podman.io/getting-started/installation) for instructions.
 * **Podman Compose:** Podman Compose is required to manage the Elasticsearch and Kibana containers. Installation instructions can be found on the Podman website or through your distribution's package manager.
-* **Operating System:** This setup is primarily designed for Linux-based systems. It fully supports Ubuntu 24.04 and Podman 5+. For Windows, it is expected to work within a WSL2 environment.
+* **Operating System:** This setup is primarily designed for Linux-based systems. It fully supports Ubuntu 24.04/26.04 and Podman 5+. For Windows, it is expected to work within a WSL2 environment.
 * **Network Connectivity:** Ensure that your system has network connectivity to download the required container images and packages.
 * **Git (Optional):** If you want to clone the repository containing the setup scripts, Git needs to be installed.
 
+---
+
+## WSL2 Deployment in Windows 11 (Ubuntu 26.04 and AlmaLinux 10)
+
+This project fully supports and is designed for only **localhost** deployments inside a Windows 11 Linux WSL2 environment. Below are the steps to deploy WSL2 and execute the playbooks or shell scripts.
+
+### Step 1: Install WSL2 on Windows 11
+Open a Windows PowerShell terminal with **Administrator** privileges and run:
+```powershell
+# Install WSL2 with the default Ubuntu 26.04 distro
+wsl --install -d Ubuntu-26.04
+```
+Alternatively, if you want to deploy **AlmaLinux 10**, you can download the AlmaLinux 10 WSL appx/zip package from the official AlmaLinux channels or import it:
+```powershell
+# To list available online distributions
+wsl --list --online
+
+# To install Ubuntu 26.04 specifically:
+wsl --install -d Ubuntu-26.04
+```
+
+### Step 2: Running commands from Windows 11 PowerShell using the `wsl` command
+To execute the Ansible playbooks directly from Windows PowerShell inside the Linux WSL2 environment, use the `wsl` command:
+
+**For Ubuntu 26.04:**
+```powershell
+# Execute the playbooks using the master script inside Ubuntu-26.04
+wsl -d Ubuntu-26.04 -u root bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"
+```
+
+**For AlmaLinux 10:**
+```powershell
+# Execute the playbooks using the master script inside AlmaLinux-10
+wsl -d AlmaLinux-10 -u root bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"
+```
+
+*Note: Replace `/home/jules/podman-elastic-stack` with the actual path to your cloned repository inside your WSL2 environment.*
+
+---
+
 ## Usage
 
-The setup involves running two separate scripts: first for Elasticsearch, and then for Kibana.
+The setup involves running two separate scripts (or running the Ansible playbooks): first for Elasticsearch, and then for Kibana.
 
 ### 1. Elasticsearch Setup
 
-1.  **Clone the Repository (Recommended):** It is recommended to clone the repository to get the latest version of the scripts. See the [Git Repository](#git-repository) section for instructions.  Alternatively, you can download the `setup_elasticsearch.sh` script directly.
+1.  **Clone the Repository (Recommended):** It is recommended to clone the repository to get the latest version of the scripts. See the [Git Repository](#git-repository) section for instructions. Alternatively, you can download the `setup_elasticsearch.sh` script directly.
 2.  **Make the Script Executable:** Open your terminal, navigate to the directory where you saved the script, and make it executable:
 
     ```bash
@@ -59,8 +100,8 @@ The setup involves running two separate scripts: first for Elasticsearch, and th
 
 ### 2. Kibana Setup
 
-1.  **Ensure Elasticsearch is Running:** The Kibana setup script assumes that Elasticsearch is already running.  Make sure the Elasticsearch setup script has been run successfully.
-2.  **Clone the Repository (Recommended):** It is recommended to clone the repository to get the latest version of the scripts. See the [Git Repository](#git-repository) section for instructions.  Alternatively, you can download the `setup_kibana.sh` script directly.
+1.  **Ensure Elasticsearch is Running:** The Kibana setup script assumes that Elasticsearch is already running. Make sure the Elasticsearch setup script has been run successfully.
+2.  **Clone the Repository (Recommended):** It is recommended to clone the repository to get the latest version of the scripts. See the [Git Repository](#git-repository) section for instructions. Alternatively, you can download the `setup_kibana.sh` script directly.
 3.  **Make the Script Executable:** Open your terminal, navigate to the directory where you saved the script, and make it executable:
 
     ```bash
@@ -76,21 +117,21 @@ The setup involves running two separate scripts: first for Elasticsearch, and th
 
 The `setup_elasticsearch.sh` script performs the following actions:
 
-1.  **Installs Podman and Podman Compose (If Necessary):** On Debian and Ubuntu systems (including Ubuntu 24.04), the script automatically installs `podman` and `podman-compose` using standard `apt-get` if they are not found. On RPM-based systems, it uses `dnf`.
-    * **Podman 5+ on Ubuntu 24.04:** Since standard Ubuntu 24.04 repositories contain Podman 4.9.x, if you explicitly require Podman 5+, you can manually install it beforehand from a verified community repository (such as `home:alvistack` on the OpenSUSE Build Service) with secure GPG repository-key verification:
+1.  **Installs Podman and Podman Compose (If Necessary):** On Debian and Ubuntu systems (including Ubuntu 26.04), the script automatically installs `podman` and `podman-compose` using standard `apt-get` if they are not found. On RPM-based systems, it uses `dnf`.
+    * **Podman 5+ on Ubuntu:** Since standard Ubuntu repositories may contain older Podman versions, if you explicitly require Podman 5+, you can manually install it beforehand from a verified community repository (such as `home:alvistack` on the OpenSUSE Build Service) with secure GPG repository-key verification:
       ```bash
       # 1. Download and dearmor the GPG key
-      curl -fsSL https://download.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key | gpg --dearmor | sudo tee /etc/apt/keyrings/home_alvistack.gpg > /dev/null
+      curl -fsSL https://download.opensuse.org/repositories/home:/alvistack/xUbuntu_26.04/Release.key | gpg --dearmor | sudo tee /etc/apt/keyrings/home_alvistack.gpg > /dev/null
 
       # 2. Add the verified repository source
-      echo "deb [signed-by=/etc/apt/keyrings/home_alvistack.gpg] http://download.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /" | sudo tee /etc/apt/sources.list.d/home-alvistack.list
+      echo "deb [signed-by=/etc/apt/keyrings/home_alvistack.gpg] http://download.opensuse.org/repositories/home:/alvistack/xUbuntu_26.04/ /" | sudo tee /etc/apt/sources.list.d/home-alvistack.list
 
       # 3. Update APT cache and install Podman 5+
       sudo apt-get update
       sudo apt-get install -y podman podman-compose
       ```
       The setup scripts will automatically detect and leverage your pre-installed Podman 5+ environment seamlessly.
-2.  **Pulls Elasticsearch Image:** Downloads the official Elasticsearch 8.17.4 hardened Wolfi image from Docker Hub.
+2.  **Pulls Elasticsearch Image:** Downloads the official Elasticsearch 9.4.4 hardened Wolfi image from Docker Hub.
 3.  **Optional Cosign Verification:** If `cosign` is installed, the script downloads the Elastic public key and verifies the signature of the Elasticsearch image for added security.
 4.  **Starts Elasticsearch Container:** Creates and starts an Elasticsearch container named `es01` using `podman-compose`. The container exposes port 9200.
 5.  **Retrieves Elasticsearch Password:** After Elasticsearch starts, the script resets the password for the `elastic` user and retrieves the new password. This password is saved in a temporary file (`elk-wolfi/temp_credentials.txt`) and also printed to the console.
@@ -99,14 +140,14 @@ The `setup_elasticsearch.sh` script performs the following actions:
 8.  **Verifies Installation:** The script uses `curl` to make a basic API call to Elasticsearch to verify that it is running correctly.
 9.  **Cleans Up Credentials:** The script removes any leading or trailing whitespace or newline characters from both the Elasticsearch password and the Kibana enrollment token in the temporary credentials file.
 
-####   Important Elasticsearch Information
+#### Important Elasticsearch Information
 
-* **Elasticsearch Password:** The generated password for the `elastic` user is stored in the `elk-wolfi/temp_credentials.txt` file.  It is crucial to secure this file.
+* **Elasticsearch Password:** The generated password for the `elastic` user is stored in the `elk-wolfi/temp_credentials.txt` file. It is crucial to secure this file.
 * **Kibana Enrollment Token:** The Kibana enrollment token is also located in the `elk-wolfi/temp_credentials.txt` file. This token is required to connect Kibana to Elasticsearch.
-* **Access Elasticsearch:** Elasticsearch can be accessed at `https://localhost:9200`.  Use the username `elastic` and the password from the `temp_credentials.txt` file when prompted.
+* **Access Elasticsearch:** Elasticsearch can be accessed at `https://localhost:9200`. Use the username `elastic` and the password from the `temp_credentials.txt` file when prompted.
 * **Wolfi Image:** The script uses the hardened Wolfi image for Elasticsearch, which may have specific system requirements.
 
-##   Kibana Setup Details
+## Kibana Setup Details
 
 The `setup_kibana.sh` script performs the following actions:
 
@@ -120,24 +161,24 @@ The `setup_kibana.sh` script performs the following actions:
 6.  **Gets Default Kibana Configuration:**
     * Creates a temporary Kibana container.
     * Copies the default `kibana.yml` file from the container to the host.
-    * Stops and removes the temporary container.  The user is expected to review and customize this file.
+    * Stops and removes the temporary container. The user is expected to review and customize this file.
 7.  **Starts Kibana Container:**
     * Creates a `podman-compose.yml` file to define the Kibana service.
     * Starts the Kibana container using `podman-compose up`.
 8.  **Waits for Kibana to Start:** Waits for the Kibana container to start.
 9.  **Gets Elasticsearch Container IP Address:** Retrieves the IP address of the Elasticsearch container.
 10. **Retrieves Kibana Enrollment Token:** Retrieves the Kibana enrollment token from the Elasticsearch container and saves it to the temporary credentials file.
-11.  **Provides Post-Installation Information:**
+11. **Provides Post-Installation Information:**
     * Displays a message indicating that the Kibana setup is complete.
     * Displays the URL to access Kibana in a web browser (http://localhost:5601).
     * Displays the command to retrieve the Kibana verification code.
 
-####   Important Kibana Information
+#### Important Kibana Information
 
 * **Kibana Access:** Kibana will be accessible at `http://localhost:5601` after the setup is complete.
 * **Kibana Configuration:** The `kibana.yml` file should be reviewed and customized as needed.
 
-##   How to Cleanup
+## How to Cleanup
 
 To remove the resources created by these scripts, follow these steps:
 
@@ -169,9 +210,9 @@ To remove the resources created by these scripts, follow these steps:
     rm -rf /data
     ```
 
-    **Caution:** This will delete any data stored in the `/data` directory on your system.  Only proceed if you are sure you have backed up any important data and it is safe to delete.  This directory is used for the Elasticsearch and Kibana data volume.
+    **Caution:** This will delete any data stored in the `/data` directory on your system. Only proceed if you are sure you have backed up any important data and it is safe to delete. This directory is used for the Elasticsearch and Kibana data volume.
 
-##   Variables
+## Variables
 
 The scripts use the following variables:
 
@@ -184,18 +225,18 @@ The scripts use the following variables:
 * `NETWORK_NAME`: Name of the Podman network.
 * `TEMP_CREDENTIALS_FILE`: File to store temporary credentials (like Elasticsearch password) (`${ELK_DIR}/temp_credentials.txt`).
 
-##   Helper Functions
+## Helper Functions
 
 The scripts define the following helper functions:
 
 * `info()`: Prints informational messages with a separator.
 * `command_exists()`: Checks if a command exists in the system's PATH.
 
-##   License
+## License
 
 The scripts are licensed under the GNU GENERAL PUBLIC LICENSE Version 3.
 
-##   References
+## References
 
 * Phase 1: Install Almalinux 9 Windows Subsystem for Linux version 2 (WSL2)
     * [https://www.linuxmalaysia.com/2025/04/howto-install-wsl2-and-move-almalinux-9.html](https://www.linuxmalaysia.com/2025/04/howto-install-wsl2-and-move-almalinux-9.html)
@@ -208,7 +249,7 @@ The scripts are licensed under the GNU GENERAL PUBLIC LICENSE Version 3.
 * `setup_kibana.sh` explain
     * [https://gist.github.com/linuxmalaysia/7782c879be1e22469d39bb1557505623](https://gist.github.com/linuxmalaysia/7782c879be1e22469d39bb1557505623)
 
-##   Git Repository
+## Git Repository
 
 The scripts for setting up Elasticsearch and Kibana are available in the following Git repository:
 

@@ -1,11 +1,49 @@
-# Setup Elasticsearch 8.17.4 with Podman (Wolfi Hardened Image)
+# Setup Elasticsearch 9.4.4 with Podman (Wolfi Hardened Image)
 
-This script automates the setup of Elasticsearch version 8.17.4 using Podman and the hardened Wolfi image, following the official Elastic Docker documentation.
+This script automates the setup of Elasticsearch version 9.4.4 using Podman and the hardened Wolfi image, following the official Elastic Docker documentation.
 
 ## Prerequisites
 
 * **Podman:** Ensure Podman is installed on your system. You can find installation instructions for various distributions on the [Podman Installation Guide](https://podman.io/getting-started/installation).
 * **Podman Compose:** Podman Compose is required to manage the Elasticsearch container. Installation instructions can also be found on the Podman website or through your distribution's package manager (often in an `epel-release` repository for RPM-based systems).
+
+## WSL2 Deployment in Windows 11 (Ubuntu 26.04 and AlmaLinux 10)
+
+This project fully supports and is designed for only **localhost** deployments inside a Windows 11 Linux WSL2 environment. Below are the steps to deploy WSL2 and execute the playbooks or shell scripts.
+
+### Step 1: Install WSL2 on Windows 11
+Open a Windows PowerShell terminal with **Administrator** privileges and run:
+```powershell
+# Install WSL2 with the default Ubuntu 26.04 distro
+wsl --install -d Ubuntu-26.04
+```
+Alternatively, if you want to deploy **AlmaLinux 10**, you can download the AlmaLinux 10 WSL appx/zip package from the official AlmaLinux channels or import it:
+```powershell
+# To list available online distributions
+wsl --list --online
+
+# To install Ubuntu 26.04 specifically:
+wsl --install -d Ubuntu-26.04
+```
+
+### Step 2: Running commands from Windows 11 PowerShell using the `wsl` command
+To execute the Ansible playbooks directly from Windows PowerShell inside the Linux WSL2 environment, use the `wsl` command:
+
+**For Ubuntu 26.04:**
+```powershell
+# Execute the playbooks using the master script inside Ubuntu-26.04
+wsl -d Ubuntu-26.04 -u root bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"
+```
+
+**For AlmaLinux 10:**
+```powershell
+# Execute the playbooks using the master script inside AlmaLinux-10
+wsl -d AlmaLinux-10 -u root bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"
+```
+
+*Note: Replace `/home/jules/podman-elastic-stack` with the actual path to your cloned repository inside your WSL2 environment.*
+
+---
 
 ## Usage
 
@@ -22,21 +60,21 @@ This script automates the setup of Elasticsearch version 8.17.4 using Podman and
 
 ## What the Script Does
 
-1.  **Installs Podman and Podman Compose:** If not already installed, the script automatically detects the host operating system. On Debian and Ubuntu systems (including Ubuntu 24.04), it uses standard `apt-get` to install the package-manager provided versions of `podman` and `podman-compose`. On RPM-based systems (like Fedora, CentOS, etc.), it installs them using `dnf`.
-    * **Note on Podman 5+ on Ubuntu 24.04:** Since Ubuntu 24.04's default repositories ship Podman 4.9.x, if you explicitly require Podman 5+, you can manually install it beforehand from a verified community repository (such as `home:alvistack` on the OpenSUSE Build Service) with secure GPG repository-key verification:
+1.  **Installs Podman and Podman Compose:** If not already installed, the script automatically detects the host operating system. On Debian and Ubuntu systems (including Ubuntu 26.04), it uses standard `apt-get` to install the package-manager provided versions of `podman` and `podman-compose`. On RPM-based systems (like Fedora, CentOS, etc.), it installs them using `dnf`.
+    * **Note on Podman 5+ on Ubuntu 24.04/26.04:** Since default repositories may ship older Podman versions, if you explicitly require Podman 5+, you can manually install it beforehand from a verified community repository (such as `home:alvistack` on the OpenSUSE Build Service) with secure GPG repository-key verification:
       ```bash
       # 1. Download and dearmor the GPG key
-      curl -fsSL https://download.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/Release.key | gpg --dearmor | sudo tee /etc/apt/keyrings/home_alvistack.gpg > /dev/null
+      curl -fsSL https://download.opensuse.org/repositories/home:/alvistack/xUbuntu_26.04/Release.key | gpg --dearmor | sudo tee /etc/apt/keyrings/home_alvistack.gpg > /dev/null
 
       # 2. Add the verified repository source
-      echo "deb [signed-by=/etc/apt/keyrings/home_alvistack.gpg] http://download.opensuse.org/repositories/home:/alvistack/xUbuntu_24.04/ /" | sudo tee /etc/apt/sources.list.d/home-alvistack.list
+      echo "deb [signed-by=/etc/apt/keyrings/home_alvistack.gpg] http://download.opensuse.org/repositories/home:/alvistack/xUbuntu_26.04/ /" | sudo tee /etc/apt/sources.list.d/home-alvistack.list
 
       # 3. Update APT cache and install Podman 5+
       sudo apt-get update
       sudo apt-get install -y podman podman-compose
       ```
       The setup scripts will automatically detect and leverage your pre-installed Podman 5+ environment seamlessly.
-2.  **Pulls Elasticsearch Image:** Downloads the official Elasticsearch 8.17.4 hardened Wolfi image from Docker Hub.
+2.  **Pulls Elasticsearch Image:** Downloads the official Elasticsearch 9.4.4 hardened Wolfi image from Docker Hub.
 3.  **Optional Cosign Verification:** If `cosign` is installed, the script downloads the Elastic public key and verifies the signature of the Elasticsearch image.
 4.  **Starts Elasticsearch Container:** Creates and starts an Elasticsearch container named `es01` using `podman-compose`. The container exposes port 9200.
 5.  **Retrieves Elasticsearch Password:** After Elasticsearch starts, the script resets the password for the `elastic` user and retrieves the new password. This password is saved in a temporary file (`elk-wolfi/temp_credentials.txt`) and also printed to the console.
@@ -61,14 +99,14 @@ Enjoy using your new Elasticsearch setup!
 
 Harisfazillah Jamel aka LinuxMalaysia
 
-20250331
+20250402
 
 
 # Kibana Setup Script with Podman
 
 ## Description
 
-This script automates the setup of Kibana 8.17.4 using Podman with the hardened Wolfi image. It follows the official Docker documentation from Elastic.  The script configures Kibana to run with its own custom `kibana.yml` and utilizes Podman for container management.
+This script automates the setup of Kibana 9.4.4 using Podman with the hardened Wolfi image. It follows the official Docker documentation from Elastic.  The script configures Kibana to run with its own custom `kibana.yml` and utilizes Podman for container management.
 
 **Important Note:** Wolfi images might have specific kernel or dependency requirements.
 
@@ -206,4 +244,3 @@ The script is licensed under the GNU GENERAL PUBLIC LICENSE Version 3.
 Harisfazillah Jamel aka LinuxMalaysia
 
 20250402
-

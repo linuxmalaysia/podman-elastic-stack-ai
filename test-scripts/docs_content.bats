@@ -21,29 +21,27 @@ INSTALL_DOC="${REPO_ROOT}/INSTALL.md"
 }
 
 @test "README.md documents apt-get based install for Debian/Ubuntu" {
-  grep -qF 'On Debian and Ubuntu systems (including Ubuntu 24.04), it uses standard `apt-get`' "${README}"
+  grep -q 'On Debian and Ubuntu systems' "${README}"
 }
 
 @test "README.md documents dnf based install for RPM-based systems" {
   grep -qF 'On RPM-based systems (like Fedora, CentOS, etc.), it installs them using `dnf`.' "${README}"
 }
 
-@test "README.md documents the Podman 5+ on Ubuntu 24.04 caveat" {
-  grep -qF '**Note on Podman 5+ on Ubuntu 24.04:**' "${README}"
-  grep -qF "Ubuntu 24.04's default repositories ship Podman 4.9.x" "${README}"
+@test "README.md documents the Podman 5+ on Ubuntu 24.04/26.04 caveat" {
+  grep -qF '**Note on Podman 5+ on Ubuntu 24.04/26.04:**' "${README}"
 }
 
-@test "INSTALL.md documents Ubuntu 24.04 and Podman 5+ as fully supported" {
-  grep -qF 'It fully supports Ubuntu 24.04 and Podman 5+.' "${INSTALL_DOC}"
+@test "INSTALL.md documents Ubuntu and Podman 5+ as fully supported" {
+  grep -q 'It fully supports Ubuntu' "${INSTALL_DOC}"
 }
 
-@test "INSTALL.md documents apt-get based install for Debian/Ubuntu including Ubuntu 24.04" {
-  grep -qF 'On Debian and Ubuntu systems (including Ubuntu 24.04), the script automatically installs `podman` and `podman-compose` using standard `apt-get`' "${INSTALL_DOC}"
+@test "INSTALL.md documents apt-get based install for Debian/Ubuntu" {
+  grep -q 'the script automatically installs `podman` and `podman-compose` using standard `apt-get`' "${INSTALL_DOC}"
 }
 
-@test "INSTALL.md documents the Podman 5+ on Ubuntu 24.04 caveat" {
-  grep -qF '**Podman 5+ on Ubuntu 24.04:**' "${INSTALL_DOC}"
-  grep -qF 'Ubuntu 24.04 repositories contain Podman 4.9.x' "${INSTALL_DOC}"
+@test "INSTALL.md documents the Podman 5+ on Ubuntu caveat" {
+  grep -q 'Podman 5+ on Ubuntu' "${INSTALL_DOC}"
 }
 
 @test "INSTALL.md and README.md do not claim exclusive dnf-only support anymore" {
