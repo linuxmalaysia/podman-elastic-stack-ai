@@ -321,6 +321,126 @@ _assert_missing_only_podman_compose_triggers_install_ubuntu() {
   _assert_missing_only_podman_compose_triggers_install_ubuntu "${ELK_SCRIPT}"
 }
 
+_assert_missing_only_podman_triggers_apt_update_on_ubuntu() {
+  local script="$1"
+  # podman-compose is already present, only podman is missing. The refactor
+  # dropped a redundant duplicate "if missing" guard around apt-get update;
+  # this regression test ensures "sudo apt-get update -y" still runs even
+  # when only one of the two tools is missing, and that only the missing
+  # tool (podman) gets installed.
+  unstub podman
+  stub podman-compose
+  echo 'ID=ubuntu' > "${TEST_TMPDIR}/os-release"
+  stub sudo
+  stub apt-get
+
+  harness="$(build_step1_harness "${script}" "${TEST_TMPDIR}/os-release")"
+  run bash "${harness}"
+
+  [ "${status}" -eq 0 ]
+  grep -qF "sudo apt-get update -y" "${CALL_LOG}"
+  grep -qF "sudo apt-get install -y podman" "${CALL_LOG}"
+  run grep -qF "sudo apt-get install -y podman-compose" "${CALL_LOG}"
+  [ "${status}" -ne 0 ]
+}
+
+@test "setup_elasticsearch.sh: missing only podman still runs apt-get update and installs just podman on Ubuntu" {
+  _assert_missing_only_podman_triggers_apt_update_on_ubuntu "${ES_SCRIPT}"
+}
+
+@test "test-scripts/setup_elk.sh: missing only podman still runs apt-get update and installs just podman on Ubuntu" {
+  _assert_missing_only_podman_triggers_apt_update_on_ubuntu "${ELK_SCRIPT}"
+}
+
+_assert_non_debian_id_with_os_release_falls_back_to_rpm_branch() {
+  local script="$1"
+  # An os-release file that exists but whose ID is neither "ubuntu" nor
+  # "debian" (e.g. a distro like Alpine) must still land in the "rpm"
+  # OS_TYPE branch, since the script only special-cases Debian/Ubuntu and
+  # otherwise falls back to dnf for every other recognized OS.
+  unstub podman
+  unstub podman-compose
+  echo 'ID=alpine' > "${TEST_TMPDIR}/os-release"
+  stub sudo
+  stub dnf
+
+  harness="$(build_step1_harness "${script}" "${TEST_TMPDIR}/os-release")"
+  run bash "${harness}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."* ]]
+  grep -qF "sudo dnf install podman -y" "${CALL_LOG}"
+  grep -qF "sudo dnf install podman-compose -y" "${CALL_LOG}"
+  run grep -q "apt-get" "${CALL_LOG}"
+  [ "${status}" -ne 0 ]
+}
+
+@test "setup_elasticsearch.sh: non-Debian/Ubuntu ID (e.g. alpine) with os-release present falls back to dnf branch" {
+  _assert_non_debian_id_with_os_release_falls_back_to_rpm_branch "${ES_SCRIPT}"
+}
+
+@test "test-scripts/setup_elk.sh: non-Debian/Ubuntu ID (e.g. alpine) with os-release present falls back to dnf branch" {
+  _assert_non_debian_id_with_os_release_falls_back_to_rpm_branch "${ELK_SCRIPT}"
+}
+
+_assert_id_comparison_is_case_sensitive() {
+  local script="$1"
+  # The ID comparison uses a plain string equality test ("$ID" = "ubuntu"),
+  # which is case-sensitive in POSIX shells. A capitalized "Ubuntu" value
+  # (unusual, but guards against silent case-folding assumptions) must NOT
+  # match and must instead fall through to the dnf branch.
+  unstub podman
+  unstub podman-compose
+  echo 'ID=Ubuntu' > "${TEST_TMPDIR}/os-release"
+  stub sudo
+  stub dnf
+
+  harness="$(build_step1_harness "${script}" "${TEST_TMPDIR}/os-release")"
+  run bash "${harness}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" != *"Debian/Ubuntu detected"* ]]
+  [[ "${output}" == *"Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."* ]]
+  grep -qF "sudo dnf install podman -y" "${CALL_LOG}"
+}
+
+@test "setup_elasticsearch.sh: ID comparison is case-sensitive (ID=Ubuntu does not match ubuntu)" {
+  _assert_id_comparison_is_case_sensitive "${ES_SCRIPT}"
+}
+
+@test "test-scripts/setup_elk.sh: ID comparison is case-sensitive (ID=Ubuntu does not match ubuntu)" {
+  _assert_id_comparison_is_case_sensitive "${ELK_SCRIPT}"
+}
+
+_assert_os_release_without_id_field_falls_back_to_rpm_branch() {
+  local script="$1"
+  # os-release exists but has no ID= line at all (so $ID is empty after
+  # sourcing). Neither the ubuntu nor debian comparison can match an empty
+  # string, so this must fall back to the dnf/rpm branch, not crash or be
+  # silently mis-detected as Debian/Ubuntu.
+  unstub podman
+  unstub podman-compose
+  printf 'VERSION_ID="1.0"\nNAME="Mystery Linux"\n' > "${TEST_TMPDIR}/os-release"
+  stub sudo
+  stub dnf
+
+  harness="$(build_step1_harness "${script}" "${TEST_TMPDIR}/os-release")"
+  run bash "${harness}"
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."* ]]
+  grep -qF "sudo dnf install podman -y" "${CALL_LOG}"
+  grep -qF "sudo dnf install podman-compose -y" "${CALL_LOG}"
+}
+
+@test "setup_elasticsearch.sh: os-release file without an ID field falls back to dnf branch" {
+  _assert_os_release_without_id_field_falls_back_to_rpm_branch "${ES_SCRIPT}"
+}
+
+@test "test-scripts/setup_elk.sh: os-release file without an ID field falls back to dnf branch" {
+  _assert_os_release_without_id_field_falls_back_to_rpm_branch "${ELK_SCRIPT}"
+}
+
 # --- Ansible Playbook Integration & Syntax validation tests ---
 
 @test "Ansible playbooks: syntax validation check" {
