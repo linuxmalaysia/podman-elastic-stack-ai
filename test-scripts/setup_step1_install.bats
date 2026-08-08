@@ -360,6 +360,7 @@ _assert_missing_only_podman_compose_triggers_install_ubuntu() {
   cp "${REPO_ROOT}/ansible/setup_kibana.yml" "${run_dir}/"
   cp "${REPO_ROOT}/ansible/setup_fleet_server.yml" "${run_dir}/"
   cp "${REPO_ROOT}/ansible/group_vars/all.yml" "${run_dir}/group_vars/"
+  cp -r "${REPO_ROOT}/ansible/tasks" "${run_dir}/"
 
   # Accelerate pause tasks for lightning-fast test execution
   sed -i 's/seconds: 60/seconds: 1/g' "${run_dir}/setup_elasticsearch.yml"

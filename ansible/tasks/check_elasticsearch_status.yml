@@ -1,0 +1,102 @@
+---
+- name: "Check Prerequisites"
+  block:
+    - name: Check if podman is installed
+      command: which podman
+      register: podman_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Check if podman-compose is installed
+      command: which podman-compose
+      register: compose_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Fail if podman or podman-compose are not installed
+      fail:
+        msg: "Error: Podman or podman-compose is not installed. Please run setup_elasticsearch.yml first."
+      when: podman_check.rc != 0 or compose_check.rc != 0
+
+- name: "Check for Elasticsearch Certificate"
+  block:
+    - name: Check if certificate file exists
+      stat:
+        path: "{{ cert_dir }}/http_ca.crt"
+      register: cert_stat
+
+    - name: Fail if certificate missing
+      fail:
+        msg: "Error: Elasticsearch certificate file not found at '{{ cert_dir }}/http_ca.crt'. Please run setup_elasticsearch.yml successfully."
+      when: not cert_stat.stat.exists
+
+- name: "Check Elasticsearch Network"
+  block:
+    - name: Check if Podman network exists
+      command: podman network exists "{{ network_name }}"
+      register: network_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Fail if network missing
+      fail:
+        msg: "Error: The Podman network '{{ network_name }}' does not exist. Please run setup_elasticsearch.yml successfully."
+      when: network_check.rc != 0
+
+    - name: Display network status
+      debug:
+        msg: "Podman network '{{ network_name }}' exists."
+
+- name: "Check Elasticsearch Status and Get Version"
+  block:
+    - name: Check if temporary credentials file exists
+      stat:
+        path: "{{ temp_credentials_file }}"
+      register: creds_stat
+
+    - name: Fail if credentials file missing
+      fail:
+        msg: "Error: Temporary credentials file '{{ temp_credentials_file }}' not found."
+      when: not creds_stat.stat.exists
+
+    - name: Read password from credentials file
+      shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
+      register: es_password_grep
+      changed_when: false
+      no_log: true
+
+    - name: Set elastic password fact
+      set_fact:
+        elastic_password: "{{ es_password_grep.stdout | trim }}"
+      no_log: true
+
+    - name: Fail if elastic password empty
+      fail:
+        msg: "Error: Elasticsearch password not found in '{{ temp_credentials_file }}'."
+      when: elastic_password | length == 0
+
+    - name: Check Elasticsearch status
+      uri:
+        url: https://localhost:9200
+        user: elastic
+        password: "{{ elastic_password }}"
+        force_basic_auth: yes
+        ca_path: "{{ cert_dir }}/http_ca.crt"
+        return_content: yes
+        validate_certs: yes
+      register: es_status_out
+      failed_when: false
+      no_log: true
+
+    - name: Fail if Elasticsearch is not running
+      fail:
+        msg: "Error: Elasticsearch status check failed (HTTP {{ es_status_out.status | default('N/A') }}). Output: {{ es_status_out.content | default('No content') }}"
+      when: "es_status_out.status != 200 or 'You Know, for Search' not in es_status_out.content"
+
+    - name: Parse Elasticsearch version from output
+      set_fact:
+        elasticsearch_version: "{{ (es_status_out.content | from_json).version.number }}"
+
+    - name: Display Elasticsearch version
+      debug:
+        msg: "Elasticsearch is running. Version found: {{ elasticsearch_version }}"
