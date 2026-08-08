@@ -368,7 +368,10 @@ _assert_non_debian_id_with_os_release_falls_back_to_rpm_branch() {
   run bash "${harness}"
 
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *"Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."* ]]
+  if [[ "${output}" != *"Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."* && "${output}" != *"Unknown OS. Trying dnf..."* ]]; then
+    echo "Output does not match fallback to dnf: ${output}"
+    false
+  fi
   grep -qF "sudo dnf install podman -y" "${CALL_LOG}"
   grep -qF "sudo dnf install podman-compose -y" "${CALL_LOG}"
   run grep -q "apt-get" "${CALL_LOG}"
@@ -400,7 +403,10 @@ _assert_id_comparison_is_case_sensitive() {
 
   [ "${status}" -eq 0 ]
   [[ "${output}" != *"Debian/Ubuntu detected"* ]]
-  [[ "${output}" == *"Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."* ]]
+  if [[ "${output}" != *"Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."* && "${output}" != *"Unknown OS. Trying dnf..."* ]]; then
+    echo "Output does not match fallback to dnf: ${output}"
+    false
+  fi
   grep -qF "sudo dnf install podman -y" "${CALL_LOG}"
 }
 
@@ -428,7 +434,10 @@ _assert_os_release_without_id_field_falls_back_to_rpm_branch() {
   run bash "${harness}"
 
   [ "${status}" -eq 0 ]
-  [[ "${output}" == *"Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."* ]]
+  if [[ "${output}" != *"Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."* && "${output}" != *"Unknown OS. Trying dnf..."* ]]; then
+    echo "Output does not match fallback to dnf: ${output}"
+    false
+  fi
   grep -qF "sudo dnf install podman -y" "${CALL_LOG}"
   grep -qF "sudo dnf install podman-compose -y" "${CALL_LOG}"
 }

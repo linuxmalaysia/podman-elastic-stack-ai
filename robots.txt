@@ -1,0 +1,7 @@
+# robots.txt for linuxmalaysia podman-elastic-stack-ai
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://raw.githubusercontent.com/linuxmalaysia/podman-elastic-stack-ai/main/sitemap.xml
+Sitemap: https://raw.githubusercontent.com/linuxmalaysia/podman-elastic-stack-ai/main/sitemap.txt

@@ -1,0 +1,37 @@
+# Podman Elastic Stack AI
+
+This repository automates the setup, testing, and deployment of Elasticsearch 9.4.4, Kibana 9.4.4, and Fleet Server using Podman 5+ and hardened Wolfi images. It is driven by modular Ansible playbooks, standard helper bash scripts, and a master playbooks runner.
+
+## Core Documentation
+
+- [README.md](README.md): Master documentation covering prerequisites, architecture options (WSL2, single node, multi-node VM clusters, Google Jules environment), installation steps, configuration guides, daily workflows, and licensing.
+- [INSTALL.md](INSTALL.md): Step-by-step setup details, specific OS distribution guidelines (AlmaLinux 10, Ubuntu 24.04/26.04, Debian), pre-requisite verification, and helper commands.
+- [PLAYBOOKS.md](PLAYBOOKS.md): Structural details of the Ansible roles, playbooks, variables, connection plugin selection, and the telemetry logging system.
+- [LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md](LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md): Local execution guide, multi-distro test matrix using Podman, and bidirectional feedback bridge configuration.
+- [DOCS_MATRIX_TELEMETRY.md](DOCS_MATRIX_TELEMETRY.md): Architectural layout of developer mode metrics, resource auditing, block/rescue logs, and the telemetry format (`/tmp/jules_telemetry.json`).
+
+## Setup & Execution Scripts
+
+- [run_playbooks.sh](run_playbooks.sh): Master runner shell script for executing unified Ansible playbooks, dynamically supporting inventory files.
+- [setup_elasticsearch.sh](setup_elasticsearch.sh): Automates the pulling, optional signature verification (using cosign), volume binding, configuration, and startup of the Wolfi Elasticsearch container.
+- [setup_kibana.sh](setup_kibana.sh): Automates the pulling, default config extraction, volume/file permissions hardening, and container startup of Wolfi Kibana.
+- [setup_fleet_server.sh](setup_fleet_server.sh): Sets up and starts Fleet Server with secured `0600` permission configurations.
+- [scripts/jules_gh_feedback.sh](scripts/jules_gh_feedback.sh): Implements a bidirectional feedback link parsing local telemetry JSON into Markdown reports, posting as PR comments via GitHub CLI (`gh`).
+- [scripts/utils.sh](scripts/utils.sh): Common utility definitions like `command_exists` used across all setup/installation scripts.
+
+## Ansible Directories
+
+- `ansible/main.yml`: Unified playbooks orchestrator.
+- `ansible/group_vars/all.yml`: Global variables definition for Elastic stack components (versioning, network ports, connection configurations, execution mode thresholds).
+- `ansible/setup_elasticsearch.yml`: Hardened Ansible playbook deploying the wolfi-based Elasticsearch container.
+- `ansible/setup_kibana.yml`: Deployer for Kibana with clean dependency and lifecycle validations.
+- `ansible/setup_fleet_server.yml`: Deployer for secure Fleet Server instance with strict telemetry blocks.
+- `ansible/tasks/check_elasticsearch_status.yml`: Reusable, consolidated cluster and system status checks.
+- `playbooks/matrix_test.yml`: Cross-platform testing matrix orchestration playbook (Ubuntu, AlmaLinux, Debian).
+
+## Automated Test Suites (BATS)
+
+- `test-scripts/setup_step1_install.bats`: Installation logic and package dependency test cases.
+- `test-scripts/setup_elasticsearch_variables.bats`: Evaluates variables, default bind addresses, and helper positioning of configuration blocks.
+- `test-scripts/feedback_docs.bats`: Verifies consistency, matrices, and telemetry feedback reporting structures.
+- `test-scripts/docs_content.bats`: Document consistency checks.
