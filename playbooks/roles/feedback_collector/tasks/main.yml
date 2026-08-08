@@ -1,0 +1,50 @@
+---
+- name: Get Podman version on WSL2 host
+  command: podman --version
+  register: podman_version_cmd
+  ignore_errors: true
+
+- name: Generate current UTC timestamp
+  command: date -u +"%Y-%m-%dT%H:%M:%SZ"
+  register: timestamp_cmd
+  ignore_errors: true
+
+- name: Initialize formatted results list
+  set_fact:
+    formatted_results: []
+
+- name: Construct formatted results array
+  set_fact:
+    formatted_results: >-
+      {{
+        formatted_results + [{
+          'distro': item.key,
+          'image': item.value.image,
+          'status': item.value.status,
+          'exit_code': item.value.exit_code | int,
+          'cpu_percentage': item.value.cpu_percentage,
+          'memory_usage_bytes': item.value.memory_usage_bytes,
+          'logs': item.value.logs,
+          'error_summary': item.value.error_summary
+        }]
+      }}
+  loop: "{{ telemetry_results | dict2items }}"
+
+- name: Build complete telemetry payload dictionary
+  set_fact:
+    telemetry_payload:
+      timestamp: "{{ timestamp_cmd.stdout | trim | default('N/A') }}"
+      execution_mode: "{{ execution_mode | default('dev') }}"
+      pr_id: "{{ pr_id | default('0') }}"
+      overall_status: "{{ overall_status | default('passed') }}"
+      host_info:
+        os_family: "{{ ansible_os_family | default('Unknown') }}"
+        kernel_version: "{{ ansible_kernel | default('Unknown') }}"
+        podman_version: "{{ podman_version_cmd.stdout | trim | default('Unknown') }}"
+      results: "{{ formatted_results }}"
+
+- name: Write structured JSON report to /tmp/jules_telemetry.json
+  copy:
+    content: "{{ telemetry_payload | to_nice_json }}"
+    dest: "/tmp/jules_telemetry.json"
+    mode: "0600"
