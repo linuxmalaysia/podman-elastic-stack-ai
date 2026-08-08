@@ -26,7 +26,7 @@ TEMP_CREDENTIALS_FILE="${ELK_DIR}/temp_credentials.txt"
 # Configurable Bind Address (can be overridden to 0.0.0.0 or a custom IP)
 BIND_ADDRESS="${BIND_ADDRESS:-127.0.0.1}"
 
-# --- Helper Functions ---
+# info prints a section heading surrounded by separators.
 info() {
   echo "--- $1 ---"
 }

@@ -22,7 +22,7 @@ NETWORK_NAME="elk-wolfi_elastic" # Use the same network as Elasticsearch and Kib
 TEMP_CREDENTIALS_FILE="${ELK_DIR}/temp_credentials.txt"
 # Configurable Bind Address (can be overridden to 0.0.0.0 or a custom IP)
 BIND_ADDRESS="${BIND_ADDRESS:-127.0.0.1}"
-# --- Helper Functions ---
+# info prints a message surrounded by separator markers.
 info() {
   echo "--- $1 ---"
 }
