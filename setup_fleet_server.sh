@@ -137,7 +137,7 @@ services:
     image: ${FLEET_SERVER_IMAGE}
     container_name: ${FLEET_SERVER_CONTAINER_NAME}
     ports:
-      - "${FLEET_SERVER_PORT}:${FLEET_SERVER_PORT}"
+      - "127.0.0.1:${FLEET_SERVER_PORT}:${FLEET_SERVER_PORT}"
     environment:
       - FLEET_SERVER_ENABLE=true # Set to true to bootstrap Fleet Server
       - FLEET_SERVER_ELASTICSEARCH_HOST=https://\${${ES_CONTAINER_NAME}}:9200 # Use https and the container name
