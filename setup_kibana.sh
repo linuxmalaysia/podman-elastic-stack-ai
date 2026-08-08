@@ -23,8 +23,10 @@ KIBANA_CONTAINER_NAME="kib01"
 KIBANA_PORT="5601"
 NETWORK_NAME="elk-wolfi_elastic" # Updated network name
 TEMP_CREDENTIALS_FILE="${ELK_DIR}/temp_credentials.txt"
+# Configurable Bind Address (can be overridden to 0.0.0.0 or a custom IP)
+BIND_ADDRESS="${BIND_ADDRESS:-127.0.0.1}"
 
-# --- Helper Functions ---
+# info prints a section heading surrounded by separators.
 info() {
   echo "--- $1 ---"
 }
@@ -134,7 +136,7 @@ services:
     networks:
       - ${NETWORK_NAME}
     ports:
-      - "127.0.0.1:${KIBANA_PORT}:${KIBANA_PORT}"
+      - "${BIND_ADDRESS}:${KIBANA_PORT}:${KIBANA_PORT}"
     volumes:
       - kibana_data:/data/kibana_data
       - ./kibana.yml:/usr/share/kibana/config/kibana.yml # Mount custom kibana.yml to standard config dir

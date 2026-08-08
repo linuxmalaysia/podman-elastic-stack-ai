@@ -37,8 +37,10 @@ ELASTICSEARCH_IMAGE="docker.elastic.co/elasticsearch/elasticsearch-wolfi:${ELK_V
 KIBANA_IMAGE="docker.elastic.co/kibana/kibana:${ELK_VERSION}"
 NETWORK_NAME="elastic"
 TEMP_CREDENTIALS_FILE="${ELK_DIR}/temp_credentials.txt"
+# Configurable Bind Address (can be overridden to 0.0.0.0 or a custom IP)
+BIND_ADDRESS="${BIND_ADDRESS:-127.0.0.1}"
 
-# --- Helper Functions ---
+# info prints a message surrounded by separator markers.
 info() {
   echo "--- $1 ---"
 }
@@ -137,7 +139,7 @@ services:
     networks:
       - ${NETWORK_NAME}
     ports:
-      - "127.0.0.1:9200:9200"
+      - "${BIND_ADDRESS}:9200:9200"
     environment:
       - discovery.type=single-node
     mem_limit: 1GB

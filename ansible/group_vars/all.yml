@@ -1,4 +1,22 @@
 ---
+# ==============================================================================
+# Deployment Selection Options
+# ==============================================================================
+# Supported Options:
+# - 'wsl2'         - Windows 11 Linux WSL2 environment (min 3 podman nodes/pods)
+# - 'single_node'  - Single hardware or single VM environment (3 podman pods/nodes)
+# - 'multi_node'   - Multiple/dedicated hardware or VM environments (dedicated podman nodes/pods)
+# - 'jules'        - Special dedicated option for Google Jules environment
+deployment_option: "wsl2"
+
+# Target hosts for playbook run. Defaults to 'localhost'.
+target_hosts: "localhost"
+
+# Configurable Bind Addresses
+elasticsearch_bind_address: "{{ '127.0.0.1' if (deployment_option == 'wsl2' or deployment_option == 'jules') else '0.0.0.0' }}"
+kibana_bind_address: "{{ '127.0.0.1' if (deployment_option == 'wsl2' or deployment_option == 'jules') else '0.0.0.0' }}"
+fleet_server_bind_address: "{{ '127.0.0.1' if (deployment_option == 'wsl2' or deployment_option == 'jules') else '0.0.0.0' }}"
+
 elk_version: "9.4.4"
 elk_base_dir: "{{ playbook_dir | dirname }}"
 elk_dir: "{{ elk_base_dir }}/elk-wolfi"

@@ -1,7 +1,7 @@
 ---
 - name: Set up Fleet Server
-  hosts: localhost
-  connection: local
+  hosts: "{{ target_hosts | default('localhost') }}"
+  connection: "{{ 'local' if (target_hosts | default('localhost') == 'localhost') else ansible_connection | default('ssh') }}"
   tasks:
     - name: Ensure variables are loaded
       include_vars:
@@ -97,7 +97,7 @@
                   container_name: {{ fleet_server_container_name }}
                   restart: unless-stopped
                   ports:
-                    - "127.0.0.1:{{ fleet_server_port }}:{{ fleet_server_port }}"
+                    - "{{ fleet_server_bind_address | default('127.0.0.1') }}:{{ fleet_server_port }}:{{ fleet_server_port }}"
                   environment:
                     - FLEET_SERVER_ENABLE=true
                     - FLEET_SERVER_ELASTICSEARCH_HOST=https://{{ es_container_name }}:9200
