@@ -1,0 +1,7 @@
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/INSTALL/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/PLAYBOOKS/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/DOCS_MATRIX_TELEMETRY/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/HISTORY/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/CHANGELOG/
