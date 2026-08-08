@@ -1,12 +1,12 @@
 version: '3.8'
 services:
   kibana:
-    image: docker.elastic.co/kibana/kibana-wolfi:8.17.4
+    image: docker.elastic.co/kibana/kibana-wolfi:9.4.4
     container_name: kib01
     networks:
       - elk-wolfi_elastic
     ports:
-      - "5601:5601"
+      - "127.0.0.1:5601:5601"
     volumes:
       - kibana_data:/data/kibana_data
       - ./kibana.yml:/usr/share/kibana/config/kibana.yml # Mount custom kibana.yml to standard config dir

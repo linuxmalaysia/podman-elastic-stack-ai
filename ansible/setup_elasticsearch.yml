@@ -36,6 +36,12 @@
                   - podman-compose
                 state: present
               become: true
+              register: apt_install_result
+
+            - name: Check if apt installation failed
+              fail:
+                msg: "Failed to install required podman and podman-compose packages via apt."
+              when: apt_install_result.failed | default(false)
           when:
             - commands_missing
             - ansible_os_family == 'Debian'
@@ -47,7 +53,8 @@
                 name: epel-release
                 state: present
               become: true
-              ignore_errors: true
+              register: epel_install_result
+              failed_when: false
 
             - name: Install podman and podman-compose via dnf
               dnf:
@@ -56,9 +63,22 @@
                   - podman-compose
                 state: present
               become: true
+              register: dnf_install_result
+
+            - name: Check if dnf installation failed
+              fail:
+                msg: "Failed to install required podman and podman-compose packages via dnf."
+              when: dnf_install_result.failed | default(false)
           when:
             - commands_missing
             - ansible_os_family == 'RedHat'
+
+    - name: "Step 1.5 - Verify Podman and Compose are available"
+      command: which {{ item }}
+      loop:
+        - podman
+        - podman-compose
+      changed_when: false
 
     - name: "Step 2 - Create Data Directory"
       block:
@@ -132,7 +152,7 @@
                   networks:
                     - elastic
                   ports:
-                    - "9200:9200"
+                    - "127.0.0.1:9200:9200"
                   environment:
                     - discovery.type=single-node
                   mem_limit: 1GB

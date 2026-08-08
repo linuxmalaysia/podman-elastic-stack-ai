@@ -137,7 +137,7 @@ services:
     networks:
       - ${NETWORK_NAME}
     ports:
-      - "9200:9200"
+      - "127.0.0.1:9200:9200"
     environment:
       - discovery.type=single-node
     mem_limit: 1GB

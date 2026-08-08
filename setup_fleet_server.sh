@@ -12,7 +12,6 @@ set -e
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 
 # --- Variables ---
-ELK_VERSION="9.4.4"
 ELK_BASE_DIR="${SCRIPT_DIR}"
 ELK_DIR="${ELK_BASE_DIR}/elk-wolfi"
 CERT_DIR="${ELK_DIR}/certs"
@@ -138,7 +137,7 @@ services:
     image: ${FLEET_SERVER_IMAGE}
     container_name: ${FLEET_SERVER_CONTAINER_NAME}
     ports:
-      - "${FLEET_SERVER_PORT}:${FLEET_SERVER_PORT}"
+      - "127.0.0.1:${FLEET_SERVER_PORT}:${FLEET_SERVER_PORT}"
     environment:
       - FLEET_SERVER_ENABLE=true # Set to true to bootstrap Fleet Server
       - FLEET_SERVER_ELASTICSEARCH_HOST=https://\${${ES_CONTAINER_NAME}}:9200 # Use https and the container name

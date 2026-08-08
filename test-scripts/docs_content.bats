@@ -21,7 +21,7 @@ INSTALL_DOC="${REPO_ROOT}/INSTALL.md"
 }
 
 @test "README.md documents apt-get based install for Debian/Ubuntu" {
-  grep -q 'On Debian and Ubuntu systems' "${README}"
+  grep -qF 'On Debian and Ubuntu systems (including Ubuntu 26.04), it uses standard `apt-get`' "${README}"
 }
 
 @test "README.md documents dnf based install for RPM-based systems" {
@@ -30,6 +30,16 @@ INSTALL_DOC="${REPO_ROOT}/INSTALL.md"
 
 @test "README.md documents the Podman 5+ on Ubuntu 24.04/26.04 caveat" {
   grep -qF '**Note on Podman 5+ on Ubuntu 24.04/26.04:**' "${README}"
+}
+
+@test "README.md documents Ubuntu 26.04 and AlmaLinux 10 WSL install" {
+  grep -qF 'wsl --install -d Ubuntu-26.04' "${README}"
+  grep -qF 'wsl --install -d AlmaLinux-10' "${README}"
+}
+
+@test "README.md documents wsl playbook execution commands" {
+  grep -qF 'wsl -d Ubuntu-26.04 bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"' "${README}"
+  grep -qF 'wsl -d AlmaLinux-10 bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"' "${README}"
 }
 
 @test "INSTALL.md documents Ubuntu and Podman 5+ as fully supported" {

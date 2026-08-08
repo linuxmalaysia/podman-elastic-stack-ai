@@ -60,7 +60,7 @@
                   networks:
                     - {{ network_name }}
                   ports:
-                    - "{{ kibana_port }}:{{ kibana_port }}"
+                    - "127.0.0.1:{{ kibana_port }}:{{ kibana_port }}"
                   volumes:
                     - kibana_data:/data/kibana_data
                     - ./kibana.yml:/usr/share/kibana/config/kibana.yml

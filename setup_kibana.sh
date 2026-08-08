@@ -15,7 +15,6 @@ set -e
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 
 # --- Variables ---
-ELK_VERSION="9.4.4"
 ELK_BASE_DIR="${SCRIPT_DIR}" # Base directory is where the script is located
 ELK_DIR="${ELK_BASE_DIR}/elk-wolfi"
 CERT_DIR="${ELK_DIR}/certs"
@@ -135,7 +134,7 @@ services:
     networks:
       - ${NETWORK_NAME}
     ports:
-      - "${KIBANA_PORT}:${KIBANA_PORT}"
+      - "127.0.0.1:${KIBANA_PORT}:${KIBANA_PORT}"
     volumes:
       - kibana_data:/data/kibana_data
       - ./kibana.yml:/usr/share/kibana/config/kibana.yml # Mount custom kibana.yml to standard config dir

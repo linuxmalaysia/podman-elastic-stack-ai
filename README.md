@@ -12,33 +12,40 @@ This script automates the setup of Elasticsearch version 9.4.4 using Podman and 
 This project fully supports and is designed for only **localhost** deployments inside a Windows 11 Linux WSL2 environment. Below are the steps to deploy WSL2 and execute the playbooks or shell scripts.
 
 ### Step 1: Install WSL2 on Windows 11
+
 Open a Windows PowerShell terminal with **Administrator** privileges and run:
+
 ```powershell
 # Install WSL2 with the default Ubuntu 26.04 distro
 wsl --install -d Ubuntu-26.04
 ```
+
 Alternatively, if you want to deploy **AlmaLinux 10**, you can download the AlmaLinux 10 WSL appx/zip package from the official AlmaLinux channels or import it:
+
 ```powershell
 # To list available online distributions
 wsl --list --online
 
-# To install Ubuntu 26.04 specifically:
-wsl --install -d Ubuntu-26.04
+# To install AlmaLinux 10 specifically:
+wsl --install -d AlmaLinux-10
 ```
 
 ### Step 2: Running commands from Windows 11 PowerShell using the `wsl` command
+
 To execute the Ansible playbooks directly from Windows PowerShell inside the Linux WSL2 environment, use the `wsl` command:
 
 **For Ubuntu 26.04:**
+
 ```powershell
 # Execute the playbooks using the master script inside Ubuntu-26.04
-wsl -d Ubuntu-26.04 -u root bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"
+wsl -d Ubuntu-26.04 bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"
 ```
 
 **For AlmaLinux 10:**
+
 ```powershell
 # Execute the playbooks using the master script inside AlmaLinux-10
-wsl -d AlmaLinux-10 -u root bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"
+wsl -d AlmaLinux-10 bash -c "cd /home/jules/podman-elastic-stack && ./run_playbooks.sh"
 ```
 
 *Note: Replace `/home/jules/podman-elastic-stack` with the actual path to your cloned repository inside your WSL2 environment.*
@@ -62,6 +69,7 @@ wsl -d AlmaLinux-10 -u root bash -c "cd /home/jules/podman-elastic-stack && ./ru
 
 1.  **Installs Podman and Podman Compose:** If not already installed, the script automatically detects the host operating system. On Debian and Ubuntu systems (including Ubuntu 26.04), it uses standard `apt-get` to install the package-manager provided versions of `podman` and `podman-compose`. On RPM-based systems (like Fedora, CentOS, etc.), it installs them using `dnf`.
     * **Note on Podman 5+ on Ubuntu 24.04/26.04:** Since default repositories may ship older Podman versions, if you explicitly require Podman 5+, you can manually install it beforehand from a verified community repository (such as `home:alvistack` on the OpenSUSE Build Service) with secure GPG repository-key verification:
+
       ```bash
       # 1. Download and dearmor the GPG key
       curl -fsSL https://download.opensuse.org/repositories/home:/alvistack/xUbuntu_26.04/Release.key | gpg --dearmor | sudo tee /etc/apt/keyrings/home_alvistack.gpg > /dev/null
@@ -73,6 +81,7 @@ wsl -d AlmaLinux-10 -u root bash -c "cd /home/jules/podman-elastic-stack && ./ru
       sudo apt-get update
       sudo apt-get install -y podman podman-compose
       ```
+
       The setup scripts will automatically detect and leverage your pre-installed Podman 5+ environment seamlessly.
 2.  **Pulls Elasticsearch Image:** Downloads the official Elasticsearch 9.4.4 hardened Wolfi image from Docker Hub.
 3.  **Optional Cosign Verification:** If `cosign` is installed, the script downloads the Elastic public key and verifies the signature of the Elasticsearch image.

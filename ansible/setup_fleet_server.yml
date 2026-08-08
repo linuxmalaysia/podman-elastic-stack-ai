@@ -97,7 +97,7 @@
                   container_name: {{ fleet_server_container_name }}
                   restart: unless-stopped
                   ports:
-                    - "{{ fleet_server_port }}:{{ fleet_server_port }}"
+                    - "127.0.0.1:{{ fleet_server_port }}:{{ fleet_server_port }}"
                   environment:
                     - FLEET_SERVER_ENABLE=true
                     - FLEET_SERVER_ELASTICSEARCH_HOST=https://{{ es_container_name }}:9200
