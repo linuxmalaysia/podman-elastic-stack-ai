@@ -85,7 +85,7 @@
         return_content: yes
         validate_certs: yes
       register: es_status_out
-      until: "es_status_out.status == 200"
+      until: "(es_status_out.status | default(0)) == 200"
       retries: 30
       delay: 2
       failed_when: false
