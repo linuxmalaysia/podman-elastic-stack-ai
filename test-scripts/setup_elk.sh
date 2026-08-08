@@ -28,9 +28,15 @@ info() {
   echo "--- $1 ---"
 }
 
-command_exists () {
-  command -v "$1" >/dev/null 2>&1
-}
+# Source common utilities
+if [ -f "${SCRIPT_DIR}/scripts/utils.sh" ]; then
+  source "${SCRIPT_DIR}/scripts/utils.sh"
+elif [ -f "${SCRIPT_DIR}/../scripts/utils.sh" ]; then
+  source "${SCRIPT_DIR}/../scripts/utils.sh"
+else
+  echo "Error: utils.sh not found."
+  exit 1
+fi
 
 # --- Step 1: Install Podman and Podman Compose ---
 info "Step 1: Install Podman and Podman Compose"
