@@ -36,35 +36,34 @@ command_exists () {
 info "Step 1: Install Podman and Podman Compose"
 
 if ! command_exists podman || ! command_exists podman-compose; then
+  OS_TYPE="unknown"
   if [ -f /etc/os-release ]; then
     . /etc/os-release
     if [ "$ID" = "ubuntu" ] || [ "$ID" = "debian" ]; then
-      info "Debian/Ubuntu detected. Checking for missing dependencies..."
-      if ! command_exists podman || ! command_exists podman-compose; then
-        sudo apt-get update -y
-        if ! command_exists podman; then
-          info "Installing podman via apt..."
-          sudo apt-get install -y podman
-        fi
-        if ! command_exists podman-compose; then
-          info "Installing podman-compose via apt..."
-          sudo apt-get install -y podman-compose
-        fi
-      fi
-    else
-      info "Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."
-      if ! command_exists podman; then
-        sudo dnf update -y
-        sudo dnf install epel-release -y
-        sudo dnf install podman -y
-      fi
-      if ! command_exists podman-compose; then
-        sudo dnf install epel-release -y
-        sudo dnf install podman-compose -y
-      fi
+      OS_TYPE="debian"
+    elif [ "$ID" = "fedora" ] || [ "$ID" = "centos" ] || [ "$ID" = "rhel" ] || [ "$ID" = "almalinux" ] || [ "$ID" = "rocky" ]; then
+      OS_TYPE="rpm"
+    fi
+  fi
+
+  if [ "$OS_TYPE" = "debian" ]; then
+    info "Debian/Ubuntu detected. Checking for missing dependencies..."
+    sudo apt-get update -y
+    if ! command_exists podman; then
+      info "Installing podman via apt..."
+      sudo apt-get install -y podman
+    fi
+    if ! command_exists podman-compose; then
+      info "Installing podman-compose via apt..."
+      sudo apt-get install -y podman-compose
     fi
   else
-    info "Unknown OS. Trying dnf..."
+    if [ "$OS_TYPE" = "rpm" ]; then
+      info "Fedora/CentOS/RHEL/AlmaLinux detected. Installing via dnf..."
+    else
+      info "Unknown OS. Trying dnf..."
+    fi
+
     if ! command_exists podman; then
       sudo dnf update -y
       sudo dnf install epel-release -y
