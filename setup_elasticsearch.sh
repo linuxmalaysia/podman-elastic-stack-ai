@@ -50,8 +50,6 @@ info() {
 # Source common utilities
 if [ -f "${SCRIPT_DIR}/scripts/utils.sh" ]; then
   source "${SCRIPT_DIR}/scripts/utils.sh"
-elif [ -f "${SCRIPT_DIR}/../scripts/utils.sh" ]; then
-  source "${SCRIPT_DIR}/../scripts/utils.sh"
 else
   echo "Error: utils.sh not found."
   exit 1

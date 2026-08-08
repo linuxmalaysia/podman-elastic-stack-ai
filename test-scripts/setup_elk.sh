@@ -23,15 +23,13 @@ KIBANA_IMAGE="docker.elastic.co/kibana/kibana:${ELK_VERSION}"
 NETWORK_NAME="elastic"
 TEMP_CREDENTIALS_FILE="${ELK_DIR}/temp_credentials.txt"
 
-# info prints a message with a separator to standard output.
+# --- Helper Functions ---
 info() {
   echo "--- $1 ---"
 }
 
 # Source common utilities
-if [ -f "${SCRIPT_DIR}/scripts/utils.sh" ]; then
-  source "${SCRIPT_DIR}/scripts/utils.sh"
-elif [ -f "${SCRIPT_DIR}/../scripts/utils.sh" ]; then
+if [ -f "${SCRIPT_DIR}/../scripts/utils.sh" ]; then
   source "${SCRIPT_DIR}/../scripts/utils.sh"
 else
   echo "Error: utils.sh not found."
