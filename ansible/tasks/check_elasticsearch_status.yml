@@ -4,13 +4,13 @@
     - name: Check if podman is installed
       command: which podman
       register: podman_check
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Check if podman-compose is installed
       command: which podman-compose
       register: compose_check
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Fail if podman or podman-compose are not installed
@@ -35,7 +35,7 @@
     - name: Check if Podman network exists
       command: podman network exists "{{ network_name }}"
       register: network_check
-      ignore_errors: true
+      failed_when: false
       changed_when: false
 
     - name: Fail if network missing
@@ -85,13 +85,16 @@
         return_content: yes
         validate_certs: yes
       register: es_status_out
+      until: "es_status_out.status == 200"
+      retries: 30
+      delay: 2
       failed_when: false
       no_log: true
 
     - name: Fail if Elasticsearch is not running
       fail:
         msg: "Error: Elasticsearch status check failed (HTTP {{ es_status_out.status | default('N/A') }}). Output: {{ es_status_out.content | default('No content') }}"
-      when: "es_status_out.status != 200 or 'You Know, for Search' not in es_status_out.content"
+      when: "(es_status_out.status | default('N/A')) != 200 or 'You Know, for Search' not in (es_status_out.content | default('No content'))"
 
     - name: Parse Elasticsearch version from output
       set_fact:
