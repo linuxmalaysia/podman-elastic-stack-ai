@@ -60,7 +60,7 @@ if ! command_exists podman || ! command_exists podman-compose; then
     . /etc/os-release
     if [ "$ID" = "ubuntu" ] || [ "$ID" = "debian" ]; then
       OS_TYPE="debian"
-    else
+    elif [ "$ID" = "fedora" ] || [ "$ID" = "centos" ] || [ "$ID" = "rhel" ] || [ "$ID" = "almalinux" ] || [ "$ID" = "rocky" ]; then
       OS_TYPE="rpm"
     fi
   fi
