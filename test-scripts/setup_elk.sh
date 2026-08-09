@@ -23,7 +23,7 @@ KIBANA_IMAGE="docker.elastic.co/kibana/kibana:${ELK_VERSION}"
 NETWORK_NAME="elastic"
 TEMP_CREDENTIALS_FILE="${ELK_DIR}/temp_credentials.txt"
 
-# --- Helper Functions ---
+# info prints a message surrounded by separator markers.
 info() {
   echo "--- $1 ---"
 }
