@@ -192,7 +192,7 @@ _assert_breaks_immediately_when_already_running() {
   [ "${status}" -eq 0 ]
   # No "Waiting for..." message should have been printed: the very first
   # inspect check already reports the container as running.
-  run grep -c "${waiting_msg}" <<< "${output}"
+  run grep -c "${waiting_msg}.*seconds remaining..." <<< "${output}"
   [ "${output}" = "0" ]
   # Exactly one inspect call was made before breaking.
   [ "$(grep -c "podman inspect" "${CALL_LOG}")" -eq 1 ]
@@ -254,7 +254,7 @@ _assert_breaks_after_n_checks() {
 
   [ "${status}" -eq 0 ]
   local waiting_count
-  waiting_count="$(grep -c "${waiting_msg}" <<< "${output}" || true)"
+  waiting_count="$(grep -c "${waiting_msg}.*seconds remaining..." <<< "${output}" || true)"
   [ "${waiting_count}" -eq "$((n - 1))" ]
   [ "$(grep -c "podman inspect" "${CALL_LOG}")" -eq "${n}" ]
   [ "$(grep -c "^sleep" "${CALL_LOG}")" -eq "$((n - 1))" ]
@@ -312,7 +312,7 @@ _assert_exhausts_all_iterations_when_never_running() {
 
   [ "${status}" -eq 0 ]
   local waiting_count
-  waiting_count="$(grep -c "${waiting_msg}" <<< "${output}" || true)"
+  waiting_count="$(grep -c "${waiting_msg}.*seconds remaining..." <<< "${output}" || true)"
   [ "${waiting_count}" -eq "${max_iterations}" ]
   [ "$(grep -c "podman inspect" "${CALL_LOG}")" -eq "${max_iterations}" ]
   [ "$(grep -c "^sleep" "${CALL_LOG}")" -eq "${max_iterations}" ]
