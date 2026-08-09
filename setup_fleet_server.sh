@@ -30,6 +30,8 @@ info() {
 # Source common utilities
 if [ -f "${SCRIPT_DIR}/scripts/utils.sh" ]; then
   source "${SCRIPT_DIR}/scripts/utils.sh"
+elif [ -f "${SCRIPT_DIR}/../scripts/utils.sh" ]; then
+  source "${SCRIPT_DIR}/../scripts/utils.sh"
 else
   echo "Error: utils.sh not found."
   exit 1
@@ -169,11 +171,14 @@ info "Step 9: Wait for Fleet Server to Start"
 MAX_WAIT_SECONDS=60
 echo "Waiting for Fleet Server to start..."
 for i in $(seq "$MAX_WAIT_SECONDS" -1 1); do
+  if [ "$(podman inspect -f '{{.State.Running}}' "${FLEET_SERVER_CONTAINER_NAME}" 2>/dev/null)" = "true" ]; then
+    break
+  fi
   echo "Waiting for Fleet Server to start... $i seconds remaining..."
-  podman ps -a --filter name="${FLEET_SERVER_CONTAINER_NAME}"
   sleep 1
 done
-echo "Fleet Server start process complete. You can check the status above."
+echo "Fleet Server start process complete. You can check the status below:"
+podman ps -a --filter name="${FLEET_SERVER_CONTAINER_NAME}"
 
 echo ""
 info "Fleet Server setup complete!  It is running on port ${FLEET_SERVER_PORT}."

@@ -50,6 +50,8 @@ info() {
 # Source common utilities
 if [ -f "${SCRIPT_DIR}/scripts/utils.sh" ]; then
   source "${SCRIPT_DIR}/scripts/utils.sh"
+elif [ -f "${SCRIPT_DIR}/../scripts/utils.sh" ]; then
+  source "${SCRIPT_DIR}/../scripts/utils.sh"
 else
   echo "Error: utils.sh not found."
   exit 1
@@ -163,10 +165,15 @@ info "Step 6: Retrieve and Store Elasticsearch Password"
 echo "Please wait for Elasticsearch to start..."
 
 for i in $(seq 60 -1 1); do
+  if [ "$(podman inspect -f '{{.State.Running}}' "${CONTAINER_NAME}" 2>/dev/null)" = "true" ]; then
+    break
+  fi
   echo "Waiting for Elasticsearch to start... $i seconds remaining..."
-  podman ps -a
   sleep 1
 done
+
+echo "Elasticsearch container is running."
+podman ps -a --filter name="${CONTAINER_NAME}"
 
 # Change to the base directory
 cd "${ELK_BASE_DIR}"
