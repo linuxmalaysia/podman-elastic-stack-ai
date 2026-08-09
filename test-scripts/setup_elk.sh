@@ -29,7 +29,9 @@ info() {
 }
 
 # Source common utilities
-if [ -f "${SCRIPT_DIR}/../scripts/utils.sh" ]; then
+if [ -f "${SCRIPT_DIR}/scripts/utils.sh" ]; then
+  source "${SCRIPT_DIR}/scripts/utils.sh"
+elif [ -f "${SCRIPT_DIR}/../scripts/utils.sh" ]; then
   source "${SCRIPT_DIR}/../scripts/utils.sh"
 else
   echo "Error: utils.sh not found."
@@ -129,6 +131,9 @@ info "Step 6: Retrieve and Store Elasticsearch Password"
 echo "Please wait for Elasticsearch to start..."
 
 for i in $(seq 60 -1 1); do
+  if [ "$(podman inspect -f '{{.State.Running}}' es01 2>/dev/null)" = "true" ]; then
+    break
+  fi
   echo "Waiting for Elasticsearch to start... $i seconds remaining..."
   sleep 1
 done

@@ -34,6 +34,8 @@ info() {
 # Source common utilities
 if [ -f "${SCRIPT_DIR}/scripts/utils.sh" ]; then
   source "${SCRIPT_DIR}/scripts/utils.sh"
+elif [ -f "${SCRIPT_DIR}/../scripts/utils.sh" ]; then
+  source "${SCRIPT_DIR}/../scripts/utils.sh"
 else
   echo "Error: utils.sh not found."
   exit 1
@@ -161,12 +163,15 @@ MAX_WAIT_SECONDS=60
 echo "Please wait for Kibana to start..."
 
 for i in $(seq "$MAX_WAIT_SECONDS" -1 1); do
+  if [ "$(podman inspect -f '{{.State.Running}}' "${KIBANA_CONTAINER_NAME}" 2>/dev/null)" = "true" ]; then
+    break
+  fi
   echo "Waiting for Kibana to start... $i seconds remaining..."
-  podman ps -a --filter name="${KIBANA_CONTAINER_NAME}"
   sleep 1
 done
 
-echo "Kibana start process waiting complete. You can check the status above."
+echo "Kibana start process waiting complete. You can check the status below:"
+podman ps -a --filter name="${KIBANA_CONTAINER_NAME}"
 
 # --- Step 8: Get Elasticsearch Container IP Address ---
 info "Step 8: Get Elasticsearch Container IP Address"
