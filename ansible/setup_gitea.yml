@@ -1,0 +1,265 @@
+---
+- name: Deploy Sovereign Gitea Rootless Stack
+  hosts: "{{ target_hosts | default('localhost') }}"
+  connection: "{{ 'local' if (target_hosts | default('localhost') == 'localhost') else ansible_connection | default('ssh') }}"
+  gather_facts: true
+  vars:
+    gitea_db_user: "gitea"
+    gitea_db_name: "gitea"
+    gitea_db_password: "" # Randomly generated if blank
+    gitea_container_name_db: "gitea-db"
+    gitea_container_name_app: "gitea-app"
+    gitea_pod_name: "gitea-stack"
+    gitea_http_port: "3000"
+    gitea_ssh_port: "2222"
+    gitea_version: "1.26.1"
+    gitea_domain: "127.0.0.1"
+    gitea_root_url: "http://127.0.0.1:3000/"
+    gitea_credentials_file: "{{ playbook_dir | dirname }}/elk-wolfi/gitea_credentials.txt"
+
+  tasks:
+    - name: "Step 1 - Check and Install Podman and Podman Compose"
+      block:
+        - name: Check if podman or podman-compose are missing
+          command: which {{ item }}
+          loop:
+            - podman
+            - podman-compose
+          register: commands_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Set missing command flag
+          set_fact:
+            commands_missing: "{{ commands_check.results | selectattr('rc', 'ne', 0) | list | length > 0 }}"
+
+        - name: Install dependencies on Debian/Ubuntu
+          block:
+            - name: Update apt cache
+              apt:
+                update_cache: yes
+              become: true
+
+            - name: Install podman and podman-compose via apt
+              apt:
+                name:
+                  - podman
+                  - podman-compose
+                state: present
+              become: true
+              register: apt_install_result
+
+            - name: Check if apt installation failed
+              fail:
+                msg: "Failed to install required podman and podman-compose packages via apt."
+              when: apt_install_result.failed | default(false)
+          when:
+            - commands_missing
+            - ansible_os_family == 'Debian'
+
+        - name: Install dependencies on RedHat/CentOS/AlmaLinux
+          block:
+            - name: Install EPEL release via dnf
+              dnf:
+                name: epel-release
+                state: present
+              become: true
+              register: epel_install_result
+              failed_when: false
+
+            - name: Install podman and podman-compose via dnf
+              dnf:
+                name:
+                  - podman
+                  - podman-compose
+                state: present
+              become: true
+              register: dnf_install_result
+
+            - name: Check if dnf installation failed
+              fail:
+                msg: "Failed to install required podman and dnf-compose packages."
+              when: dnf_install_result.failed | default(false)
+          when:
+            - commands_missing
+            - ansible_os_family == 'RedHat'
+
+    - name: "Step 1.5 - Verify Podman and Compose are available"
+      command: which {{ item }}
+      loop:
+        - podman
+        - podman-compose
+      changed_when: false
+
+    - name: "Step 2 - Enable User Linger"
+      block:
+        - name: Enable linger for active non-root user
+          command: "loginctl enable-linger {{ ansible_user_id }}"
+          become: true
+          ignore_errors: true
+          register: linger_result
+
+        - name: Warn if linger enablement failed
+          debug:
+            msg: "Warning: loginctl enable-linger failed or was skipped. Linger may not be enabled."
+          when: linger_result.failed | default(false)
+
+    - name: "Step 3 - Securely Manage Passwords"
+      block:
+        - name: Ensure target directory for credentials exists
+          file:
+            path: "{{ gitea_credentials_file | dirname }}"
+            state: directory
+            mode: "0755"
+
+        - name: Check if credentials file already exists
+          stat:
+            path: "{{ gitea_credentials_file }}"
+          register: creds_file_stat
+
+        - name: Read existing Gitea password if file exists
+          shell: "grep \"GITEA_DB_PASSWORD:\" \"{{ gitea_credentials_file }}\" | sed 's/.*GITEA_DB_PASSWORD: //' | tr -d '\n\r '"
+          register: gitea_password_grep
+          changed_when: false
+          failed_when: false
+          no_log: true
+          when: creds_file_stat.stat.exists
+
+        - name: Set password from file if found
+          set_fact:
+            final_gitea_password: "{{ gitea_password_grep.stdout | trim if (creds_file_stat.stat.exists and gitea_password_grep.stdout is defined and gitea_password_grep.stdout | length > 0) else '' }}"
+          no_log: true
+
+        - name: Generate and save new password if not found
+          block:
+            - name: Generate random secure password
+              set_fact:
+                generated_password: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters,digits length=24') }}"
+              no_log: true
+
+            - name: Set final password
+              set_fact:
+                final_gitea_password: "{{ gitea_db_password if gitea_db_password != '' else generated_password }}"
+              no_log: true
+
+            - name: Write Gitea credentials to file with 0600 permissions
+              copy:
+                dest: "{{ gitea_credentials_file }}"
+                content: |
+                  # Generated Gitea Credentials
+                  # Keep this file secure and NEVER commit it to git!
+                  GITEA_DB_USER: {{ gitea_db_user }}
+                  GITEA_DB_NAME: {{ gitea_db_name }}
+                  GITEA_DB_PASSWORD: {{ final_gitea_password }}
+                mode: "0600"
+              no_log: true
+          when: final_gitea_password == ""
+
+    - name: "Step 4 - Create Rootless Podman Pod"
+      block:
+        - name: Check if Gitea pod already exists
+          command: podman pod exists "{{ gitea_pod_name }}"
+          register: gitea_pod_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Create Gitea rootless pod
+          command: >
+            podman pod create
+            --name {{ gitea_pod_name }}
+            --publish {{ gitea_http_port }}:3000
+            --publish {{ gitea_ssh_port }}:22
+          when: gitea_pod_check.rc != 0
+
+    - name: "Step 5 - Create Rootless Volumes"
+      block:
+        - name: Create Gitea DB volume
+          command: podman volume create gitea_db_data
+          changed_when: false
+
+        - name: Create Gitea App volume
+          command: podman volume create gitea_app_data
+          changed_when: false
+
+    - name: "Step 6 - Deploy Postgres Database Container"
+      block:
+        - name: Check if Gitea DB container exists
+          command: podman container exists "{{ gitea_container_name_db }}"
+          register: gitea_db_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Run Postgres container inside the pod
+          command: >
+            podman run --detach
+            --name {{ gitea_container_name_db }}
+            --pod {{ gitea_pod_name }}
+            --restart always
+            --env POSTGRES_USER={{ gitea_db_user }}
+            --env POSTGRES_PASSWORD={{ final_gitea_password }}
+            --env POSTGRES_DB={{ gitea_db_name }}
+            --volume gitea_db_data:/var/lib/postgresql/data:Z
+            docker.io/library/postgres:15-alpine
+          when: gitea_db_check.rc != 0
+          no_log: true
+
+    - name: "Step 7 - Deploy Gitea Application Container"
+      block:
+        - name: Check if Gitea App container exists
+          command: podman container exists "{{ gitea_container_name_app }}"
+          register: gitea_app_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Run Gitea container inside the pod
+          command: >
+            podman run --detach
+            --name {{ gitea_container_name_app }}
+            --pod {{ gitea_pod_name }}
+            --restart always
+            --env GITEA__database__DB_TYPE=postgres
+            --env GITEA__database__HOST=localhost:5432
+            --env GITEA__database__NAME={{ gitea_db_name }}
+            --env GITEA__database__USER={{ gitea_db_user }}
+            --env GITEA__database__PASSWD={{ final_gitea_password }}
+            --env GITEA__server__PROTOCOL=http
+            --env GITEA__server__DOMAIN={{ gitea_domain }}
+            --env GITEA__server__ROOT_URL={{ gitea_root_url }}
+            --env GITEA__server__HTTP_PORT=3000
+            --volume gitea_app_data:/data:Z
+            --volume /etc/timezone:/etc/timezone:ro
+            --volume /etc/localtime:/etc/localtime:ro
+            docker.io/gitea/gitea:{{ gitea_version }}
+          when: gitea_app_check.rc != 0
+          no_log: true
+
+    - name: "Step 8 - Systemd Integration"
+      block:
+        - name: Ensure user systemd directory exists
+          file:
+            path: "{{ ansible_env.HOME }}/.config/systemd/user"
+            state: directory
+            mode: "0755"
+
+        - name: Generate systemd unit files from running pod
+          command: "podman generate systemd --name {{ gitea_pod_name }} --files --new"
+          args:
+            chdir: "{{ ansible_env.HOME }}/.config/systemd/user"
+          changed_when: true
+
+        - name: Reload user systemd daemon and enable Gitea pod service
+          systemd:
+            name: "pod-{{ gitea_pod_name }}.service"
+            scope: user
+            state: started
+            enabled: yes
+            daemon_reload: yes
+          ignore_errors: true
+          register: systemd_user_enable
+
+        - name: Alternative shell reload and enable if scope user fails
+          shell: |
+            systemctl --user daemon-reload
+            systemctl --user enable --now "pod-{{ gitea_pod_name }}.service"
+          when: systemd_user_enable.failed | default(false)
+          ignore_errors: true

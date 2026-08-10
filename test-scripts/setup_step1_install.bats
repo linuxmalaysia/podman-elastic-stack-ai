@@ -544,7 +544,7 @@ def main():
     path = module.params['path']
     state = module.params.get('state', 'file')
 
-    if path == '/data':
+    if path == '/data' or path.startswith('/opt/dsom-persistence'):
         module.exit_json(changed=False, path=path)
         return
 
@@ -578,7 +578,7 @@ EOF
   cat > "${STUB_BIN}/podman" <<'EOF'
 #!/usr/bin/env bash
 echo "podman $*" >> "${CALL_LOG}"
-if [[ "$*" == *"inspect es01"* || "$*" == *"inspect kib01"* || "$*" == *"inspect fleet-server"* ]]; then
+if [[ "$*" == *"inspect"* ]]; then
   echo '[{"Name": "/es01", "State": {"Running": true}}]'
   exit 0
 fi
@@ -594,7 +594,7 @@ if [[ "$*" == *"kibana-verification-code"* ]]; then
   echo "123456"
   exit 0
 fi
-if [[ "$*" == *"cp es01:"* ]]; then
+if [[ "$*" == *"cp "* ]]; then
   dest="${@: -1}"
   mkdir -p "$(dirname "$dest")"
   echo "mock-cert-content" > "$dest"
