@@ -1,0 +1,26 @@
+# Jekyll Configuration File
+
+title: "Podman Elastic Stack AI"
+description: "An automated system to deploy Elasticsearch, Kibana, and Fleet Server using Podman and hardened Wolfi images, driven by modular Ansible playbooks."
+
+# Exclude non-documentation folders/files from being processed by Jekyll
+# This prevents Liquid syntax/parsing errors on files containing Ansible double-braces or other incompatible syntaxes.
+exclude:
+  - "ansible/"
+  - "collections/"
+  - "elk-wolfi/"
+  - "inventory/"
+  - "playbooks/"
+  - "scripts/"
+  - "test-scripts/"
+  - "site.yml"
+  - "setup_elasticsearch.sh"
+  - "setup_kibana.sh"
+  - "setup_fleet_server.sh"
+  - "run_playbooks.sh"
+  - "ansible.cfg"
+  - "node_modules/"
+  - "vendor/"
+  - "Gemfile"
+  - "Gemfile.lock"
+  - ".github/"
