@@ -5,39 +5,4 @@
     <changefreq>weekly</changefreq>
     <priority>1.00</priority>
   </url>
-  <url>
-    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/INSTALL/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.80</priority>
-  </url>
-  <url>
-    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/PLAYBOOKS/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.80</priority>
-  </url>
-  <url>
-    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.80</priority>
-  </url>
-  <url>
-    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/DOCS_MATRIX_TELEMETRY/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.80</priority>
-  </url>
-  <url>
-    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/HISTORY/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.80</priority>
-  </url>
-  <url>
-    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/CHANGELOG/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.80</priority>
-  </url>
-  <url>
-    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/WSL-3NODE-CLUSTER-GUIDE/</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.80</priority>
-  </url>
 </urlset>

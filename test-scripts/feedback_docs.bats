@@ -5,7 +5,7 @@
 # and bidirectional feedback loop are correctly and persistently documented.
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
-GUIDE="${REPO_ROOT}/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
+GUIDE="${REPO_ROOT}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
 
 @test "LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md exists and is readable" {
   [ -f "${GUIDE}" ]

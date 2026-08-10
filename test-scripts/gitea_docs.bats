@@ -111,7 +111,7 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
 }
 
 @test "GITEA_GUIDE.md documents gitleaks as a pre-commit secret scanner" {
-  grep -qF -- 'gitleaks detect --v' "${GUIDE}"
+  grep -qF -- 'gitleaks detect -v' "${GUIDE}"
 }
 
 @test "GITEA_GUIDE.md documents maintenance commands (status, logs, restart)" {

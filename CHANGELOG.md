@@ -15,4 +15,5 @@ All notable changes to this project will be documented in this file.
 
 - Default Elastic Stack version upgraded from `8.17.4` to `9.4.4` across all shell scripts, playbooks, and variable files.
 - Refactored `Install EPEL release via dnf` task in `ansible/setup_elasticsearch.yml` with registered results and error handling to ensure the playbook cleanly continues if the EPEL task fails.
-- Updated documentation in `README.md` and `INSTALL.md` to reference version 9.4.4 and the new Windows 11 WSL2 command workflow.
+- Updated documentation in `README.md` and `docs/INSTALL.md` to reference version 9.4.4 and the new Windows 11 WSL2 command workflow.
+- Reorganized project structure by relocating all detailed guide documentation files (e.g., `INSTALL.md`, `PLAYBOOKS.md`, `LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md`, etc.) to the `docs/` directory to follow repository organization best practices, while maintaining `README.md`, `HISTORY.md`, and `CHANGELOG.md` in the root directory.

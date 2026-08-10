@@ -4,7 +4,7 @@ type: documentation
 title: "WSL-3NODE-CLUSTER-GUIDE.md"
 description: "DSOM documentation file."
 topics: [dsom, cluster, node, wsl, documentation]
-resource: file:///WSL-3NODE-CLUSTER-GUIDE.md
+resource: file:///docs/WSL-3NODE-CLUSTER-GUIDE.md
 timestamp: 2026-07-12T09:05:22Z
 ---
 # 🐧 WSL 3-Node Cluster Guide (Elasticsearch 9.x)
