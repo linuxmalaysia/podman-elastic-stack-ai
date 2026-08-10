@@ -1,4 +1,4 @@
-{% raw %}
+<!-- markdownlint-disable MD041 -->{% raw %}
 # SYSTEM ARCHITECTURE & BLUEPRINT DIRECTIVE: MATRIX TELEMETRY & FEEDBACK PIPELINE
 
 **Author:** Senior Principal Systems & Automation Architect

@@ -1,4 +1,4 @@
-{% raw %}
+<!-- markdownlint-disable MD041 -->{% raw %}
 # Local Hybrid Execution & Bidirectional Feedback Pipeline Guide
 
 This document provides a comprehensive, production-grade technical specification and operational guide for running local test orchestrations outside the Google Jules cloud environment on a native Linux kernel using Windows WSL2 (Ubuntu 26.04 LTS) and Podman 5+.
