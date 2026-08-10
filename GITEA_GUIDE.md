@@ -71,22 +71,34 @@ podman volume create gitea_db_data
 podman volume create gitea_app_data
 ```
 
-### C. Deploy Postgres Database
-Run Postgres inside the pod using a secure, strong password:
+### C. Set Up Environment Secrets File
+To ensure `podman generate systemd --new` does not embed plaintext database and application passwords inside generated systemd unit files, we store the passwords in a protected `0600` environment file on the host.
+
+Create the file `gitea.env` (e.g. in your secure configuration directory):
+```bash
+cat <<EOF > gitea.env
+POSTGRES_PASSWORD=YourHardenedPasswordHere_99X
+GITEA__database__PASSWD=YourHardenedPasswordHere_99X
+EOF
+chmod 0600 gitea.env
+```
+
+### D. Deploy Postgres Database
+Run the Postgres container inside the pod, referencing the secure environment file:
 ```bash
 podman run --detach \
     --name gitea-db \
     --pod gitea-stack \
     --restart always \
     --env POSTGRES_USER=gitea \
-    --env POSTGRES_PASSWORD=YourHardenedPasswordHere_99X \
+    --env-file gitea.env \
     --env POSTGRES_DB=gitea \
     --volume gitea_db_data:/var/lib/postgresql/data:Z \
     docker.io/library/postgres:15-alpine
 ```
 
-### D. Deploy Gitea Application
-Run the Gitea container, mapping environment variables to point to the Postgres database running inside the same pod (`localhost:5432`):
+### E. Deploy Gitea Application
+Run the Gitea container inside the pod, referencing the secure environment file, setting the domain and SSH port config properly:
 ```bash
 podman run --detach \
     --name gitea-app \
@@ -96,18 +108,19 @@ podman run --detach \
     --env GITEA__database__HOST=localhost:5432 \
     --env GITEA__database__NAME=gitea \
     --env GITEA__database__USER=gitea \
-    --env GITEA__database__PASSWD=YourHardenedPasswordHere_99X \
+    --env-file gitea.env \
     --env GITEA__server__PROTOCOL=http \
-    --env GITEA__server__DOMAIN=127.0.0.1 \
-    --env GITEA__server__ROOT_URL=http://127.0.0.1:3000/ \
+    --env GITEA__server__DOMAIN=192.168.100.207 \
+    --env GITEA__server__ROOT_URL=http://192.168.100.207:3000/ \
     --env GITEA__server__HTTP_PORT=3000 \
+    --env GITEA__server__SSH_PORT=2222 \
     --volume gitea_app_data:/data:Z \
     --volume /etc/timezone:/etc/timezone:ro \
     --volume /etc/localtime:/etc/localtime:ro \
     docker.io/gitea/gitea:1.26.1
 ```
 
-### E. Systemd Integration
+### F. Systemd Integration
 Generate user systemd files to manage the rootless stack via standard systemctl tools.
 ```bash
 # Create directory structure
@@ -136,15 +149,11 @@ Ansible Vault allows you to encrypt files, variables, or entire playbooks direct
    ansible-vault create ansible/group_vars/vault_secrets.yml
    ```
 2. **Add Your Secrets**:
-   Inside the editor, declare your variables:
+   Inside the editor, declare your variables directly matching those consumed by the playbook:
    ```yaml
-   vault_gitea_db_password: "MySuperSecretHardenedDbPassword_999!"
+   gitea_db_password: "MySuperSecretHardenedDbPassword_999!"
    ```
-3. **Reference the Vault Variable in Your Playbooks**:
-   ```yaml
-   gitea_db_password: "{{ vault_gitea_db_password }}"
-   ```
-4. **Run Playbooks with Decryption Key**:
+3. **Run Playbooks with Decryption Key**:
    ```bash
    ansible-playbook ansible/setup_gitea.yml --ask-vault-pass
    # Or using a secure local password file (excluded from Git):
@@ -156,7 +165,7 @@ Instead of committing passwords, inject them dynamically from the active runtime
 
 1. **Configure Variable Lookup in the Playbook**:
    ```yaml
-   gitea_db_password: "{{ lookup('ansible.builtin.env', 'GITEA_DB_PASSWORD') | default('fallback_random', true) }}"
+   gitea_db_password: "{{ lookup('ansible.builtin.env', 'GITEA_DB_PASSWORD') | default('', true) }}"
    ```
 2. **Pass Password dynamically when executing**:
    ```bash

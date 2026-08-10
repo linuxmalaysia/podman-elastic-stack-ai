@@ -13,8 +13,8 @@
     gitea_http_port: "3000"
     gitea_ssh_port: "2222"
     gitea_version: "1.26.1"
-    gitea_domain: "127.0.0.1"
-    gitea_root_url: "http://127.0.0.1:3000/"
+    gitea_domain: "{{ ansible_host | default(ansible_fqdn) | default('192.168.100.207') }}"
+    gitea_root_url: "http://{{ gitea_domain }}:{{ gitea_http_port }}/"
     gitea_credentials_file: "{{ playbook_dir | dirname }}/elk-wolfi/gitea_credentials.txt"
 
   tasks:
@@ -117,17 +117,19 @@
             path: "{{ gitea_credentials_file }}"
           register: creds_file_stat
 
-        - name: Read existing Gitea password if file exists
-          shell: "grep \"GITEA_DB_PASSWORD:\" \"{{ gitea_credentials_file }}\" | sed 's/.*GITEA_DB_PASSWORD: //' | tr -d '\n\r '"
-          register: gitea_password_grep
-          changed_when: false
-          failed_when: false
-          no_log: true
+        - name: Slurp existing Gitea credentials if file exists
+          ansible.builtin.slurp:
+            src: "{{ gitea_credentials_file }}"
+          register: gitea_creds_slurp
           when: creds_file_stat.stat.exists
+          no_log: true
 
-        - name: Set password from file if found
+        - name: Parse existing Gitea password from slurped content
           set_fact:
-            final_gitea_password: "{{ gitea_password_grep.stdout | trim if (creds_file_stat.stat.exists and gitea_password_grep.stdout is defined and gitea_password_grep.stdout | length > 0) else '' }}"
+            final_gitea_password: "{{ (gitea_creds_slurp.content | b64decode | from_yaml).GITEA_DB_PASSWORD }}"
+          when:
+            - creds_file_stat.stat.exists
+            - gitea_creds_slurp.content is defined
           no_log: true
 
         - name: Generate and save new password if not found
@@ -146,14 +148,21 @@
               copy:
                 dest: "{{ gitea_credentials_file }}"
                 content: |
-                  # Generated Gitea Credentials
-                  # Keep this file secure and NEVER commit it to git!
-                  GITEA_DB_USER: {{ gitea_db_user }}
-                  GITEA_DB_NAME: {{ gitea_db_name }}
-                  GITEA_DB_PASSWORD: {{ final_gitea_password }}
+                  GITEA_DB_USER: "{{ gitea_db_user }}"
+                  GITEA_DB_NAME: "{{ gitea_db_name }}"
+                  GITEA_DB_PASSWORD: "{{ final_gitea_password }}"
                 mode: "0600"
               no_log: true
-          when: final_gitea_password == ""
+          when: final_gitea_password is not defined or final_gitea_password == ""
+
+        - name: Create protected gitea.env file with 0600 permissions
+          copy:
+            dest: "{{ gitea_credentials_file | dirname }}/gitea.env"
+            content: |
+              POSTGRES_PASSWORD={{ final_gitea_password }}
+              GITEA__database__PASSWD={{ final_gitea_password }}
+            mode: "0600"
+          no_log: true
 
     - name: "Step 4 - Create Rootless Podman Pod"
       block:
@@ -190,16 +199,26 @@
           changed_when: false
 
         - name: Run Postgres container inside the pod
-          command: >
-            podman run --detach
-            --name {{ gitea_container_name_db }}
-            --pod {{ gitea_pod_name }}
-            --restart always
-            --env POSTGRES_USER={{ gitea_db_user }}
-            --env POSTGRES_PASSWORD={{ final_gitea_password }}
-            --env POSTGRES_DB={{ gitea_db_name }}
-            --volume gitea_db_data:/var/lib/postgresql/data:Z
-            docker.io/library/postgres:15-alpine
+          ansible.builtin.command:
+            argv:
+              - podman
+              - run
+              - --detach
+              - --name
+              - "{{ gitea_container_name_db }}"
+              - --pod
+              - "{{ gitea_pod_name }}"
+              - --restart
+              - always
+              - --env
+              - "POSTGRES_USER={{ gitea_db_user }}"
+              - --env-file
+              - "{{ gitea_credentials_file | dirname }}/gitea.env"
+              - --env
+              - "POSTGRES_DB={{ gitea_db_name }}"
+              - --volume
+              - "gitea_db_data:/var/lib/postgresql/data:Z"
+              - "docker.io/library/postgres:15-alpine"
           when: gitea_db_check.rc != 0
           no_log: true
 
@@ -212,24 +231,44 @@
           changed_when: false
 
         - name: Run Gitea container inside the pod
-          command: >
-            podman run --detach
-            --name {{ gitea_container_name_app }}
-            --pod {{ gitea_pod_name }}
-            --restart always
-            --env GITEA__database__DB_TYPE=postgres
-            --env GITEA__database__HOST=localhost:5432
-            --env GITEA__database__NAME={{ gitea_db_name }}
-            --env GITEA__database__USER={{ gitea_db_user }}
-            --env GITEA__database__PASSWD={{ final_gitea_password }}
-            --env GITEA__server__PROTOCOL=http
-            --env GITEA__server__DOMAIN={{ gitea_domain }}
-            --env GITEA__server__ROOT_URL={{ gitea_root_url }}
-            --env GITEA__server__HTTP_PORT=3000
-            --volume gitea_app_data:/data:Z
-            --volume /etc/timezone:/etc/timezone:ro
-            --volume /etc/localtime:/etc/localtime:ro
-            docker.io/gitea/gitea:{{ gitea_version }}
+          ansible.builtin.command:
+            argv:
+              - podman
+              - run
+              - --detach
+              - --name
+              - "{{ gitea_container_name_app }}"
+              - --pod
+              - "{{ gitea_pod_name }}"
+              - --restart
+              - always
+              - --env
+              - "GITEA__database__DB_TYPE=postgres"
+              - --env
+              - "GITEA__database__HOST=localhost:5432"
+              - --env
+              - "GITEA__database__NAME={{ gitea_db_name }}"
+              - --env
+              - "GITEA__database__USER={{ gitea_db_user }}"
+              - --env-file
+              - "{{ gitea_credentials_file | dirname }}/gitea.env"
+              - --env
+              - "GITEA__server__PROTOCOL=http"
+              - --env
+              - "GITEA__server__DOMAIN={{ gitea_domain }}"
+              - --env
+              - "GITEA__server__ROOT_URL={{ gitea_root_url }}"
+              - --env
+              - "GITEA__server__HTTP_PORT=3000"
+              - --env
+              - "GITEA__server__SSH_PORT={{ gitea_ssh_port }}"
+              - --volume
+              - "gitea_app_data:/data:Z"
+              - --volume
+              - "/etc/timezone:/etc/timezone:ro"
+              - --volume
+              - "/etc/localtime:/etc/localtime:ro"
+              - "docker.io/gitea/gitea:{{ gitea_version }}"
           when: gitea_app_check.rc != 0
           no_log: true
 
@@ -263,3 +302,11 @@
             systemctl --user enable --now "pod-{{ gitea_pod_name }}.service"
           when: systemd_user_enable.failed | default(false)
           ignore_errors: true
+          register: systemd_user_enable_run
+
+        - name: Fail if Gitea systemd activation failed on both methods
+          fail:
+            msg: "Gitea systemd user service activation failed."
+          when: >
+            (systemd_user_enable.failed | default(false) and
+            (systemd_user_enable_run.failed | default(true)))
