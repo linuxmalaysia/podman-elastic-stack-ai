@@ -6,7 +6,7 @@
 # commands, playbook invocation examples, and secret-management guidance.
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
-GUIDE="${REPO_ROOT}/GITEA_GUIDE.md"
+GUIDE="${REPO_ROOT}/docs/GITEA_GUIDE.md"
 GITIGNORE="${REPO_ROOT}/.gitignore"
 
 @test "GITEA_GUIDE.md exists and is readable" {
@@ -85,9 +85,24 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
 
 @test "GITEA_GUIDE.md documents Ansible Vault as a secret-management method" {
   grep -qF -- 'ansible-vault create ansible/group_vars/vault_secrets.yml' "${GUIDE}"
-  grep -qF -- 'vault_gitea_db_password:' "${GUIDE}"
+  grep -qF -- 'gitea_db_password:' "${GUIDE}"
   grep -qF -- '--ask-vault-pass' "${GUIDE}"
   grep -qF -- '--vault-password-file ~/.gitea_vault_pass.txt' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md no longer uses the outdated vault_gitea_db_password variable name" {
+  # Regression guard: the variable name documented for both the Ansible
+  # Vault and runtime env-var secret-management methods was renamed from
+  # 'vault_gitea_db_password' to 'gitea_db_password'. Ensure the stale name
+  # does not silently reappear.
+  run grep -qF -- 'vault_gitea_db_password:' "${GUIDE}"
+  [ "${status}" -ne 0 ]
+}
+
+@test "GITEA_GUIDE.md uses gitea_db_password consistently across both the Vault and env-var methods" {
+  local count
+  count="$(grep -cF -- 'gitea_db_password:' "${GUIDE}")"
+  [ "${count}" -ge 2 ]
 }
 
 @test "GITEA_GUIDE.md documents runtime environment variable injection as a secret-management method" {
