@@ -86,13 +86,14 @@
           stat:
             path: "{{ data_dir }}"
           register: data_dir_stat
+          when: deployment_option != 'wsl2'
 
         - name: Abort if data directory exists
           fail:
             msg: "Data directory '{{ data_dir }}' already exists. Aborting installation. Please back up any important data, delete or move it, and run the script again."
-          when: data_dir_stat.stat.exists and not data_dir_stat.stat.isdir
+          when: deployment_option != 'wsl2' and data_dir_stat.stat.exists and not data_dir_stat.stat.isdir
 
-        - name: Create data directories
+        - name: Create data directories (Single Node)
           file:
             path: "{{ item }}"
             state: directory
@@ -103,6 +104,23 @@
           loop:
             - "/data"
             - "{{ data_dir }}"
+          when: deployment_option != 'wsl2'
+
+        - name: Create data directories (WSL 3-Node Cluster)
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: "1000"
+            group: "1000"
+            mode: "0755"
+          become: true
+          loop:
+            - "/opt/dsom-persistence"
+            - "/opt/dsom-persistence/data"
+            - "/opt/dsom-persistence/data/es-node-01"
+            - "/opt/dsom-persistence/data/es-node-02"
+            - "/opt/dsom-persistence/data/es-node-03"
+          when: deployment_option == 'wsl2'
 
     - name: "Step 3 - Pull Elasticsearch Docker Image"
       command: podman pull "{{ elasticsearch_image }}"
@@ -140,7 +158,7 @@
             state: directory
             mode: "0755"
 
-        - name: Create podman-compose.yml for Elasticsearch
+        - name: Create podman-compose.yml for Elasticsearch (Single Node)
           copy:
             content: |
               version: '3.8'
@@ -163,6 +181,135 @@
                   driver: bridge
             dest: "{{ elk_dir }}/podman-compose.yml"
             mode: "0644"
+          when: deployment_option != 'wsl2'
+
+        - name: Create podman-compose.yml for Elasticsearch (WSL 3-Node Cluster)
+          copy:
+            content: |
+              version: '3.8'
+              services:
+                setup:
+                  image: {{ elasticsearch_image }}
+                  container_name: dsom-persistence-setup
+                  volumes:
+                    - certs:/usr/share/elasticsearch/config/certs
+                  user: "0"
+                  command: >
+                    bash -c '
+                      if [ ! -f config/certs/ca.zip ]; then
+                        bin/elasticsearch-certutil ca --silent --pem -out config/certs/ca.zip;
+                        unzip config/certs/ca.zip -d config/certs;
+                      fi;
+                      if [ ! -f config/certs/certs.zip ]; then
+                        echo -ne "instances:\n" > config/certs/instances.yml;
+                        echo -ne "  - name: es-node-01\n    dns:\n      - es-node-01\n      - localhost\n    ip:\n      - 127.0.0.1\n" >> config/certs/instances.yml;
+                        echo -ne "  - name: es-node-02\n    dns:\n      - es-node-02\n      - localhost\n    ip:\n      - 127.0.0.1\n" >> config/certs/instances.yml;
+                        echo -ne "  - name: es-node-03\n    dns:\n      - es-node-03\n      - localhost\n    ip:\n      - 127.0.0.1\n" >> config/certs/instances.yml;
+                        bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
+                        unzip config/certs/certs.zip -d config/certs;
+                      fi;
+                      chown -R 1000:1000 config/certs;
+                      chmod -R 750 config/certs;
+                    '
+                es-node-01:
+                  image: {{ elasticsearch_image }}
+                  container_name: dsom-persistence-es-node-01
+                  restart: unless-stopped
+                  networks:
+                    - elastic
+                  ports:
+                    - "{{ elasticsearch_bind_address | default('127.0.0.1') }}:9200:9200"
+                    - "{{ elasticsearch_bind_address | default('127.0.0.1') }}:9300:9300"
+                  environment:
+                    - node.name=es-node-01
+                    - cluster.name=dsom-wsl-cluster
+                    - cluster.initial_master_nodes=es-node-01,es-node-02,es-node-03
+                    - discovery.seed_hosts=es-node-02,es-node-03
+                    - ELASTIC_PASSWORD=elastic
+                    - xpack.security.enabled=true
+                    - xpack.security.http.ssl.enabled=true
+                    - xpack.security.http.ssl.key=certs/es-node-01/es-node-01.key
+                    - xpack.security.http.ssl.certificate=certs/es-node-01/es-node-01.crt
+                    - xpack.security.http.ssl.certificate_authorities=certs/ca/ca.crt
+                    - xpack.security.transport.ssl.enabled=true
+                    - xpack.security.transport.ssl.key=certs/es-node-01/es-node-01.key
+                    - xpack.security.transport.ssl.certificate=certs/es-node-01/es-node-01.crt
+                    - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+                    - xpack.security.transport.ssl.verification_mode=certificate
+                  volumes:
+                    - certs:/usr/share/elasticsearch/config/certs
+                    - /opt/dsom-persistence/data/es-node-01:/usr/share/elasticsearch/data
+                  mem_limit: 1GB
+
+                es-node-02:
+                  image: {{ elasticsearch_image }}
+                  container_name: dsom-persistence-es-node-02
+                  restart: unless-stopped
+                  networks:
+                    - elastic
+                  ports:
+                    - "{{ elasticsearch_bind_address | default('127.0.0.1') }}:9201:9200"
+                    - "{{ elasticsearch_bind_address | default('127.0.0.1') }}:9301:9300"
+                  environment:
+                    - node.name=es-node-02
+                    - cluster.name=dsom-wsl-cluster
+                    - cluster.initial_master_nodes=es-node-01,es-node-02,es-node-03
+                    - discovery.seed_hosts=es-node-01,es-node-03
+                    - ELASTIC_PASSWORD=elastic
+                    - xpack.security.enabled=true
+                    - xpack.security.http.ssl.enabled=true
+                    - xpack.security.http.ssl.key=certs/es-node-02/es-node-02.key
+                    - xpack.security.http.ssl.certificate=certs/es-node-02/es-node-02.crt
+                    - xpack.security.http.ssl.certificate_authorities=certs/ca/ca.crt
+                    - xpack.security.transport.ssl.enabled=true
+                    - xpack.security.transport.ssl.key=certs/es-node-02/es-node-02.key
+                    - xpack.security.transport.ssl.certificate=certs/es-node-02/es-node-02.crt
+                    - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+                    - xpack.security.transport.ssl.verification_mode=certificate
+                  volumes:
+                    - certs:/usr/share/elasticsearch/config/certs
+                    - /opt/dsom-persistence/data/es-node-02:/usr/share/elasticsearch/data
+                  mem_limit: 1GB
+
+                es-node-03:
+                  image: {{ elasticsearch_image }}
+                  container_name: dsom-persistence-es-node-03
+                  restart: unless-stopped
+                  networks:
+                    - elastic
+                  ports:
+                    - "{{ elasticsearch_bind_address | default('127.0.0.1') }}:9202:9200"
+                    - "{{ elasticsearch_bind_address | default('127.0.0.1') }}:9302:9300"
+                  environment:
+                    - node.name=es-node-03
+                    - cluster.name=dsom-wsl-cluster
+                    - cluster.initial_master_nodes=es-node-01,es-node-02,es-node-03
+                    - discovery.seed_hosts=es-node-01,es-node-02
+                    - ELASTIC_PASSWORD=elastic
+                    - xpack.security.enabled=true
+                    - xpack.security.http.ssl.enabled=true
+                    - xpack.security.http.ssl.key=certs/es-node-03/es-node-03.key
+                    - xpack.security.http.ssl.certificate=certs/es-node-03/es-node-03.crt
+                    - xpack.security.http.ssl.certificate_authorities=certs/ca/ca.crt
+                    - xpack.security.transport.ssl.enabled=true
+                    - xpack.security.transport.ssl.key=certs/es-node-03/es-node-03.key
+                    - xpack.security.transport.ssl.certificate=certs/es-node-03/es-node-03.crt
+                    - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
+                    - xpack.security.transport.ssl.verification_mode=certificate
+                  volumes:
+                    - certs:/usr/share/elasticsearch/config/certs
+                    - /opt/dsom-persistence/data/es-node-03:/usr/share/elasticsearch/data
+                  mem_limit: 1GB
+
+              volumes:
+                certs:
+              networks:
+                elastic:
+                  name: {{ network_name }}
+                  driver: bridge
+            dest: "{{ elk_dir }}/podman-compose.yml"
+            mode: "0644"
+          when: deployment_option == 'wsl2'
 
         - name: Start Elasticsearch service
           command: podman-compose -p {{ compose_project_name }} up -d
@@ -175,10 +322,27 @@
           pause:
             seconds: 60
 
+        - name: Set static password for WSL2 deployment option
+          set_fact:
+            elastic_password: "elastic"
+            password_reset_needed: false
+          when: deployment_option == 'wsl2'
+
+        - name: Initialize temporary credentials file (WSL2)
+          copy:
+            content: |
+              --- Step 6: Retrieve and Store Elasticsearch Password ---
+              {{ ansible_date_time.iso8601 | default('N/A') }}
+              Elastic password set to: elastic
+            dest: "{{ temp_credentials_file }}"
+            mode: "0600"
+          when: deployment_option == 'wsl2'
+
         - name: Check if credentials file exists
           stat:
             path: "{{ temp_credentials_file }}"
           register: creds_file_stat
+          when: deployment_option != 'wsl2'
 
         - name: Read existing elastic password if file exists
           shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
@@ -186,12 +350,15 @@
           changed_when: false
           failed_when: false
           no_log: true
-          when: creds_file_stat.stat.exists
+          when:
+            - deployment_option != 'wsl2'
+            - creds_file_stat.stat.exists
 
         - name: Set existing password fact
           set_fact:
             existing_elastic_password: "{{ es_password_grep.stdout | trim if (creds_file_stat.stat.exists and es_password_grep.stdout is defined) else '' }}"
           no_log: true
+          when: deployment_option != 'wsl2'
 
         - name: Check if existing password works
           uri:
@@ -205,12 +372,14 @@
           failed_when: false
           no_log: true
           when:
+            - deployment_option != 'wsl2'
             - existing_elastic_password | length > 0
             - lookup('file', cert_dir ~ '/http_ca.crt', errors='ignore') is not none
 
         - name: Determine if password reset is needed
           set_fact:
             password_reset_needed: "{{ true if (existing_elastic_password | length == 0 or auth_check is skipped or (auth_check.status is defined and auth_check.status != 200)) else false }}"
+          when: deployment_option != 'wsl2'
 
         - name: Initialize temporary credentials file if reset needed
           copy:
@@ -219,19 +388,25 @@
               {{ ansible_date_time.iso8601 | default('N/A') }}
             dest: "{{ temp_credentials_file }}"
             mode: "0600"
-          when: password_reset_needed
+          when:
+            - deployment_option != 'wsl2'
+            - password_reset_needed
 
         - name: Reset elastic user password if needed
           command: podman exec {{ container_name }} /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -a -f -b
           register: password_output
           no_log: true
-          when: password_reset_needed
+          when:
+            - deployment_option != 'wsl2'
+            - password_reset_needed
 
         - name: Parse and set new elastic password fact
           set_fact:
             elastic_password: "{{ password_output.stdout | regex_search('New value: (.*)', '\\1') | first | trim }}"
           no_log: true
-          when: password_reset_needed
+          when:
+            - deployment_option != 'wsl2'
+            - password_reset_needed
 
         - name: Save new elastic password to file
           lineinfile:
@@ -239,13 +414,17 @@
             line: "Elastic password set to: {{ elastic_password }}"
             create: yes
           no_log: true
-          when: password_reset_needed
+          when:
+            - deployment_option != 'wsl2'
+            - password_reset_needed
 
         - name: Set elastic password fact from existing password
           set_fact:
             elastic_password: "{{ existing_elastic_password }}"
           no_log: true
-          when: not password_reset_needed
+          when:
+            - deployment_option != 'wsl2'
+            - not password_reset_needed
 
     - name: "Step 7 - Copy SSL Certificate"
       block:
@@ -258,8 +437,13 @@
             - absent
             - directory
 
-        - name: Copy http_ca.crt from container
+        - name: Copy http_ca.crt from container (Single Node)
           command: podman cp {{ container_name }}:/usr/share/elasticsearch/config/certs/http_ca.crt {{ cert_dir }}/http_ca.crt
+          when: deployment_option != 'wsl2'
+
+        - name: Copy http_ca.crt from container (WSL 3-Node Cluster)
+          command: podman cp {{ container_name }}:/usr/share/elasticsearch/config/certs/ca/ca.crt {{ cert_dir }}/http_ca.crt
+          when: deployment_option == 'wsl2'
 
     - name: "Step 8 - Make REST API Call"
       block:

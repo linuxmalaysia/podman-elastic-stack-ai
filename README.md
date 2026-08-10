@@ -17,6 +17,7 @@ The project supports the following installation options:
 - **Use Case:** Localhost deployments inside Windows 11 Linux WSL2.
 - **Distro:** Works with any Linux distribution available for WSL2 and Elastic Stack (including Ubuntu 26.04 and AlmaLinux 10).
 - **Cluster/Topology:** Minimum 3 Podman nodes/pods for local high availability and testing.
+- **Detailed Guide:** See [WSL 3-Node Cluster Guide](WSL-3NODE-CLUSTER-GUIDE.md) for a step-by-step walkthrough.
 
 ### Option 2: Single Hardware or Single VM
 - **Use Case:** Deploying to a single dedicated physical hardware host or a single Virtual Machine.
@@ -35,7 +36,7 @@ The project supports the following installation options:
 
 ## WSL2 Deployment in Windows 11 (Ubuntu 26.04 and AlmaLinux 10)
 
-Below are the steps to deploy WSL2 and execute the playbooks or shell scripts (representing Option 1).
+Below are the steps to deploy WSL2 and execute the playbooks or shell scripts (representing Option 1). For a dedicated multi-node simulated production architecture on WSL2, refer to the [WSL 3-Node Cluster Guide](WSL-3NODE-CLUSTER-GUIDE.md).
 
 ### Step 1: Install WSL2 on Windows 11
 

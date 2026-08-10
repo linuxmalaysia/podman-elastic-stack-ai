@@ -1,0 +1,29 @@
+---
+all:
+  hosts:
+    localhost:
+      ansible_connection: local
+      ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  vars:
+    ansible_user: "your_username"
+    dsom_group: "your_username"
+    execution_mode: "user"
+    pr_id: "0"
+    target_hosts: "localhost"
+
+    # WSL 3-Node Cluster Configuration Details
+    cluster_name: "dsom-wsl-cluster"
+    storage_base: "/opt/dsom-persistence/data"
+    kibana_port: 5601
+
+    # Nodes configuration as described in WSL-3NODE-CLUSTER-GUIDE.md
+    nodes:
+      - name: "es-node-01"
+        http_port: 9200
+        transport_port: 9300
+      - name: "es-node-02"
+        http_port: 9201
+        transport_port: 9301
+      - name: "es-node-03"
+        http_port: 9202
+        transport_port: 9302

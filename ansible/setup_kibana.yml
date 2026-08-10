@@ -40,6 +40,17 @@
 
         - name: Copy default kibana.yml from container
           command: podman cp "{{ temp_kibana_container }}:/usr/share/kibana/config/kibana.yml" "{{ elk_dir }}/kibana.yml"
+
+        - name: Configure kibana.yml for WSL2 3-Node Cluster
+          blockinfile:
+            path: "{{ elk_dir }}/kibana.yml"
+            block: |
+              elasticsearch.hosts: ["https://dsom-persistence-es-node-01:9200", "https://dsom-persistence-es-node-02:9200", "https://dsom-persistence-es-node-03:9200"]
+              elasticsearch.username: "elastic"
+              elasticsearch.password: "elastic"
+              elasticsearch.ssl.verificationMode: "certificate"
+              elasticsearch.ssl.certificateAuthorities: ["/usr/share/kibana/config/certs/http_ca.crt"]
+          when: deployment_option == 'wsl2'
       always:
         - name: Stop and remove temporary container
           command: "podman rm -f {{ temp_kibana_container }}"
@@ -64,6 +75,7 @@
                   volumes:
                     - kibana_data:/data/kibana_data
                     - ./kibana.yml:/usr/share/kibana/config/kibana.yml
+                    - ./certs:/usr/share/kibana/config/certs
               volumes:
                 kibana_data:
               networks:
