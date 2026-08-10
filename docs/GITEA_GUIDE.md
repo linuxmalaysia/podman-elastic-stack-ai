@@ -1,3 +1,4 @@
+{% raw %}
 # Sovereign Gitea Deployment & Security Operations Guide
 
 This guide details the deployment, configuration, maintenance, and secure operations of Gitea inside a rootless Podman stack.
@@ -237,3 +238,4 @@ podman pod rm -f gitea-stack
 # Remove persistent volumes
 podman volume rm gitea_db_data gitea_app_data
 ```
+{% endraw %}
