@@ -81,9 +81,38 @@ WSL_3NODE_GUIDE="${REPO_ROOT}/WSL-3NODE-CLUSTER-GUIDE.md"
 @test "WSL-3NODE-CLUSTER-GUIDE.md documents prerequisites and kernel tuning" {
   grep -q '# 🐧 WSL 3-Node Guide' "${WSL_3NODE_GUIDE}" || grep -q '# 🐧 WSL 3-Node Cluster Guide' "${WSL_3NODE_GUIDE}"
   grep -q 'vm.max_map_count' "${WSL_3NODE_GUIDE}"
+  grep -q 'Podman' "${WSL_3NODE_GUIDE}"
+  grep -q 'Ansible' "${WSL_3NODE_GUIDE}"
+  grep -q 'Python3' "${WSL_3NODE_GUIDE}"
+  grep -q 'apt-get install' "${WSL_3NODE_GUIDE}"
+  grep -q 'dnf install' "${WSL_3NODE_GUIDE}"
+  grep -q 'podman-compose' "${WSL_3NODE_GUIDE}"
 }
 
 @test "WSL-3NODE-CLUSTER-GUIDE.md documents deployment and verification" {
   grep -q 'ansible-playbook -i inventory/hosts.wsl.3node.yml site.yml' "${WSL_3NODE_GUIDE}"
   grep -q 'dsom-persistence-es-node-01' "${WSL_3NODE_GUIDE}"
+  grep -q 'elk-wolfi/certs/http_ca.crt' "${WSL_3NODE_GUIDE}"
+}
+
+@test "WSL-3NODE deployment contract validation" {
+  # Inspect inventory/hosts.wsl.3node.yml
+  [ -f "${REPO_ROOT}/inventory/hosts.wsl.3node.yml" ]
+  grep -q 'es-node-01' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+  grep -q 'es-node-02' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+  grep -q 'es-node-03' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+  grep -q '9200' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+  grep -q '9201' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+  grep -q '9202' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+  grep -q '9300' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+  grep -q '9301' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+  grep -q '9302' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+  grep -q '5601' "${REPO_ROOT}/inventory/hosts.wsl.3node.yml"
+
+  # Inspect site.yml
+  [ -f "${REPO_ROOT}/site.yml" ]
+  grep -q 'setup_elasticsearch.yml' "${REPO_ROOT}/site.yml"
+  grep -q 'setup_kibana.yml' "${REPO_ROOT}/site.yml"
+  # Confirm site.yml does NOT import setup_fleet_server.yml to match the guide's component set
+  ! grep -q 'setup_fleet_server.yml' "${REPO_ROOT}/site.yml"
 }

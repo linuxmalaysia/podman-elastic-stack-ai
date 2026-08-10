@@ -26,8 +26,26 @@ Run a fully functional **3-Node Elasticsearch Cluster + Kibana** configuration o
     ```
 
 ### 2. Software
--   **Podman**: Installed in WSL (`sudo apt install podman`).
--   **Ansible**: Installed in WSL (`sudo apt install ansible`).
+-   **Podman**: Installed in WSL.
+    -   On Debian/Ubuntu:
+        ```bash
+        sudo apt-get update
+        sudo apt-get install -y podman podman-compose
+        ```
+    -   On RPM-based (AlmaLinux 10 / Rocky Linux / Oracle Linux / RHEL):
+        ```bash
+        sudo dnf install -y podman podman-compose
+        ```
+-   **Ansible**: Installed in WSL.
+    -   On Debian/Ubuntu:
+        ```bash
+        sudo apt-get install -y ansible
+        ```
+    -   On RPM-based:
+        ```bash
+        sudo dnf install -y epel-release
+        sudo dnf install -y ansible
+        ```
 -   **Python3**: Installed.
 
 ### 3. Kernel Tuning (Critical)
@@ -93,8 +111,12 @@ podman ps
 
 ### 2. Verify Cluster Health
 Check if the cluster formed a quorum (Green status).
+
 ```bash
-# Using the generated credentials (if any) or default
+# Recommended: Verify using the deployment-generated password and the HTTP CA certificate
+curl --cacert elk-wolfi/certs/http_ca.crt -u elastic:elastic https://localhost:9200/_cluster/health?pretty
+
+# Alternatively, using insecure certificate handling (-k) only as an explicitly labeled local fallback:
 curl -k -u elastic:elastic https://localhost:9200/_cluster/health?pretty
 ```
 
