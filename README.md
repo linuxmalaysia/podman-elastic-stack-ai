@@ -12,7 +12,7 @@ For detailed guides and advanced configurations, please refer to the files in th
 - **[Sovereign Gitea Deployment & Security Operations Guide](docs/GITEA_GUIDE.md)**: Detailed deployment and security operations guide for Gitea.
 - **[WSL 3-Node Cluster Guide](docs/WSL-3NODE-CLUSTER-GUIDE.md)**: Step-by-step walk-through to run a fully functional 3-Node Elasticsearch Cluster + Kibana configuration on Windows Subsystem for Linux (WSL2) using Podman.
 - **[Developer Matrix Telemetry](docs/DOCS_MATRIX_TELEMETRY.md)**: Architectural layout of developer mode metrics, resource auditing, and telemetry format.
-- **[Project History](HISTORY.md)**: Dedicated detailing of project milestones and transition from bash to Ansible.
+- **[Project History](HISTORY.md)**: A dedicated document detailing project milestones and the transition from bash to Ansible.
 - **[Changelog](CHANGELOG.md)**: Records of notable changes.
 
 ## Prerequisites

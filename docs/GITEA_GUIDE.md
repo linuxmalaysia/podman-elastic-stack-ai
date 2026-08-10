@@ -199,7 +199,7 @@ Prevent human errors before a commit can be created or pushed to origin:
 1. **Gitleaks**: Run a local pre-commit hook to detect high-entropy string patterns, passwords, and API keys:
    ```bash
    # Run gitleaks locally to check files
-   gitleaks detect --v
+   gitleaks detect -v
    ```
 2. **GitHub Advanced Security (Secret Scanning)**: Enable automated secret scanning in your repository settings to block pushes containing credentials or revoke them immediately upon discovery.
 
