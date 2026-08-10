@@ -140,3 +140,39 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
 @test "GITEA_GUIDE.md warns against hardcoding secrets inside Git repositories" {
   grep -qF -- 'hardcoded secrets inside Git repositories must be strictly avoided' "${GUIDE}"
 }
+
+@test "GITEA_GUIDE.md is wrapped in Jekyll {% raw %}/{% endraw %} tags" {
+  # Regression guard: the guide contains Ansible/Jinja2 double-curly-brace
+  # syntax (e.g. "{{ lookup(...) }}") that Jekyll's Liquid engine would
+  # otherwise attempt to parse and fail to build on GitHub Pages. The
+  # entire document must be wrapped in raw/endraw tags to be treated as
+  # literal text.
+  first_line="$(head -n 1 "${GUIDE}")"
+  last_line="$(tail -n 1 "${GUIDE}")"
+  [ "${first_line}" = '{% raw %}' ]
+  [ "${last_line}" = '{% endraw %}' ]
+}
+
+@test "GITEA_GUIDE.md has exactly one raw/endraw tag pair (no duplicates or stray tags)" {
+  raw_count="$(grep -cF -- '{% raw %}' "${GUIDE}")"
+  endraw_count="$(grep -cF -- '{% endraw %}' "${GUIDE}")"
+  [ "${raw_count}" -eq 1 ]
+  [ "${endraw_count}" -eq 1 ]
+}
+
+@test "GITEA_GUIDE.md's title immediately follows the opening {% raw %} tag" {
+  second_line="$(sed -n '2p' "${GUIDE}")"
+  [ "${second_line}" = '# Sovereign Gitea Deployment & Security Operations Guide' ]
+}
+
+@test "GITEA_GUIDE.md's Liquid-like Ansible template syntax is enclosed within the raw block" {
+  # Confirms the specific Jinja2/Ansible double-curly-brace expression that
+  # motivated the raw/endraw wrapping is present and located after the
+  # opening tag and before the closing tag.
+  raw_line="$(grep -nF -- '{% raw %}' "${GUIDE}" | head -1 | cut -d: -f1)"
+  endraw_line="$(grep -nF -- '{% endraw %}' "${GUIDE}" | head -1 | cut -d: -f1)"
+  liquid_line="$(grep -nF -- "{{ lookup('ansible.builtin.env', 'GITEA_DB_PASSWORD')" "${GUIDE}" | head -1 | cut -d: -f1)"
+  [ -n "${liquid_line}" ]
+  [ "${liquid_line}" -gt "${raw_line}" ]
+  [ "${liquid_line}" -lt "${endraw_line}" ]
+}

@@ -134,6 +134,51 @@ WSL_3NODE_GUIDE="${REPO_ROOT}/docs/WSL-3NODE-CLUSTER-GUIDE.md"
   [ -f "${REPO_ROOT}/CHANGELOG.md" ]
 }
 
+# Regression tests for the Jekyll {% raw %}/{% endraw %} wrapping applied
+# to DOCS_MATRIX_TELEMETRY.md, GITEA_GUIDE.md, and
+# LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md, guarding against the GitHub Pages
+# Jekyll build failing on embedded Ansible/Jinja2 Liquid-like syntax.
+MATRIX_TELEMETRY_DOC="${REPO_ROOT}/docs/DOCS_MATRIX_TELEMETRY.md"
+GITEA_DOC="${REPO_ROOT}/docs/GITEA_GUIDE.md"
+FEEDBACK_DOC="${REPO_ROOT}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
+
+@test "DOCS_MATRIX_TELEMETRY.md is wrapped in Jekyll {% raw %}/{% endraw %} tags" {
+  first_line="$(head -n 1 "${MATRIX_TELEMETRY_DOC}")"
+  last_line="$(tail -n 1 "${MATRIX_TELEMETRY_DOC}")"
+  [ "${first_line}" = '{% raw %}' ]
+  [ "${last_line}" = '{% endraw %}' ]
+}
+
+@test "DOCS_MATRIX_TELEMETRY.md has exactly one raw/endraw tag pair (no duplicates or stray tags)" {
+  raw_count="$(grep -cF -- '{% raw %}' "${MATRIX_TELEMETRY_DOC}")"
+  endraw_count="$(grep -cF -- '{% endraw %}' "${MATRIX_TELEMETRY_DOC}")"
+  [ "${raw_count}" -eq 1 ]
+  [ "${endraw_count}" -eq 1 ]
+}
+
+@test "DOCS_MATRIX_TELEMETRY.md's title immediately follows the opening {% raw %} tag" {
+  second_line="$(sed -n '2p' "${MATRIX_TELEMETRY_DOC}")"
+  [ "${second_line}" = '# SYSTEM ARCHITECTURE & BLUEPRINT DIRECTIVE: MATRIX TELEMETRY & FEEDBACK PIPELINE' ]
+}
+
+@test "DOCS_MATRIX_TELEMETRY.md's closing note immediately precedes the closing {% endraw %} tag" {
+  last_line="$(tail -n 1 "${MATRIX_TELEMETRY_DOC}")"
+  second_to_last_line="$(tail -n 2 "${MATRIX_TELEMETRY_DOC}" | head -n 1)"
+  [ "${last_line}" = '{% endraw %}' ]
+  [[ "${second_to_last_line}" == *"master architectural specification"* ]]
+}
+
+@test "all three raw/endraw-wrapped docs still contain their Ansible Liquid-like double-curly-brace syntax inside the raw block" {
+  for doc in "${MATRIX_TELEMETRY_DOC}" "${GITEA_DOC}" "${FEEDBACK_DOC}"; do
+    raw_line="$(grep -nF -- '{% raw %}' "${doc}" | head -1 | cut -d: -f1)"
+    endraw_line="$(grep -nF -- '{% endraw %}' "${doc}" | head -1 | cut -d: -f1)"
+    liquid_line="$(grep -nF -- '{{' "${doc}" | head -1 | cut -d: -f1)"
+    [ -n "${liquid_line}" ]
+    [ "${liquid_line}" -gt "${raw_line}" ]
+    [ "${liquid_line}" -lt "${endraw_line}" ]
+  done
+}
+
 @test "WSL-3NODE deployment contract validation" {
   # Inspect inventory/hosts.wsl.3node.yml
   [ -f "${REPO_ROOT}/inventory/hosts.wsl.3node.yml" ]

@@ -44,3 +44,47 @@ GUIDE="${REPO_ROOT}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
   grep -qF 'jules_test_ubuntu_26_04' "${GUIDE}"
   grep -qF 'jules_gh_feedback.sh' "${GUIDE}"
 }
+
+@test "GUIDE is wrapped in Jekyll {% raw %}/{% endraw %} tags" {
+  # Regression guard: the guide contains extensive Ansible/Jinja2
+  # double-curly-brace syntax (e.g. "{{ playbook_dir }}") that Jekyll's
+  # Liquid engine would otherwise attempt to parse and fail to build on
+  # GitHub Pages. The entire document must be wrapped in raw/endraw tags.
+  first_line="$(head -n 1 "${GUIDE}")"
+  last_line="$(tail -n 1 "${GUIDE}")"
+  [ "${first_line}" = '{% raw %}' ]
+  [ "${last_line}" = '{% endraw %}' ]
+}
+
+@test "GUIDE has exactly one raw/endraw tag pair (no duplicates or stray tags)" {
+  raw_count="$(grep -cF -- '{% raw %}' "${GUIDE}")"
+  endraw_count="$(grep -cF -- '{% endraw %}' "${GUIDE}")"
+  [ "${raw_count}" -eq 1 ]
+  [ "${endraw_count}" -eq 1 ]
+}
+
+@test "GUIDE's title immediately follows the opening {% raw %} tag" {
+  second_line="$(sed -n '2p' "${GUIDE}")"
+  [ "${second_line}" = '# Local Hybrid Execution & Bidirectional Feedback Pipeline Guide' ]
+}
+
+@test "GUIDE's nested Liquid-style docker stats format string is enclosed within the raw block" {
+  # This line contains deeply nested "{{ '{{' }}" escape-style sequences
+  # which are especially prone to breaking a naive Liquid parser; confirm
+  # it is located between the opening and closing raw tags.
+  raw_line="$(grep -nF -- '{% raw %}' "${GUIDE}" | head -1 | cut -d: -f1)"
+  endraw_line="$(grep -nF -- '{% endraw %}' "${GUIDE}" | head -1 | cut -d: -f1)"
+  nested_line="$(grep -nF -- "CPUPerc" "${GUIDE}" | head -1 | cut -d: -f1)"
+  [ -n "${nested_line}" ]
+  [ "${nested_line}" -gt "${raw_line}" ]
+  [ "${nested_line}" -lt "${endraw_line}" ]
+}
+
+@test "GUIDE ends with the exit 0 fenced code block immediately before the closing {% endraw %} tag" {
+  # Regression guard: ensures {% endraw %} was appended after the existing
+  # final content rather than replacing or truncating it.
+  mapfile -t last_lines < <(tail -n 3 "${GUIDE}")
+  [ "${last_lines[0]}" = 'exit 0' ]
+  [ "${last_lines[1]}" = '```' ]
+  [ "${last_lines[2]}" = '{% endraw %}' ]
+}
