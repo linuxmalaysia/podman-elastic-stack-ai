@@ -65,16 +65,20 @@ podman pod create \
 ```
 
 ### B. Create Storage Volumes
+
 Isolate Postgres and Gitea application storage into Podman-managed volumes.
+
 ```bash
 podman volume create gitea_db_data
 podman volume create gitea_app_data
 ```
 
 ### C. Set Up Environment Secrets File
+
 To ensure `podman generate systemd --new` does not embed plaintext database and application passwords inside generated systemd unit files, we store the passwords in a protected `0600` environment file on the host.
 
 Create the file `gitea.env` (e.g. in your secure configuration directory):
+
 ```bash
 cat <<EOF > gitea.env
 POSTGRES_PASSWORD=YourHardenedPasswordHere_99X
@@ -84,7 +88,9 @@ chmod 0600 gitea.env
 ```
 
 ### D. Deploy Postgres Database
+
 Run the Postgres container inside the pod, referencing the secure environment file:
+
 ```bash
 podman run --detach \
     --name gitea-db \
@@ -98,7 +104,9 @@ podman run --detach \
 ```
 
 ### E. Deploy Gitea Application
+
 Run the Gitea container inside the pod, referencing the secure environment file, setting the domain and SSH port config properly:
+
 ```bash
 podman run --detach \
     --name gitea-app \
@@ -121,7 +129,9 @@ podman run --detach \
 ```
 
 ### F. Systemd Integration
+
 Generate user systemd files to manage the rootless stack via standard systemctl tools.
+
 ```bash
 # Create directory structure
 mkdir -p ~/.config/systemd/user/

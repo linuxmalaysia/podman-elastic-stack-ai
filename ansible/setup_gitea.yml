@@ -147,10 +147,7 @@
             - name: Write Gitea credentials to file with 0600 permissions
               copy:
                 dest: "{{ gitea_credentials_file }}"
-                content: |
-                  GITEA_DB_USER: "{{ gitea_db_user }}"
-                  GITEA_DB_NAME: "{{ gitea_db_name }}"
-                  GITEA_DB_PASSWORD: "{{ final_gitea_password }}"
+                content: "{{ {'GITEA_DB_USER': gitea_db_user, 'GITEA_DB_NAME': gitea_db_name, 'GITEA_DB_PASSWORD': final_gitea_password} | to_nice_yaml }}"
                 mode: "0600"
               no_log: true
           when: final_gitea_password is not defined or final_gitea_password == ""
@@ -230,9 +227,14 @@
           ignore_errors: true
           changed_when: false
 
-        - name: Run Gitea container inside the pod
-          ansible.builtin.command:
-            argv:
+        - name: Check if /etc/timezone exists
+          stat:
+            path: /etc/timezone
+          register: timezone_file_stat
+
+        - name: Set base Gitea container arguments
+          set_fact:
+            gitea_container_args:
               - podman
               - run
               - --detach
@@ -265,10 +267,20 @@
               - --volume
               - "gitea_app_data:/data:Z"
               - --volume
-              - "/etc/timezone:/etc/timezone:ro"
-              - --volume
               - "/etc/localtime:/etc/localtime:ro"
-              - "docker.io/gitea/gitea:{{ gitea_version }}"
+
+        - name: Append /etc/timezone volume if it exists
+          set_fact:
+            gitea_container_args: "{{ gitea_container_args + ['--volume', '/etc/timezone:/etc/timezone:ro'] }}"
+          when: timezone_file_stat.stat.exists
+
+        - name: Append image argument to Gitea container args
+          set_fact:
+            gitea_container_args: "{{ gitea_container_args + ['docker.io/gitea/gitea:' ~ gitea_version] }}"
+
+        - name: Run Gitea container inside the pod
+          ansible.builtin.command:
+            argv: "{{ gitea_container_args }}"
           when: gitea_app_check.rc != 0
           no_log: true
 
@@ -286,6 +298,11 @@
             chdir: "{{ ansible_env.HOME }}/.config/systemd/user"
           changed_when: true
 
+        - name: Stop and remove existing Gitea pod to transfer ownership to systemd
+          command: "podman pod rm -f {{ gitea_pod_name }}"
+          ignore_errors: true
+          changed_when: true
+
         - name: Reload user systemd daemon and enable Gitea pod service
           systemd:
             name: "pod-{{ gitea_pod_name }}.service"
@@ -298,7 +315,7 @@
 
         - name: Alternative shell reload and enable if scope user fails
           shell: |
-            systemctl --user daemon-reload
+            systemctl --user daemon-reload && \
             systemctl --user enable --now "pod-{{ gitea_pod_name }}.service"
           when: systemd_user_enable.failed | default(false)
           ignore_errors: true
