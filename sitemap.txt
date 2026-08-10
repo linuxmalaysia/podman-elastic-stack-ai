@@ -5,3 +5,4 @@ https://linuxmalaysia.github.io/podman-elastic-stack-ai/LOCAL_DEVELOPMENT_FEEDBA
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/DOCS_MATRIX_TELEMETRY/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/HISTORY/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/CHANGELOG/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/WSL-3NODE-CLUSTER-GUIDE/

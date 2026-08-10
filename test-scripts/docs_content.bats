@@ -63,3 +63,27 @@ INSTALL_DOC="${REPO_ROOT}/INSTALL.md"
   run grep -F 'the script attempts to install Podman and Podman Compose using `dnf` (for Fedora, CentOS, etc.).' "${README}"
   [ "${status}" -ne 0 ]
 }
+
+# Regression tests for WSL-3NODE-CLUSTER-GUIDE.md
+WSL_3NODE_GUIDE="${REPO_ROOT}/WSL-3NODE-CLUSTER-GUIDE.md"
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md exists and is readable" {
+  [ -f "${WSL_3NODE_GUIDE}" ]
+  [ -r "${WSL_3NODE_GUIDE}" ]
+}
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md contains expected OKF metadata" {
+  grep -q 'okf_version: 0.1' "${WSL_3NODE_GUIDE}"
+  grep -q 'title: "WSL-3NODE-CLUSTER-GUIDE.md"' "${WSL_3NODE_GUIDE}"
+  grep -q 'resource: file:///WSL-3NODE-CLUSTER-GUIDE.md' "${WSL_3NODE_GUIDE}"
+}
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md documents prerequisites and kernel tuning" {
+  grep -q '# 🐧 WSL 3-Node Guide' "${WSL_3NODE_GUIDE}" || grep -q '# 🐧 WSL 3-Node Cluster Guide' "${WSL_3NODE_GUIDE}"
+  grep -q 'vm.max_map_count' "${WSL_3NODE_GUIDE}"
+}
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md documents deployment and verification" {
+  grep -q 'ansible-playbook -i inventory/hosts.wsl.3node.yml site.yml' "${WSL_3NODE_GUIDE}"
+  grep -q 'dsom-persistence-es-node-01' "${WSL_3NODE_GUIDE}"
+}
