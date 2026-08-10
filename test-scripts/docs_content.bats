@@ -63,3 +63,45 @@ INSTALL_DOC="${REPO_ROOT}/INSTALL.md"
   run grep -F 'the script attempts to install Podman and Podman Compose using `dnf` (for Fedora, CentOS, etc.).' "${README}"
   [ "${status}" -ne 0 ]
 }
+
+# Regression tests for WSL-3NODE-CLUSTER-GUIDE.md
+WSL_3NODE_GUIDE="${REPO_ROOT}/WSL-3NODE-CLUSTER-GUIDE.md"
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md exists and is readable" {
+  [ -f "${WSL_3NODE_GUIDE}" ]
+  [ -r "${WSL_3NODE_GUIDE}" ]
+}
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md contains expected OKF metadata" {
+  grep -q 'okf_version: 0.1' "${WSL_3NODE_GUIDE}"
+  grep -q 'title: "WSL-3NODE-CLUSTER-GUIDE.md"' "${WSL_3NODE_GUIDE}"
+  grep -q 'resource: file:///WSL-3NODE-CLUSTER-GUIDE.md' "${WSL_3NODE_GUIDE}"
+}
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md documents prerequisites and kernel tuning" {
+  grep -q '# 🐧 WSL 3-Node Guide' "${WSL_3NODE_GUIDE}" || grep -q '# 🐧 WSL 3-Node Cluster Guide' "${WSL_3NODE_GUIDE}"
+  grep -q 'vm.max_map_count' "${WSL_3NODE_GUIDE}"
+}
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md documents deployment and verification" {
+  grep -q 'ansible-playbook -i inventory/hosts.wsl.3node.yml site.yml' "${WSL_3NODE_GUIDE}"
+  grep -q 'dsom-persistence-es-node-01' "${WSL_3NODE_GUIDE}"
+}
+
+@test "README.md documents the WSL 3-Node Cluster Guide link under Option 1" {
+  grep -qF -- '- **Detailed Guide:** See [WSL 3-Node Cluster Guide](WSL-3NODE-CLUSTER-GUIDE.md) for a step-by-step walkthrough.' "${README}"
+}
+
+@test "README.md references the WSL 3-Node Cluster Guide from the WSL2 deployment steps intro" {
+  grep -qF 'Below are the steps to deploy WSL2 and execute the playbooks or shell scripts (representing Option 1). For a dedicated multi-node simulated production architecture on WSL2, refer to the [WSL 3-Node Cluster Guide](WSL-3NODE-CLUSTER-GUIDE.md).' "${README}"
+}
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md lists all four expected containers in the verification step" {
+  grep -qF 'dsom-persistence-es-node-02' "${WSL_3NODE_GUIDE}"
+  grep -qF 'dsom-persistence-es-node-03' "${WSL_3NODE_GUIDE}"
+  grep -qF 'dsom-kibana-kibana-local' "${WSL_3NODE_GUIDE}"
+}
+
+@test "WSL-3NODE-CLUSTER-GUIDE.md documents teardown removing all four containers" {
+  grep -qF 'podman rm -f dsom-persistence-es-node-01 dsom-persistence-es-node-02 dsom-persistence-es-node-03 dsom-kibana-kibana-local' "${WSL_3NODE_GUIDE}"
+}
