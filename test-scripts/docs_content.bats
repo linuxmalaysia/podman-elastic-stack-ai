@@ -8,7 +8,7 @@
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 README="${REPO_ROOT}/README.md"
-INSTALL_DOC="${REPO_ROOT}/INSTALL.md"
+INSTALL_DOC="${REPO_ROOT}/docs/INSTALL.md"
 
 @test "README.md exists and is readable" {
   [ -f "${README}" ]
@@ -65,7 +65,7 @@ INSTALL_DOC="${REPO_ROOT}/INSTALL.md"
 }
 
 # Regression tests for WSL-3NODE-CLUSTER-GUIDE.md
-WSL_3NODE_GUIDE="${REPO_ROOT}/WSL-3NODE-CLUSTER-GUIDE.md"
+WSL_3NODE_GUIDE="${REPO_ROOT}/docs/WSL-3NODE-CLUSTER-GUIDE.md"
 
 @test "WSL-3NODE-CLUSTER-GUIDE.md exists and is readable" {
   [ -f "${WSL_3NODE_GUIDE}" ]
@@ -75,7 +75,7 @@ WSL_3NODE_GUIDE="${REPO_ROOT}/WSL-3NODE-CLUSTER-GUIDE.md"
 @test "WSL-3NODE-CLUSTER-GUIDE.md contains expected OKF metadata" {
   grep -q 'okf_version: 0.1' "${WSL_3NODE_GUIDE}"
   grep -q 'title: "WSL-3NODE-CLUSTER-GUIDE.md"' "${WSL_3NODE_GUIDE}"
-  grep -q 'resource: file:///WSL-3NODE-CLUSTER-GUIDE.md' "${WSL_3NODE_GUIDE}"
+  grep -q 'resource: file:///docs/WSL-3NODE-CLUSTER-GUIDE.md' "${WSL_3NODE_GUIDE}"
 }
 
 @test "WSL-3NODE-CLUSTER-GUIDE.md documents prerequisites and kernel tuning" {

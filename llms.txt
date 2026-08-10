@@ -5,11 +5,12 @@ This repository automates the setup, testing, and deployment of Elasticsearch 9.
 ## Core Documentation
 
 - [README.md](README.md): Master documentation covering prerequisites, architecture options (WSL2, single node, multi-node VM clusters, Google Jules environment), installation steps, configuration guides, daily workflows, and licensing.
-- [INSTALL.md](INSTALL.md): Step-by-step setup details, specific OS distribution guidelines (AlmaLinux 10, Ubuntu 24.04/26.04, Debian), pre-requisite verification, and helper commands.
-- [PLAYBOOKS.md](PLAYBOOKS.md): Structural details of the Ansible roles, playbooks, variables, connection plugin selection, and the telemetry logging system.
-- [LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md](LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md): Local execution guide, multi-distro test matrix using Podman, and bidirectional feedback bridge configuration.
-- [DOCS_MATRIX_TELEMETRY.md](DOCS_MATRIX_TELEMETRY.md): Architectural layout of developer mode metrics, resource auditing, block/rescue logs, and the telemetry format (`/tmp/jules_telemetry.json`).
-- [WSL-3NODE-CLUSTER-GUIDE.md](WSL-3NODE-CLUSTER-GUIDE.md): Step-by-step guide to run a fully functional 3-Node Elasticsearch Cluster + Kibana configuration on Windows Subsystem for Linux (WSL2) using Podman.
+- [INSTALL.md](docs/INSTALL.md): Step-by-step setup details, specific OS distribution guidelines (AlmaLinux 10, Ubuntu 24.04/26.04, Debian), pre-requisite verification, and helper commands.
+- [PLAYBOOKS.md](docs/PLAYBOOKS.md): Structural details of the Ansible roles, playbooks, variables, connection plugin selection, and the telemetry logging system.
+- [LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md](docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md): Local execution guide, multi-distro test matrix using Podman, and bidirectional feedback bridge configuration.
+- [DOCS_MATRIX_TELEMETRY.md](docs/DOCS_MATRIX_TELEMETRY.md): Architectural layout of developer mode metrics, resource auditing, block/rescue logs, and the telemetry format (`/tmp/jules_telemetry.json`).
+- [WSL-3NODE-CLUSTER-GUIDE.md](docs/WSL-3NODE-CLUSTER-GUIDE.md): Step-by-step guide to run a fully functional 3-Node Elasticsearch Cluster + Kibana configuration on Windows Subsystem for Linux (WSL2) using Podman.
+- [GITEA_GUIDE.md](docs/GITEA_GUIDE.md): Sovereign Gitea Deployment and Security Operations Guide.
 
 ## Setup & Execution Scripts
 

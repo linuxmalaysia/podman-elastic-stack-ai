@@ -6,7 +6,7 @@
 # commands, playbook invocation examples, and secret-management guidance.
 
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
-GUIDE="${REPO_ROOT}/GITEA_GUIDE.md"
+GUIDE="${REPO_ROOT}/docs/GITEA_GUIDE.md"
 GITIGNORE="${REPO_ROOT}/.gitignore"
 
 @test "GITEA_GUIDE.md exists and is readable" {
@@ -85,7 +85,7 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
 
 @test "GITEA_GUIDE.md documents Ansible Vault as a secret-management method" {
   grep -qF -- 'ansible-vault create ansible/group_vars/vault_secrets.yml' "${GUIDE}"
-  grep -qF -- 'vault_gitea_db_password:' "${GUIDE}"
+  grep -qF -- 'gitea_db_password:' "${GUIDE}"
   grep -qF -- '--ask-vault-pass' "${GUIDE}"
   grep -qF -- '--vault-password-file ~/.gitea_vault_pass.txt' "${GUIDE}"
 }

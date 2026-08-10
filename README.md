@@ -2,6 +2,19 @@
 
 This script automates the setup of Elasticsearch version 9.4.4 using Podman and the hardened Wolfi image, following the official Elastic Docker documentation.
 
+## 📖 Documentation
+
+For detailed guides and advanced configurations, please refer to the files in the `docs/` directory:
+
+- **[Installation Guide](docs/INSTALL.md)**: Step-by-step setup details and specific OS distribution guidelines.
+- **[Playbook Structure & Telemetry](docs/PLAYBOOKS.md)**: Structural details of the Ansible roles, playbooks, variables, and the telemetry logging system.
+- **[Local Development & Feedback Guide](docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md)**: Local execution guide, multi-distro test matrix, and bidirectional feedback bridge configuration.
+- **[Sovereign Gitea Deployment & Security Operations Guide](docs/GITEA_GUIDE.md)**: Detailed deployment and security operations guide for Gitea.
+- **[WSL 3-Node Cluster Guide](docs/WSL-3NODE-CLUSTER-GUIDE.md)**: Step-by-step walk-through to run a fully functional 3-Node Elasticsearch Cluster + Kibana configuration on Windows Subsystem for Linux (WSL2) using Podman.
+- **[Developer Matrix Telemetry](docs/DOCS_MATRIX_TELEMETRY.md)**: Architectural layout of developer mode metrics, resource auditing, and telemetry format.
+- **[Project History](HISTORY.md)**: Dedicated detailing of project milestones and transition from bash to Ansible.
+- **[Changelog](CHANGELOG.md)**: Records of notable changes.
+
 ## Prerequisites
 
 * **Podman:** Ensure Podman is installed on your system. You can find installation instructions for various distributions on the [Podman Installation Guide](https://podman.io/getting-started/installation).
@@ -17,7 +30,7 @@ The project supports the following installation options:
 - **Use Case:** Localhost deployments inside Windows 11 Linux WSL2.
 - **Distro:** Works with any Linux distribution available for WSL2 and Elastic Stack (including Ubuntu 26.04 and AlmaLinux 10).
 - **Cluster/Topology:** Minimum 3 Podman nodes/pods for local high availability and testing.
-- **Detailed Guide:** See [WSL 3-Node Cluster Guide](WSL-3NODE-CLUSTER-GUIDE.md) for a step-by-step walkthrough.
+- **Detailed Guide:** See [WSL 3-Node Cluster Guide](docs/WSL-3NODE-CLUSTER-GUIDE.md) for a step-by-step walkthrough.
 
 ### Option 2: Single Hardware or Single VM
 - **Use Case:** Deploying to a single dedicated physical hardware host or a single Virtual Machine.
@@ -36,7 +49,7 @@ The project supports the following installation options:
 
 ## WSL2 Deployment in Windows 11 (Ubuntu 26.04 and AlmaLinux 10)
 
-Below are the steps to deploy WSL2 and execute the playbooks or shell scripts (representing Option 1). For a dedicated multi-node simulated production architecture on WSL2, refer to the [WSL 3-Node Cluster Guide](WSL-3NODE-CLUSTER-GUIDE.md).
+Below are the steps to deploy WSL2 and execute the playbooks or shell scripts (representing Option 1). For a dedicated multi-node simulated production architecture on WSL2, refer to the [WSL 3-Node Cluster Guide](docs/WSL-3NODE-CLUSTER-GUIDE.md).
 
 ### Step 1: Install WSL2 on Windows 11
 
