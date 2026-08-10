@@ -544,7 +544,7 @@ def main():
     path = module.params['path']
     state = module.params.get('state', 'file')
 
-    if path == '/data':
+    if path == '/data' or path.startswith('/opt/dsom-persistence'):
         module.exit_json(changed=False, path=path)
         return
 
@@ -578,7 +578,7 @@ EOF
   cat > "${STUB_BIN}/podman" <<'EOF'
 #!/usr/bin/env bash
 echo "podman $*" >> "${CALL_LOG}"
-if [[ "$*" == *"inspect es01"* || "$*" == *"inspect kib01"* || "$*" == *"inspect fleet-server"* ]]; then
+if [[ "$*" == *"inspect"* ]]; then
   echo '[{"Name": "/es01", "State": {"Running": true}}]'
   exit 0
 fi
@@ -594,7 +594,7 @@ if [[ "$*" == *"kibana-verification-code"* ]]; then
   echo "123456"
   exit 0
 fi
-if [[ "$*" == *"cp es01:"* ]]; then
+if [[ "$*" == *"cp "* ]]; then
   dest="${@: -1}"
   mkdir -p "$(dirname "$dest")"
   echo "mock-cert-content" > "$dest"
@@ -663,4 +663,146 @@ EOF
     -e "ansible_python_interpreter=${current_python}"
 
   [ "${status}" -eq 0 ]
+}
+
+# --- Regression tests for the broadened mock "file" module and "podman"
+# stub used by the isolated Podman integration test above ---
+#
+# These guard the specific behavioral changes made to the test fixtures
+# embedded in this file: the mock file.py module now also treats any path
+# under /opt/dsom-persistence as pre-existing (like /data), and the podman
+# stub's "inspect"/"cp" branches were broadened from matching only the
+# hard-coded es01/kib01/fleet-server container names to matching any
+# container/path, so the harness works for other stacks (e.g. Gitea) too.
+# Each snippet under test is extracted verbatim from this very file so the
+# tests fail loudly if the fixtures' shape changes.
+
+# Extracts the exact boolean condition line used by the mock file.py module
+# to decide whether a given path should be treated as already existing
+# (and therefore left untouched on disk).
+_extract_file_module_exists_condition() {
+  awk '
+    /^[[:space:]]*cat > "\$\{run_dir\}\/library\/file\.py" <<EOF$/ {capture=1; next}
+    capture && /^EOF$/ {exit}
+    capture {print}
+  ' "${BATS_TEST_FILENAME}" \
+    | grep -F "if path == '/data' or path.startswith('/opt/dsom-persistence'):" \
+    | sed 's/^[[:space:]]*//'
+}
+
+# Evaluates the extracted condition standalone (no AnsibleModule/ansible
+# dependency required) for a given candidate path.
+_eval_file_module_exists_condition() {
+  local path_value="$1"
+  local condition
+  condition="$(_extract_file_module_exists_condition)"
+  python3 -c "
+path = '${path_value}'
+${condition}
+    print('MATCH')
+else:
+    print('NOMATCH')
+"
+}
+
+@test "mock file.py module: exists-condition snippet is present verbatim in this test file" {
+  condition="$(_extract_file_module_exists_condition)"
+  [[ "${condition}" == "if path == '/data' or path.startswith('/opt/dsom-persistence'):" ]]
+}
+
+@test "mock file.py module: /data is still treated as pre-existing (legacy behavior preserved)" {
+  result="$(_eval_file_module_exists_condition '/data')"
+  [ "${result}" = "MATCH" ]
+}
+
+@test "mock file.py module: paths under /opt/dsom-persistence are treated as pre-existing" {
+  result="$(_eval_file_module_exists_condition '/opt/dsom-persistence')"
+  [ "${result}" = "MATCH" ]
+
+  result="$(_eval_file_module_exists_condition '/opt/dsom-persistence/es-node-01/data')"
+  [ "${result}" = "MATCH" ]
+}
+
+@test "mock file.py module: unrelated paths are NOT treated as pre-existing" {
+  result="$(_eval_file_module_exists_condition '/opt/other')"
+  [ "${result}" = "NOMATCH" ]
+
+  result="$(_eval_file_module_exists_condition '/data2')"
+  [ "${result}" = "NOMATCH" ]
+
+  result="$(_eval_file_module_exists_condition '/tmp/data')"
+  [ "${result}" = "NOMATCH" ]
+}
+
+# Extracts the standalone "podman" stub script (verbatim) embedded in the
+# integration test above into an executable file, and returns its path.
+_build_podman_stub_harness() {
+  local harness="${TEST_TMPDIR}/podman_stub_$$_${RANDOM}"
+  awk '
+    /^[[:space:]]*cat > "\$\{STUB_BIN\}\/podman" <<.EOF.$/ {capture=1; next}
+    capture && /^EOF$/ {exit}
+    capture {print}
+  ' "${BATS_TEST_FILENAME}" > "${harness}"
+  chmod +x "${harness}"
+  echo "${harness}"
+}
+
+@test "podman stub: extraction still finds the expected inspect/cp branches" {
+  harness="$(_build_podman_stub_harness)"
+  [[ "$(cat "${harness}")" == *'if [[ "$*" == *"inspect"* ]]; then'* ]]
+  [[ "$(cat "${harness}")" == *'if [[ "$*" == *"cp "* ]]; then'* ]]
+}
+
+@test "podman stub: 'inspect' branch now matches arbitrary container names, not just es01/kib01/fleet-server" {
+  harness="$(_build_podman_stub_harness)"
+
+  run "${harness}" inspect gitea-app
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'"Name": "/es01"'* ]]
+
+  run "${harness}" inspect some-totally-different-container
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'"Name": "/es01"'* ]]
+
+  # Legacy container names must still match too.
+  run "${harness}" inspect es01
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *'"Name": "/es01"'* ]]
+}
+
+@test "podman stub: 'cp' branch now copies mock cert content for arbitrary sources/destinations" {
+  harness="$(_build_podman_stub_harness)"
+  dest="${TEST_TMPDIR}/arbitrary/nested/app.ini"
+
+  run "${harness}" cp gitea-app:/etc/gitea/conf/app.ini "${dest}"
+  [ "${status}" -eq 0 ]
+  [ -f "${dest}" ]
+  [ "$(cat "${dest}")" = "mock-cert-content" ]
+}
+
+@test "podman stub: unrelated subcommands do not accidentally trigger the inspect/cp branches" {
+  harness="$(_build_podman_stub_harness)"
+
+  run "${harness}" pod create --name gitea-stack --publish 3000:3000 --publish 2222:22
+  [ "${status}" -eq 0 ]
+  # Must fall through to the final bare "exit 0" with no JSON/cert output.
+  [ -z "${output}" ]
+
+  run "${harness}" volume create gitea_db_data
+  [ "${status}" -eq 0 ]
+  [ -z "${output}" ]
+}
+
+@test "podman stub: every invocation is recorded in CALL_LOG regardless of which branch matches" {
+  harness="$(_build_podman_stub_harness)"
+  export CALL_LOG="${TEST_TMPDIR}/calls.log"
+  : > "${CALL_LOG}"
+
+  "${harness}" inspect gitea-app >/dev/null
+  "${harness}" cp gitea-app:/etc/gitea/conf/app.ini "${TEST_TMPDIR}/app.ini" >/dev/null
+  "${harness}" pod create --name gitea-stack >/dev/null
+
+  grep -qF -- "podman inspect gitea-app" "${CALL_LOG}"
+  grep -qF -- "podman cp gitea-app:/etc/gitea/conf/app.ini" "${CALL_LOG}"
+  grep -qF -- "podman pod create --name gitea-stack" "${CALL_LOG}"
 }
