@@ -179,6 +179,95 @@ FEEDBACK_DOC="${REPO_ROOT}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
   done
 }
 
+# Regression tests for the markdownlint directive in DOCS_MATRIX_TELEMETRY.md
+# being moved onto its own line (as `markdownlint-disable-file MD041`)
+# instead of being fused onto the same physical line as the opening
+# `{% raw %}` Jekyll tag (which previously read
+# `<!-- markdownlint-disable MD041 -->{% raw %}` on line 1).
+
+@test "DOCS_MATRIX_TELEMETRY.md no longer fuses the markdownlint directive onto the opening {% raw %} line" {
+  run grep -F '<!-- markdownlint-disable MD041 -->{% raw %}' "${MATRIX_TELEMETRY_DOC}"
+  [ "${status}" -ne 0 ]
+}
+
+@test "DOCS_MATRIX_TELEMETRY.md declares markdownlint-disable-file MD041 on its own line after the title" {
+  grep -qF -- '<!-- markdownlint-disable-file MD041 -->' "${MATRIX_TELEMETRY_DOC}"
+
+  local directive_line title_line author_line
+  title_line="$(grep -n -F '# SYSTEM ARCHITECTURE & BLUEPRINT DIRECTIVE: MATRIX TELEMETRY & FEEDBACK PIPELINE' "${MATRIX_TELEMETRY_DOC}" | head -1 | cut -d: -f1)"
+  directive_line="$(grep -n -F -- '<!-- markdownlint-disable-file MD041 -->' "${MATRIX_TELEMETRY_DOC}" | head -1 | cut -d: -f1)"
+  author_line="$(grep -n -F '**Author:** Senior Principal Systems & Automation Architect' "${MATRIX_TELEMETRY_DOC}" | head -1 | cut -d: -f1)"
+
+  [ -n "${title_line}" ]
+  [ -n "${directive_line}" ]
+  [ -n "${author_line}" ]
+  [ "${title_line}" -lt "${directive_line}" ]
+  [ "${directive_line}" -lt "${author_line}" ]
+}
+
+@test "DOCS_MATRIX_TELEMETRY.md's opening {% raw %} tag is still the very first line (bare, unfused)" {
+  first_line="$(head -n 1 "${MATRIX_TELEMETRY_DOC}")"
+  [ "${first_line}" = '{% raw %}' ]
+}
+
+# Regression tests for the new docs/REFERENCE_TUNING.md reference document,
+# which compiles the tuning-guide URLs and the specific kernel/OS-level and
+# .wslconfig values integrated by ansible/tasks/wsl_tuning.yml.
+REFERENCE_TUNING_DOC="${REPO_ROOT}/docs/REFERENCE_TUNING.md"
+WSL_TUNING_TASK_FILE="${REPO_ROOT}/ansible/tasks/wsl_tuning.yml"
+
+@test "REFERENCE_TUNING.md exists and is readable" {
+  [ -f "${REFERENCE_TUNING_DOC}" ]
+  [ -r "${REFERENCE_TUNING_DOC}" ]
+}
+
+@test "REFERENCE_TUNING.md contains expected OKF front-matter metadata" {
+  grep -q 'okf_version: 0.1' "${REFERENCE_TUNING_DOC}"
+  grep -q 'type: documentation' "${REFERENCE_TUNING_DOC}"
+  grep -q 'title: "REFERENCE_TUNING.md"' "${REFERENCE_TUNING_DOC}"
+  grep -q 'resource: file:///docs/REFERENCE_TUNING.md' "${REFERENCE_TUNING_DOC}"
+}
+
+@test "REFERENCE_TUNING.md links to both primary tuning-guide resources" {
+  grep -qF 'https://linuxmalaysia.github.io/podman-elastic-stack-ai/WSL-3NODE-CLUSTER-GUIDE/' "${REFERENCE_TUNING_DOC}"
+  grep -qF 'https://www.thetributary.ai/blog/optimizing-wsl2-claude-code-performance-guide/' "${REFERENCE_TUNING_DOC}"
+}
+
+@test "REFERENCE_TUNING.md documents the exact kernel/OS-level tuning values applied by the playbook" {
+  grep -qF '`vm.max_map_count`' "${REFERENCE_TUNING_DOC}"
+  grep -qF '262144' "${REFERENCE_TUNING_DOC}"
+  grep -qF '`fs.inotify.max_user_watches`' "${REFERENCE_TUNING_DOC}"
+  grep -qF '524288' "${REFERENCE_TUNING_DOC}"
+  grep -qF '65535' "${REFERENCE_TUNING_DOC}"
+}
+
+@test "REFERENCE_TUNING.md documents the /etc/wsl.conf and .wslconfig settings applied by the playbook" {
+  grep -qF 'systemd=true' "${REFERENCE_TUNING_DOC}"
+  grep -qF 'metadata,umask=22,fmask=11' "${REFERENCE_TUNING_DOC}"
+  grep -qF 'generateHosts=true' "${REFERENCE_TUNING_DOC}"
+  grep -qF 'generateResolvConf=true' "${REFERENCE_TUNING_DOC}"
+  grep -qF 'autoMemoryReclaim=gradual' "${REFERENCE_TUNING_DOC}"
+  grep -qF 'sparseVhd=true' "${REFERENCE_TUNING_DOC}"
+  grep -qF 'networkingMode=mirrored' "${REFERENCE_TUNING_DOC}"
+  grep -qF 'dnsTunneling=true' "${REFERENCE_TUNING_DOC}"
+}
+
+@test "REFERENCE_TUNING.md's documented memory-tier scaling matches the wsl_tuning.yml implementation" {
+  grep -qF '10GB for <=16GB systems' "${REFERENCE_TUNING_DOC}"
+  grep -qF '22GB for 32GB' "${REFERENCE_TUNING_DOC}"
+  grep -qF '48GB for 64GB' "${REFERENCE_TUNING_DOC}"
+  grep -qF '96GB for 128GB' "${REFERENCE_TUNING_DOC}"
+}
+
+@test "REFERENCE_TUNING.md's documented tuning values are not just aspirational but genuinely present in wsl_tuning.yml" {
+  # Cross-file regression guard: ensures the documentation doesn't silently
+  # drift from the actual Ansible implementation it describes.
+  [ -f "${WSL_TUNING_TASK_FILE}" ]
+  grep -qF 'value: "262144"' "${WSL_TUNING_TASK_FILE}"
+  grep -qF 'value: "524288"' "${WSL_TUNING_TASK_FILE}"
+  grep -qF 'nofile  65535' "${WSL_TUNING_TASK_FILE}"
+}
+
 @test "WSL-3NODE deployment contract validation" {
   # Inspect inventory/hosts.wsl.3node.yml
   [ -f "${REPO_ROOT}/inventory/hosts.wsl.3node.yml" ]

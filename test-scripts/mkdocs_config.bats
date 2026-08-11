@@ -105,7 +105,33 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
 }
 
 @test "every markdown file referenced in the mkdocs.yml nav exists under docs/" {
-  for doc in index.md INSTALL.md PLAYBOOKS.md LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md GITEA_GUIDE.md WSL-3NODE-CLUSTER-GUIDE.md DOCS_MATRIX_TELEMETRY.md HISTORY.md CHANGELOG.md; do
+  for doc in index.md INSTALL.md PLAYBOOKS.md LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md GITEA_GUIDE.md WSL-3NODE-CLUSTER-GUIDE.md REFERENCE_TUNING.md DOCS_MATRIX_TELEMETRY.md HISTORY.md CHANGELOG.md; do
     [ -f "${REPO_ROOT}/docs/${doc}" ]
   done
+}
+
+# Regression tests for the "Reference Tuning Resources" nav entry, added
+# between the WSL 3-Node Cluster Guide and the Developer Matrix Telemetry
+# entries, pointing at the new docs/REFERENCE_TUNING.md page.
+
+@test "mkdocs.yml registers the Reference Tuning Resources nav entry pointing at REFERENCE_TUNING.md" {
+  grep -qF '- Reference Tuning Resources: REFERENCE_TUNING.md' "${MKDOCS_YML}"
+}
+
+@test "mkdocs.yml lists Reference Tuning Resources between the WSL 3-Node Cluster Guide and Developer Matrix Telemetry entries" {
+  local wsl_line reference_line telemetry_line
+  wsl_line="$(grep -n -F '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  reference_line="$(grep -n -F '- Reference Tuning Resources: REFERENCE_TUNING.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  telemetry_line="$(grep -n -F '- Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+
+  [ -n "${wsl_line}" ]
+  [ -n "${reference_line}" ]
+  [ -n "${telemetry_line}" ]
+  [ "${wsl_line}" -lt "${reference_line}" ]
+  [ "${reference_line}" -lt "${telemetry_line}" ]
+}
+
+@test "the REFERENCE_TUNING.md file referenced by the new mkdocs.yml nav entry actually exists and is readable" {
+  [ -f "${REPO_ROOT}/docs/REFERENCE_TUNING.md" ]
+  [ -r "${REPO_ROOT}/docs/REFERENCE_TUNING.md" ]
 }
