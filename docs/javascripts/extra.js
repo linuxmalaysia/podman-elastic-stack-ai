@@ -52,13 +52,25 @@
       }
 
       document.body.setAttribute("data-md-color-scheme", scheme);
+
+      // Sync with Material's palette state
+      const palette = __md_get("__palette");
+      if (palette && palette.color) {
+        palette.color.scheme = scheme;
+        __md_set("__palette", palette);
+      }
+
+      // Store the mode selection (not the scheme) for custom controller state
       localStorage.setItem("dsom-theme-mode", mode);
 
       buttons.forEach((btn) => {
-        if (btn.getAttribute("data-mode") === mode) {
+        const isActive = btn.getAttribute("data-mode") === mode;
+        if (isActive) {
           btn.classList.add("active");
+          btn.setAttribute("aria-pressed", "true");
         } else {
           btn.classList.remove("active");
+          btn.setAttribute("aria-pressed", "false");
         }
       });
     }
@@ -81,6 +93,26 @@
       if (currentSaved === "auto") {
         applyMode("auto");
       }
+    });
+
+    // Sync with Material's palette toggle if it changes
+    const paletteInputs = document.querySelectorAll("input[data-md-color-scheme]");
+    paletteInputs.forEach((input) => {
+      input.addEventListener("change", () => {
+        const scheme = document.body.getAttribute("data-md-color-scheme");
+        // Update custom controller to reflect Material's change
+        let mode = "auto";
+        if (scheme === "slate") {
+          mode = "dark";
+        } else if (scheme === "default") {
+          mode = "light";
+        }
+        // Only update button states if user clicked Material's toggle
+        const currentSaved = localStorage.getItem("dsom-theme-mode") || "auto";
+        if (currentSaved !== mode) {
+          applyMode(mode);
+        }
+      });
     });
   }
 
