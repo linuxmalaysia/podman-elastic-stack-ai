@@ -3,6 +3,8 @@
 
 This guide details the deployment, configuration, maintenance, and secure operations of Gitea inside a rootless Podman stack.
 
+<!-- markdownlint-disable-file MD041 -->
+
 Sovereign self-hosting means keeping code independent, secure, and resilient. This document covers both **Automated (Ansible Playbook)** and **Pure Command-Line** installation techniques, while deep-diving into safe password protection methodologies when utilizing Git-based workflows.
 
 ---
@@ -17,10 +19,10 @@ To obtain the Ansible playbooks, setup scripts, and configurations, clone the gi
 
 ```bash
 # Clone the repository
-git clone https://github.com/linuxmalaysia/podman-elastic-stack-ai.git
+git clone https://github.com/HarisfazillahJamel/podman-elastic-stack.git
 
 # Navigate into the project directory
-cd podman-elastic-stack-ai
+cd podman-elastic-stack
 ```
 
 For more details on cloning and initial repository setups, see the [Git Repository guide in INSTALL.md](INSTALL.md#git-repository).
