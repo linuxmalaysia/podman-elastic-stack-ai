@@ -62,3 +62,46 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
     [ -f "${REPO_ROOT}/${rel_path}" ]
   done
 }
+
+# Regression tests for the two newest Core Documentation entries: the
+# REFERENCE_TUNING.md tuning-resource compilation and the new
+# legal-notice.md Legal Notice & Disclaimer document, both linked under
+# the docs/ directory and appended after the existing GITEA_GUIDE.md entry.
+
+@test "llms.txt documents the new REFERENCE_TUNING.md entry under docs/" {
+  grep -qF '[REFERENCE_TUNING.md](docs/REFERENCE_TUNING.md): Compilation of reference tuning URLs and WSL2/kernel optimization parameters.' "${LLMS_TXT}"
+}
+
+@test "llms.txt documents the new legal-notice.md entry under docs/" {
+  grep -qF '[legal-notice.md](docs/legal-notice.md): Legal Notice, Privacy Policy, Critical Assumptions, and Assumption of Risk / Liability Disclaimer.' "${LLMS_TXT}"
+}
+
+@test "llms.txt lists REFERENCE_TUNING.md and legal-notice.md after the GITEA_GUIDE.md entry, with legal-notice.md last" {
+  local gitea_line reference_line legal_line
+  gitea_line="$(grep -n -F '[GITEA_GUIDE.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
+  reference_line="$(grep -n -F '[REFERENCE_TUNING.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
+  legal_line="$(grep -n -F '[legal-notice.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
+  [ -n "${gitea_line}" ]
+  [ -n "${reference_line}" ]
+  [ -n "${legal_line}" ]
+  [ "${reference_line}" -gt "${gitea_line}" ]
+  [ "${legal_line}" -gt "${reference_line}" ]
+}
+
+@test "llms.txt's REFERENCE_TUNING.md and legal-notice.md link targets actually exist in docs/" {
+  [ -f "${REPO_ROOT}/docs/REFERENCE_TUNING.md" ]
+  [ -f "${REPO_ROOT}/docs/legal-notice.md" ]
+}
+
+@test "llms.txt does not link legal-notice.md or REFERENCE_TUNING.md at the repository root (docs/ prefix required)" {
+  run grep -qF '](legal-notice.md):' "${LLMS_TXT}"
+  [ "${status}" -ne 0 ]
+  run grep -qF '](REFERENCE_TUNING.md):' "${LLMS_TXT}"
+  [ "${status}" -ne 0 ]
+}
+
+@test "llms.txt has exactly one legal-notice.md entry (no duplicates)" {
+  local count
+  count="$(grep -cF '[legal-notice.md]' "${LLMS_TXT}")"
+  [ "${count}" -eq 1 ]
+}
