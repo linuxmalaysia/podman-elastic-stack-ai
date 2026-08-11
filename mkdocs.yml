@@ -1,0 +1,77 @@
+# ==============================================================================
+# Protocol    : Podman Elastic Stack AI
+# Author      : Harisfazillah Jamel (LinuxMalaysia)
+# Timestamp   : 2026-07-12
+# License     : GNU General Public License v3.0
+# Standard    : UK English | DBP-standard Bahasa Melayu Malaysia (Piawai)
+# ==============================================================================
+site_name: Podman Elastic Stack AI
+site_description: An automated system to deploy Elasticsearch, Kibana, and Fleet Server using Podman and hardened Wolfi images.
+site_author: Harisfazillah Jamel (LinuxMalaysia)
+repo_url: https://github.com/linuxmalaysia/podman-elastic-stack-ai
+site_url: https://linuxmalaysia.github.io/podman-elastic-stack-ai/
+edit_uri: blob/main/docs/
+
+hooks:
+  - scripts/mkdocs_hooks.py
+
+exclude_docs: |
+  !.agents
+
+validation:
+  links:
+    absolute_links: warn
+    unrecognized_links: ignore
+
+theme:
+  name: material
+  font:
+    text: Inter
+    code: Roboto Mono
+  palette:
+    # Palette toggle for automatic mode based on system preference
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  features:
+    - navigation.expand
+    - content.code.copy
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+
+nav:
+  - Home: index.md
+  - Installation Guide: INSTALL.md
+  - Playbook Structure & Telemetry: PLAYBOOKS.md
+  - Local Development & Feedback Guide: LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md
+  - Sovereign Gitea Deployment & Security Operations Guide: GITEA_GUIDE.md
+  - WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md
+  - Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md
+  - Project History: HISTORY.md
+  - Changelog: CHANGELOG.md
