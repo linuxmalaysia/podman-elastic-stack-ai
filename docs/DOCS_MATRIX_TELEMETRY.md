@@ -1,5 +1,7 @@
-<!-- markdownlint-disable MD041 -->{% raw %}
+{% raw %}
 # SYSTEM ARCHITECTURE & BLUEPRINT DIRECTIVE: MATRIX TELEMETRY & FEEDBACK PIPELINE
+
+<!-- markdownlint-disable-file MD041 -->
 
 **Author:** Senior Principal Systems & Automation Architect
 **Target Environment:** Windows WSL2 (Ubuntu 26.04 LTS Host) + Podman 5+ Container Engine

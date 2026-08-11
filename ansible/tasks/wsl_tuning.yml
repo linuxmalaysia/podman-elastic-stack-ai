@@ -1,0 +1,222 @@
+---
+# ==============================================================================
+# WSL2 Kernel Tuning & Advanced Tributary Performance Optimization Tasks
+# Sourced from: https://www.thetributary.ai/blog/optimizing-wsl2-claude-code-performance-guide/
+# Sourced from: https://linuxmalaysia.github.io/podman-elastic-stack-ai/WSL-3NODE-CLUSTER-GUIDE/
+# ==============================================================================
+
+- name: "Part A - Username Update (Dynamic Inventory & Variable Patching)"
+  block:
+    - name: Detect active username using whoami
+      command: whoami
+      register: whoami_out
+      changed_when: false
+      failed_when: false
+
+    - name: Detect active username using id -un
+      command: id -un
+      register: id_out
+      changed_when: false
+      failed_when: false
+
+    - name: Set resolved username fact
+      set_fact:
+        resolved_username: "{{ whoami_out.stdout | trim if (whoami_out.rc == 0) else (id_out.stdout | trim if (id_out.rc == 0) else 'your_username') }}"
+
+    - name: Display resolved active username
+      debug:
+        msg: "Resolved current active username to: {{ resolved_username }}"
+
+    - name: Patch default 'your_username' to actual resolved username in hosts.wsl.3node.yml
+      replace:
+        path: "{{ elk_base_dir }}/inventory/hosts.wsl.3node.yml"
+        regexp: '"your_username"'
+        replace: '"{{ resolved_username }}"'
+      delegate_to: localhost
+      when: resolved_username != 'your_username'
+      failed_when: false
+
+    - name: Dynamic override of loaded variables in playbook
+      set_fact:
+        ansible_user: "{{ resolved_username }}"
+        dsom_group: "{{ resolved_username }}"
+      when: ansible_user == 'your_username' or dsom_group == 'your_username'
+
+- name: "Part B - Kernel Tuning check for vm.max_map_count"
+  block:
+    - name: Check current vm.max_map_count value
+      command: sysctl -n vm.max_map_count
+      register: current_max_map_count
+      changed_when: false
+      failed_when: false
+
+    - name: Parse max_map_count as integer
+      set_fact:
+        max_map_count_val: "{{ current_max_map_count.stdout | trim | int if (current_max_map_count.rc == 0 and current_max_map_count.stdout | trim is regex('^[0-9]+$')) else 0 }}"
+
+    - name: Perform vm.max_map_count configuration if not set or below required threshold (262144)
+      sysctl:
+        name: vm.max_map_count
+        value: "262144"
+        state: present
+        reload: yes
+      become: true
+      when: max_map_count_val | int < 262144
+
+- name: "Part C - CPU and Memory Calculation suitable for host system"
+  block:
+    - name: Calculate CPU and Memory for WSL performance tuning
+      set_fact:
+        wsl_processors: "{{ ansible_processor_vcpus | default(8) }}"
+        wsl_memory_gb: >-
+          {%- set ram_mb = ansible_memtotal_mb | default(16384) | int -%}
+          {%- if ram_mb <= 16384 -%}
+            10
+          {%- elif ram_mb <= 32768 -%}
+            22
+          {%- elif ram_mb <= 65536 -%}
+            48
+          {%- else -%}
+            96
+          {%- endif -%}
+
+    - name: Display WSL Recommended Configuration
+      debug:
+        msg:
+          - "=========================================================="
+          - "    WSL2 RECOMMENDED PERFORMANCE CONFIGURATION (.wslconfig) "
+          - "=========================================================="
+          - "Path: C:\\Users\\<your-username>\\.wslconfig"
+          - "----------------------------------------------------------"
+          - "[wsl2]"
+          - "memory={{ wsl_memory_gb }}GB"
+          - "processors={{ wsl_processors }}"
+          - "swap=16GB"
+          - "networkingMode=mirrored"
+          - "dnsTunneling=true"
+          - "autoProxy=true"
+          - ""
+          - "[experimental]"
+          - "autoMemoryReclaim=gradual"
+          - "sparseVhd=true"
+          - "=========================================================="
+
+    - name: Ensure WSL2 persistence directory exists
+      file:
+        path: "/opt/dsom-persistence"
+        state: directory
+        mode: "0755"
+      become: true
+      failed_when: false
+
+    - name: Save Recommended .wslconfig block to file
+      copy:
+        content: |
+          # WSL2 Recommended Performance Configuration (Tuned by Ansible)
+          # Sourced from: https://www.thetributary.ai/blog/optimizing-wsl2-claude-code-performance-guide/
+          [wsl2]
+          memory={{ wsl_memory_gb }}GB
+          processors={{ wsl_processors }}
+          swap=16GB
+          networkingMode=mirrored
+          dnsTunneling=true
+          autoProxy=true
+
+          [experimental]
+          autoMemoryReclaim=gradual
+          sparseVhd=true
+        dest: "/opt/dsom-persistence/wsl2_tuned.wslconfig"
+        mode: "0644"
+      become: true
+      failed_when: false
+
+    - name: Find Windows user profile directories
+      shell: 'find /mnt/c/Users -mindepth 1 -maxdepth 1 -type d ! -name "Public" ! -name "Default" ! -name "Default User" ! -name "All Users" 2>/dev/null'
+      register: windows_users
+      changed_when: false
+      failed_when: false
+
+    - name: Generate .wslconfig for found Windows users
+      copy:
+        content: |
+          # Recommended WSL2 Performance Tuning
+          # Sourced from: https://www.thetributary.ai/blog/optimizing-wsl2-claude-code-performance-guide/
+          [wsl2]
+          memory={{ wsl_memory_gb }}GB
+          processors={{ wsl_processors }}
+          swap=16GB
+          networkingMode=mirrored
+          dnsTunneling=true
+          autoProxy=true
+
+          [experimental]
+          autoMemoryReclaim=gradual
+          sparseVhd=true
+        dest: "{{ item }}/.wslconfig.recommended"
+        mode: "0644"
+      loop: "{{ windows_users.stdout_lines | default([]) }}"
+      when:
+        - windows_users.stdout_lines is defined
+        - windows_users.stdout_lines | length > 0
+      ignore_errors: true
+
+- name: "Part D - Adopt /etc/wsl.conf optimizations inside WSL"
+  block:
+    - name: Ensure /etc/wsl.conf has Tributary optimizations
+      blockinfile:
+        path: /etc/wsl.conf
+        create: yes
+        mode: "0644"
+        block: |
+          [boot]
+          systemd=true
+
+          [automount]
+          enabled=true
+          options=metadata,umask=22,fmask=11
+
+          [network]
+          generateHosts=true
+          generateResolvConf=true
+
+          [interop]
+          enabled=true
+          appendWindowsPath=true
+
+          [gpu]
+          enabled=true
+
+          [time]
+          useWindowsTimezone=true
+      become: true
+
+- name: "Part E - Adopt fs.inotify.max_user_watches tuning"
+  block:
+    - name: Check current fs.inotify.max_user_watches value
+      command: sysctl -n fs.inotify.max_user_watches
+      register: current_inotify_watches
+      changed_when: false
+      failed_when: false
+
+    - name: Parse inotify_watches as integer
+      set_fact:
+        inotify_watches_val: "{{ current_inotify_watches.stdout | trim | int if (current_inotify_watches.rc == 0 and current_inotify_watches.stdout | trim is regex('^[0-9]+$')) else 0 }}"
+
+    - name: Configure fs.inotify.max_user_watches to 524288
+      sysctl:
+        name: fs.inotify.max_user_watches
+        value: "524288"
+        state: present
+        reload: yes
+      become: true
+      when: inotify_watches_val | int < 524288
+
+- name: "Part F - Adopt file descriptor limits optimization"
+  block:
+    - name: Configure file descriptor limits in /etc/security/limits.conf
+      blockinfile:
+        path: /etc/security/limits.conf
+        block: |
+          *  soft  nofile  65535
+          *  hard  nofile  65535
+      become: true

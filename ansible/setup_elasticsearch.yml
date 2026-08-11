@@ -7,6 +7,10 @@
       include_vars:
         file: group_vars/all.yml
 
+    - name: "Step 0 - WSL2 Tuning and Optimization"
+      include_tasks: tasks/wsl_tuning.yml
+      when: deployment_option == 'wsl2'
+
     - name: "Step 1 - Check and Install Podman and Podman Compose"
       block:
         - name: Check if podman or podman-compose are missing
