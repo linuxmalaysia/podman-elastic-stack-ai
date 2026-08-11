@@ -60,3 +60,8 @@ dkms.conf
 # Python caches
 __pycache__/
 *.pyc
+
+# MkDocs build directory
+site/
+_site/
+.tmp/

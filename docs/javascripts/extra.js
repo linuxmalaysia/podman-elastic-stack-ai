@@ -7,10 +7,6 @@
  */
 
 (function () {
-  /**
-   * Initializes the header control for selecting Light, Dark, or Auto theme modes.
-   * Persists the selected mode and updates the theme when the system color preference changes.
-   */
   function initThemeToggle() {
     const header = document.querySelector(".md-header__inner");
     if (!header || document.querySelector(".theme-mode-toggle-container")) return;
@@ -36,36 +32,22 @@
 
     const buttons = container.querySelectorAll(".theme-mode-btn");
 
-    function getSystemScheme() {
-      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "slate" : "default";
-    }
+    function syncButtonsToPalette() {
+      // Find the currently checked palette input
+      const checkedInput = document.querySelector("input[name='__palette']:checked");
+      if (!checkedInput) return;
 
-    function applyMode(mode) {
-      let scheme = "default";
-      if (mode === "dark") {
-        scheme = "slate";
-      } else if (mode === "light") {
-        scheme = "default";
-      } else {
-        // Auto
-        scheme = getSystemScheme();
+      const media = checkedInput.getAttribute("data-md-color-media");
+      let activeMode = "auto";
+      if (media === "(prefers-color-scheme: light)") {
+        activeMode = "light";
+      } else if (media === "(prefers-color-scheme: dark)") {
+        activeMode = "dark";
       }
-
-      document.body.setAttribute("data-md-color-scheme", scheme);
-
-      // Sync with Material's palette state
-      const palette = __md_get("__palette");
-      if (palette && palette.color) {
-        palette.color.scheme = scheme;
-        __md_set("__palette", palette);
-      }
-
-      // Store the mode selection (not the scheme) for custom controller state
-      localStorage.setItem("dsom-theme-mode", mode);
 
       buttons.forEach((btn) => {
-        const isActive = btn.getAttribute("data-mode") === mode;
-        if (isActive) {
+        const mode = btn.getAttribute("data-mode");
+        if (mode === activeMode) {
           btn.classList.add("active");
           btn.setAttribute("aria-pressed", "true");
         } else {
@@ -75,45 +57,41 @@
       });
     }
 
-    // Read saved mode or default to auto
-    const savedMode = localStorage.getItem("dsom-theme-mode") || "auto";
-    applyMode(savedMode);
-
-    // Event listeners
+    // Event listeners for custom buttons
     buttons.forEach((btn) => {
       btn.addEventListener("click", () => {
         const mode = btn.getAttribute("data-mode");
-        applyMode(mode);
-      });
-    });
-
-    // Watch system color preference changes if in AUTO mode
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-      const currentSaved = localStorage.getItem("dsom-theme-mode") || "auto";
-      if (currentSaved === "auto") {
-        applyMode("auto");
-      }
-    });
-
-    // Sync with Material's palette toggle if it changes
-    const paletteInputs = document.querySelectorAll("input[data-md-color-scheme]");
-    paletteInputs.forEach((input) => {
-      input.addEventListener("change", () => {
-        const scheme = document.body.getAttribute("data-md-color-scheme");
-        // Update custom controller to reflect Material's change
-        let mode = "auto";
-        if (scheme === "slate") {
-          mode = "dark";
-        } else if (scheme === "default") {
-          mode = "light";
+        let media = "(prefers-color-scheme)";
+        if (mode === "light") {
+          media = "(prefers-color-scheme: light)";
+        } else if (mode === "dark") {
+          media = "(prefers-color-scheme: dark)";
         }
-        // Only update button states if user clicked Material's toggle
-        const currentSaved = localStorage.getItem("dsom-theme-mode") || "auto";
-        if (currentSaved !== mode) {
-          applyMode(mode);
+        const input = document.querySelector(`input[name="__palette"][data-md-color-media="${media}"]`);
+        if (input) {
+          input.click();
         }
       });
     });
+
+    // Sync initially
+    syncButtonsToPalette();
+
+    // Synchronize custom buttons when Material palette changes
+    const inputs = document.querySelectorAll("input[name='__palette']");
+    inputs.forEach((input) => {
+      input.addEventListener("change", syncButtonsToPalette);
+    });
+
+    // Observe body for changes to attributes (e.g. scheme) to ensure synchronization
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === "data-md-color-scheme") {
+          syncButtonsToPalette();
+        }
+      });
+    });
+    observer.observe(document.body, { attributes: true });
   }
 
   if (document.readyState === "loading") {
