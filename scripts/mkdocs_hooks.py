@@ -12,8 +12,12 @@ def resolve_relative_url(url, page, config):
     """
     Resolve relative URLs to clean paths.
     """
-    # Keep external, mailto, or anchor-only links intact
-    if url.startswith(('http://', 'https://', 'mailto:', 'ftp:', '#')):
+    # Keep external, protocol-relative, scheme-qualified, or anchor-only links intact
+    if (
+        url.startswith('#') or
+        url.startswith('//') or
+        re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*:', url)
+    ):
         return url
 
     # Extract anchor if present
