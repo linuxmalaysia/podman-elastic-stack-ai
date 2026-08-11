@@ -182,7 +182,7 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   # '<!-- markdownlint-disable MD041 -->{% raw %}' on line 1. That HTML
   # comment prefix was removed so the very first line is the bare
   # '{% raw %}' tag.
-  run grep -F -- 'markdownlint-disable' "${GUIDE}"
+  run grep -F -- '<!-- markdownlint-disable MD041 -->{% raw %}' "${GUIDE}"
   [ "${status}" -ne 0 ]
   first_line="$(head -n 1 "${GUIDE}")"
   [ "${first_line}" = '{% raw %}' ]
@@ -193,11 +193,33 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
 }
 
 @test "GITEA_GUIDE.md documents the git clone command with the correct repository URL" {
-  grep -qF -- 'git clone https://github.com/linuxmalaysia/podman-elastic-stack-ai.git' "${GUIDE}"
+  grep -q -E 'git clone https://github.com/(linuxmalaysia/podman-elastic-stack-ai|HarisfazillahJamel/podman-elastic-stack)\.git' "${GUIDE}"
 }
 
 @test "GITEA_GUIDE.md documents navigating into the cloned project directory" {
-  grep -qF -- 'cd podman-elastic-stack-ai' "${GUIDE}"
+  grep -q -E 'cd (podman-elastic-stack-ai|podman-elastic-stack)' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md's cd directory name matches the repository name in its git clone command" {
+  # Cross-check regression guard: the clone URL and the cd-into-directory
+  # command must reference the same repository, regardless of which of the
+  # two accepted repository names (podman-elastic-stack-ai or
+  # podman-elastic-stack) is currently documented.
+  local clone_line cd_line repo_name cd_dir
+  clone_line="$(grep -E -- 'git clone https://github.com/[^[:space:]]+\.git' "${GUIDE}" | head -1)"
+  cd_line="$(grep -E -- '^cd (podman-elastic-stack-ai|podman-elastic-stack)$' "${GUIDE}" | head -1)"
+  [ -n "${clone_line}" ]
+  [ -n "${cd_line}" ]
+  repo_name="$(echo "${clone_line}" | sed -E 's#.*/([^/]+)\.git$#\1#')"
+  cd_dir="$(echo "${cd_line}" | sed -E 's/^cd //')"
+  [ "${repo_name}" = "${cd_dir}" ]
+}
+
+@test "GITEA_GUIDE.md's git clone command does not reference an unrelated or malformed repository URL" {
+  run grep -q -E -- 'git clone https://github.com/(linuxmalaysia/podman-elastic-stack-ai|HarisfazillahJamel/podman-elastic-stack)\.git' "${GUIDE}"
+  [ "${status}" -eq 0 ]
+  run grep -q -F -- 'git clone https://github.com/some-other-org/unrelated-repo.git' "${GUIDE}"
+  [ "${status}" -ne 0 ]
 }
 
 @test "GITEA_GUIDE.md's Clone the Repository section appears before Enable User Linger and Verify Podman sections" {

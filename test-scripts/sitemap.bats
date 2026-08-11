@@ -25,6 +25,8 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "${BASE_URL}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE/" "${SITEMAP_TXT}"
   grep -qF "${BASE_URL}/docs/DOCS_MATRIX_TELEMETRY/" "${SITEMAP_TXT}"
   grep -qF "${BASE_URL}/docs/WSL-3NODE-CLUSTER-GUIDE/" "${SITEMAP_TXT}"
+  grep -qF "${BASE_URL}/docs/REFERENCE_TUNING/" "${SITEMAP_TXT}"
+  grep -qF "${BASE_URL}/docs/legal-notice/" "${SITEMAP_TXT}"
 }
 
 @test "sitemap.txt includes the new GITEA_GUIDE URL under docs/" {
@@ -46,10 +48,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   done
 }
 
-@test "sitemap.txt has exactly nine URLs (homepage + 6 relocated docs + HISTORY + CHANGELOG)" {
+@test "sitemap.txt has exactly eleven URLs (homepage + 8 relocated/new docs + HISTORY + CHANGELOG)" {
   local count
   count="$(grep -cF "${BASE_URL}" "${SITEMAP_TXT}")"
-  [ "${count}" -eq 9 ]
+  [ "${count}" -eq 11 ]
 }
 
 @test "sitemap.xml lists the relocated guide URLs under the docs/ path segment" {
@@ -58,6 +60,8 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "<loc>${BASE_URL}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/DOCS_MATRIX_TELEMETRY/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/WSL-3NODE-CLUSTER-GUIDE/</loc>" "${SITEMAP_XML}"
+  grep -qF "<loc>${BASE_URL}/docs/REFERENCE_TUNING/</loc>" "${SITEMAP_XML}"
+  grep -qF "<loc>${BASE_URL}/docs/legal-notice/</loc>" "${SITEMAP_XML}"
 }
 
 @test "sitemap.xml includes a new <url> entry for GITEA_GUIDE with changefreq/priority metadata" {
@@ -80,8 +84,37 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   python3 -c "import xml.etree.ElementTree as ET; ET.parse('${SITEMAP_XML}')"
 }
 
-@test "sitemap.xml contains exactly nine <url> entries matching sitemap.txt" {
+@test "sitemap.xml contains exactly eleven <url> entries matching sitemap.txt" {
   local count
   count="$(grep -cF '<url>' "${SITEMAP_XML}")"
-  [ "${count}" -eq 9 ]
+  [ "${count}" -eq 11 ]
+}
+
+# Regression tests for the new REFERENCE_TUNING.md and legal-notice.md
+# entries added to both sitemap.txt and sitemap.xml.
+
+@test "sitemap.xml's REFERENCE_TUNING and legal-notice entries carry weekly/0.80 metadata like the other secondary docs" {
+  awk '/docs\/REFERENCE_TUNING\// { found=1 } found && /<changefreq>/ { print; exit }' "${SITEMAP_XML}" | grep -qF 'weekly'
+  awk '/docs\/REFERENCE_TUNING\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
+  awk '/docs\/legal-notice\// { found=1 } found && /<changefreq>/ { print; exit }' "${SITEMAP_XML}" | grep -qF 'weekly'
+  awk '/docs\/legal-notice\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
+}
+
+@test "sitemap.txt's new REFERENCE_TUNING and legal-notice URLs end with a trailing slash, consistent with other entries" {
+  grep -qE -- "${BASE_URL}/docs/REFERENCE_TUNING/\$" "${SITEMAP_TXT}"
+  grep -qE -- "${BASE_URL}/docs/legal-notice/\$" "${SITEMAP_TXT}"
+}
+
+@test "sitemap.xml's <loc> entries exactly match the URL set listed in sitemap.txt" {
+  local txt_urls xml_urls
+  txt_urls="$(grep -F "${BASE_URL}" "${SITEMAP_TXT}" | sort)"
+  xml_urls="$(grep -oE '<loc>[^<]+</loc>' "${SITEMAP_XML}" | sed -E 's#<loc>(.*)</loc>#\1#' | sort)"
+  [ "${txt_urls}" = "${xml_urls}" ]
+}
+
+@test "sitemap.txt has no duplicate URLs" {
+  local total unique
+  total="$(grep -F "${BASE_URL}" "${SITEMAP_TXT}" | wc -l)"
+  unique="$(grep -F "${BASE_URL}" "${SITEMAP_TXT}" | sort -u | wc -l)"
+  [ "${total}" -eq "${unique}" ]
 }

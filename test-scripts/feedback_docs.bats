@@ -52,7 +52,7 @@ GUIDE="${REPO_ROOT}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
   # GitHub Pages. The entire document must be wrapped in raw/endraw tags.
   first_line="$(head -n 1 "${GUIDE}")"
   last_line="$(tail -n 1 "${GUIDE}")"
-  [ "${first_line}" = '{% raw %}' ]
+  [ "${first_line}" = '{% raw %}' ] || [ "${first_line}" = '<!-- markdownlint-disable MD041 -->{% raw %}' ]
   [ "${last_line}" = '{% endraw %}' ]
 }
 
@@ -66,6 +66,23 @@ GUIDE="${REPO_ROOT}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
 @test "GUIDE's title immediately follows the opening {% raw %} tag" {
   second_line="$(sed -n '2p' "${GUIDE}")"
   [ "${second_line}" = '# Local Hybrid Execution & Bidirectional Feedback Pipeline Guide' ]
+}
+
+@test "GUIDE's current first line is the markdownlint-disable-fused {% raw %} form" {
+  # Regression guard/documentation: pins down which of the two forms
+  # accepted by "GUIDE is wrapped in Jekyll {% raw %}/{% endraw %} tags" is
+  # actually present today, so an unintentional switch between the two
+  # forms is still caught by a targeted assertion.
+  first_line="$(head -n 1 "${GUIDE}")"
+  [ "${first_line}" = '<!-- markdownlint-disable MD041 -->{% raw %}' ]
+}
+
+@test "GUIDE's fused markdownlint-disable/raw first line ends with the exact '{% raw %}' tag (no typos or extra whitespace)" {
+  first_line="$(head -n 1 "${GUIDE}")"
+  case "${first_line}" in
+    *'{% raw %}') ;;
+    *) return 1 ;;
+  esac
 }
 
 @test "GUIDE's nested Liquid-style docker stats format string is enclosed within the raw block" {
