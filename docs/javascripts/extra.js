@@ -7,6 +7,10 @@
  */
 
 (function () {
+  /**
+   * Initializes the header control for selecting Light, Dark, or Auto theme modes.
+   * Persists the selected mode and updates the theme when the system color preference changes.
+   */
   function initThemeToggle() {
     const header = document.querySelector(".md-header__inner");
     if (!header || document.querySelector(".theme-mode-toggle-container")) return;
