@@ -1,4 +1,4 @@
-<!-- markdownlint-disable MD041 -->{% raw %}
+{% raw %}
 # Sovereign Gitea Deployment & Security Operations Guide
 
 This guide details the deployment, configuration, maintenance, and secure operations of Gitea inside a rootless Podman stack.
@@ -10,6 +10,20 @@ Sovereign self-hosting means keeping code independent, secure, and resilient. Th
 ## 1. Prerequisites
 
 Before running any commands or playbooks, make sure the following host configurations are present.
+
+### Clone the Repository
+
+To obtain the Ansible playbooks, setup scripts, and configurations, clone the git repository to your local system and navigate to the project directory:
+
+```bash
+# Clone the repository
+git clone https://github.com/linuxmalaysia/podman-elastic-stack-ai.git
+
+# Navigate into the project directory
+cd podman-elastic-stack-ai
+```
+
+For more details on cloning and initial repository setups, see the [Git Repository guide in INSTALL.md](INSTALL.md#git-repository).
 
 ### Enable User Linger
 Rootless containers run in user space. By default, user processes are terminated when your active SSH or terminal session closes. Enabling linger allows rootless container managers and systemd user services to run continuously in the background:
@@ -29,6 +43,8 @@ podman-compose --version
 ## 2. Option A: Automated Ansible Deployment (Recommended)
 
 Our repository includes a robust, production-hardened, and fully idempotent Ansible playbook to deploy Gitea, configure its systemd integration, and securely handle runtime secrets.
+
+For a comprehensive overview of our Ansible playbook files, variables, and individual execution techniques, please refer to the main [Playbooks Guide](PLAYBOOKS.md).
 
 ### Playbook Tasks Performed
 1. **OS Detection & Package Setup**: Detects if your system is Debian/Ubuntu or RPM-based (CentOS, RedHat, AlmaLinux, Rocky) and installs `podman` and `podman-compose` automatically if missing.
