@@ -158,3 +158,47 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
   [ -f "${REPO_ROOT}/docs/REFERENCE_TUNING.md" ]
   [ -r "${REPO_ROOT}/docs/REFERENCE_TUNING.md" ]
 }
+
+# Regression tests for the new mkdocs.yml `copyright:` footer, which
+# surfaces the legal disclaimer text and a link to docs/legal-notice.md on
+# every rendered page of the MkDocs Material site.
+
+@test "mkdocs.yml's copyright footer contains the expected disclaimer phrasing and copyright line" {
+  grep -qF 'All costs, designs, unit amounts, and scenarios detailed within this project are based entirely on assumptions.' "${MKDOCS_YML}"
+  grep -qF 'Compiled strictly for training, educational, and planning proposal purposes.' "${MKDOCS_YML}"
+  grep -qF 'Use at your own risk.' "${MKDOCS_YML}"
+  grep -qF 'We are not going to be responsible.' "${MKDOCS_YML}"
+  grep -qF 'We have done our best to protect anyone and organisation.' "${MKDOCS_YML}"
+  grep -qF 'Copyright &copy; 2025 - 2026 Harisfazillah Jamel (LinuxMalaysia)' "${MKDOCS_YML}"
+}
+
+@test "mkdocs.yml's copyright footer links to the legal-notice page with the expected anchor text" {
+  grep -qF '<a href="https://linuxmalaysia.github.io/podman-elastic-stack-ai/legal-notice/">Legal Notice, Privacy Policy, Critical Assumptions & Disclaimer of Liability</a>' "${MKDOCS_YML}"
+}
+
+@test "mkdocs.yml declares copyright as a single-quoted YAML scalar" {
+  local copyright_line
+  copyright_line="$(grep -n -E '^copyright: ' "${MKDOCS_YML}" | head -1)"
+  [ -n "${copyright_line}" ]
+  echo "${copyright_line}" | grep -qE ": '"
+}
+
+@test "mkdocs.yml's copyright line appears before the hooks: section" {
+  local copyright_line hooks_line
+  copyright_line="$(grep -n -E '^copyright: ' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  hooks_line="$(grep -n -F -- 'hooks:' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  [ -n "${copyright_line}" ]
+  [ -n "${hooks_line}" ]
+  [ "${copyright_line}" -lt "${hooks_line}" ]
+}
+
+@test "mkdocs.yml declares exactly one copyright entry (no duplicates)" {
+  local count
+  count="$(grep -cE '^copyright: ' "${MKDOCS_YML}")"
+  [ "${count}" -eq 1 ]
+}
+
+@test "the legal-notice.md file referenced by the new mkdocs.yml nav entry and copyright footer actually exists and is readable" {
+  [ -f "${REPO_ROOT}/docs/legal-notice.md" ]
+  [ -r "${REPO_ROOT}/docs/legal-notice.md" ]
+}

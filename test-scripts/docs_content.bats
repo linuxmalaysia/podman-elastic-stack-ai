@@ -184,6 +184,136 @@ MATRIX_TELEMETRY_DOC="${REPO_ROOT}/docs/DOCS_MATRIX_TELEMETRY.md"
   [ "${first_line}" = '{% raw %}' ]
 }
 
+# Regression tests for the new docs/DOCS_MATRIX_TELEMETRY.md Jekyll
+# {% raw %}/{% endraw %} wrapping. The document contains embedded Ansible
+# Jinja2 double-curly-brace syntax (e.g. `{{ ansible_failed_result.msg }}`)
+# which would otherwise break GitHub Pages' Jekyll Liquid engine, so the
+# entire document body is wrapped in raw/endraw tags, mirroring the
+# wrapping already applied to GITEA_GUIDE.md and
+# LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md.
+
+@test "DOCS_MATRIX_TELEMETRY.md is wrapped in Jekyll {% raw %}/{% endraw %} tags, with {% endraw %} as the last line" {
+  first_line="$(head -n 1 "${MATRIX_TELEMETRY_DOC}")"
+  last_line="$(tail -n 1 "${MATRIX_TELEMETRY_DOC}")"
+  [ "${first_line}" = '{% raw %}' ]
+  [ "${last_line}" = '{% endraw %}' ]
+}
+
+@test "DOCS_MATRIX_TELEMETRY.md has exactly one raw/endraw tag pair (no duplicates or stray tags)" {
+  raw_count="$(grep -cF -- '{% raw %}' "${MATRIX_TELEMETRY_DOC}")"
+  endraw_count="$(grep -cF -- '{% endraw %}' "${MATRIX_TELEMETRY_DOC}")"
+  [ "${raw_count}" -eq 1 ]
+  [ "${endraw_count}" -eq 1 ]
+}
+
+@test "DOCS_MATRIX_TELEMETRY.md's Ansible Jinja2 double-curly-brace syntax is enclosed within the raw block" {
+  raw_line="$(grep -nF -- '{% raw %}' "${MATRIX_TELEMETRY_DOC}" | head -1 | cut -d: -f1)"
+  endraw_line="$(grep -nF -- '{% endraw %}' "${MATRIX_TELEMETRY_DOC}" | head -1 | cut -d: -f1)"
+  liquid_line="$(grep -nF -- '{{ ansible_failed_result.msg' "${MATRIX_TELEMETRY_DOC}" | head -1 | cut -d: -f1)"
+  [ -n "${liquid_line}" ]
+  [ "${liquid_line}" -gt "${raw_line}" ]
+  [ "${liquid_line}" -lt "${endraw_line}" ]
+}
+
+@test "DOCS_MATRIX_TELEMETRY.md's closing footer line appears immediately before the closing {% endraw %} tag" {
+  # Regression guard: ensures {% endraw %} was appended after the existing
+  # final content rather than replacing or truncating it.
+  mapfile -t last_lines < <(tail -n 2 "${MATRIX_TELEMETRY_DOC}")
+  [ "${last_lines[0]}" = '*This document serves as the master architectural specification for local multi-OS telemetry extraction and bidirectional agent-human orchestration loops.*' ]
+  [ "${last_lines[1]}" = '{% endraw %}' ]
+}
+
+# Regression tests for the new docs/legal-notice.md document, which
+# provides the Legal Notice, Privacy Policy, Critical Assumptions, and
+# Assumption of Risk / Liability Disclaimer referenced from the mkdocs.yml
+# footer copyright and linked from llms.txt and the sitemaps.
+LEGAL_NOTICE_DOC="${REPO_ROOT}/docs/legal-notice.md"
+
+@test "legal-notice.md exists and is readable" {
+  [ -f "${LEGAL_NOTICE_DOC}" ]
+  [ -r "${LEGAL_NOTICE_DOC}" ]
+}
+
+@test "legal-notice.md declares the expected OKF front-matter metadata" {
+  grep -qF 'okf_version: 0.1' "${LEGAL_NOTICE_DOC}"
+  grep -qF 'type: documentation' "${LEGAL_NOTICE_DOC}"
+  grep -qF 'title: "legal-notice.md"' "${LEGAL_NOTICE_DOC}"
+  grep -qF 'resource: file:///docs/legal-notice.md' "${LEGAL_NOTICE_DOC}"
+}
+
+@test "legal-notice.md's front matter is delimited by --- markers, closed before the title heading" {
+  local first_line closing_line title_line
+  first_line="$(sed -n '1p' "${LEGAL_NOTICE_DOC}")"
+  [ "${first_line}" = '---' ]
+  closing_line="$(grep -n -F -- '---' "${LEGAL_NOTICE_DOC}" | sed -n '2p' | cut -d: -f1)"
+  title_line="$(grep -n -F -- '# ⚖️ Legal Notice & Disclaimer' "${LEGAL_NOTICE_DOC}" | head -1 | cut -d: -f1)"
+  [ -n "${closing_line}" ]
+  [ -n "${title_line}" ]
+  [ "${closing_line}" -lt "${title_line}" ]
+}
+
+@test "legal-notice.md has the expected title heading" {
+  grep -qF -- '# ⚖️ Legal Notice & Disclaimer' "${LEGAL_NOTICE_DOC}"
+}
+
+@test "legal-notice.md documents all four numbered sections in order" {
+  headers=(
+    '## 1. Educational and Training Purpose'
+    '## 2. Reliance on Critical Assumptions'
+    '## 3. Privacy Statement & Data Protection'
+    '## 4. Assumption of Risk & Liability Disclaimer'
+  )
+  local prev_line=0
+  for header in "${headers[@]}"; do
+    line="$(grep -n -F -- "${header}" "${LEGAL_NOTICE_DOC}" | head -1 | cut -d: -f1)"
+    [ -n "${line}" ]
+    [ "${line}" -gt "${prev_line}" ]
+    prev_line="${line}"
+  done
+}
+
+@test "legal-notice.md's educational/training purpose section covers Ansible playbooks and Wolfi images" {
+  grep -qF -- 'training, educational, and planning proposal purposes only' "${LEGAL_NOTICE_DOC}"
+  grep -qF -- 'Podman and hardened Wolfi images' "${LEGAL_NOTICE_DOC}"
+}
+
+@test "legal-notice.md's critical assumptions section documents infrastructure, cost, and capacity caveats" {
+  grep -qF -- '**Infrastructure Design:**' "${LEGAL_NOTICE_DOC}"
+  grep -qF -- '**Cost Estimations:**' "${LEGAL_NOTICE_DOC}"
+  grep -qF -- '**System Capacity & Units:**' "${LEGAL_NOTICE_DOC}"
+}
+
+@test "legal-notice.md's privacy section documents anonymised metadata and zero real-world PII storage" {
+  grep -qF -- '**Anonymised Metadata:**' "${LEGAL_NOTICE_DOC}"
+  grep -qF -- '**Zero Real-World Storage:**' "${LEGAL_NOTICE_DOC}"
+  grep -qF -- 'personal identifying information (PII)' "${LEGAL_NOTICE_DOC}"
+}
+
+@test "legal-notice.md's disclaimer section documents as-is basis, liability disclaimer, and user responsibility" {
+  grep -qF -- '**As-Is Basis:**' "${LEGAL_NOTICE_DOC}"
+  grep -qF -- '**Disclaimer:**' "${LEGAL_NOTICE_DOC}"
+  grep -qF -- '**User Responsibility:**' "${LEGAL_NOTICE_DOC}"
+}
+
+@test "legal-notice.md ends with the REGULATION/PURPOSE/RISK footer banner" {
+  last_line="$(tail -n 1 "${LEGAL_NOTICE_DOC}")"
+  [ "${last_line}" = '[ REGULATION: DISCLAIMER ] | [ PURPOSE: TRAINING ] | [ RISK: ASSUMED ]' ]
+}
+
+@test "legal-notice.md's front-matter timestamp uses ISO-8601 UTC format" {
+  grep -qE -- 'timestamp: [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z' "${LEGAL_NOTICE_DOC}"
+}
+
+@test "legal-notice.md is not wrapped in Jekyll {% raw %}/{% endraw %} tags (no Liquid-conflicting syntax present)" {
+  # Unlike GITEA_GUIDE.md, LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md, and
+  # DOCS_MATRIX_TELEMETRY.md, legal-notice.md contains no Ansible/Jinja2
+  # double-curly-brace syntax, so it should not need raw/endraw wrapping.
+  run grep -qF -- '{{' "${LEGAL_NOTICE_DOC}"
+  [ "${status}" -ne 0 ]
+  run grep -qF -- '{% raw %}' "${LEGAL_NOTICE_DOC}"
+  [ "${status}" -ne 0 ]
+}
+
 # Regression tests for the new docs/REFERENCE_TUNING.md reference document,
 # which compiles the tuning-guide URLs and the specific kernel/OS-level and
 # .wslconfig values integrated by ansible/tasks/wsl_tuning.yml.

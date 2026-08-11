@@ -200,6 +200,28 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   grep -q -E 'cd (podman-elastic-stack-ai|podman-elastic-stack)' "${GUIDE}"
 }
 
+@test "GITEA_GUIDE.md's cd directory name matches the repository name in its git clone command" {
+  # Cross-check regression guard: the clone URL and the cd-into-directory
+  # command must reference the same repository, regardless of which of the
+  # two accepted repository names (podman-elastic-stack-ai or
+  # podman-elastic-stack) is currently documented.
+  local clone_line cd_line repo_name cd_dir
+  clone_line="$(grep -E -- 'git clone https://github.com/[^[:space:]]+\.git' "${GUIDE}" | head -1)"
+  cd_line="$(grep -E -- '^cd (podman-elastic-stack-ai|podman-elastic-stack)$' "${GUIDE}" | head -1)"
+  [ -n "${clone_line}" ]
+  [ -n "${cd_line}" ]
+  repo_name="$(echo "${clone_line}" | sed -E 's#.*/([^/]+)\.git$#\1#')"
+  cd_dir="$(echo "${cd_line}" | sed -E 's/^cd //')"
+  [ "${repo_name}" = "${cd_dir}" ]
+}
+
+@test "GITEA_GUIDE.md's git clone command does not reference an unrelated or malformed repository URL" {
+  run grep -q -E -- 'git clone https://github.com/(linuxmalaysia/podman-elastic-stack-ai|HarisfazillahJamel/podman-elastic-stack)\.git' "${GUIDE}"
+  [ "${status}" -eq 0 ]
+  run grep -q -F -- 'git clone https://github.com/some-other-org/unrelated-repo.git' "${GUIDE}"
+  [ "${status}" -ne 0 ]
+}
+
 @test "GITEA_GUIDE.md's Clone the Repository section appears before Enable User Linger and Verify Podman sections" {
   local clone_line linger_line verify_line
   clone_line="$(grep -n -F -- '### Clone the Repository' "${GUIDE}" | head -1 | cut -d: -f1)"
