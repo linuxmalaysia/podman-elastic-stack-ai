@@ -22,12 +22,12 @@ def on_page_markdown(markdown, page, config, files):
     def replace_link(match):
         """
         Rewrite a Markdown link URL for MkDocs compilation.
-
+        
         Parameters:
-                match: A regular expression match containing link text and URL groups.
-
+            match: A regular expression match containing the link text and URL.
+        
         Returns:
-                str: The link with its relative URL adjusted, or the original link for external and anchor-only URLs.
+            str: The link with a leading ``docs/`` removed or one leading parent-directory level removed; external and anchor-only links are returned unchanged.
         """
         text = match.group(1)
         url = match.group(2)
