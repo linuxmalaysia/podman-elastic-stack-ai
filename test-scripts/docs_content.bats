@@ -140,6 +140,7 @@ WSL_3NODE_GUIDE="${REPO_ROOT}/docs/WSL-3NODE-CLUSTER-GUIDE.md"
 # Liquid-like syntax.
 GITEA_DOC="${REPO_ROOT}/docs/GITEA_GUIDE.md"
 FEEDBACK_DOC="${REPO_ROOT}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
+MATRIX_TELEMETRY_DOC="${REPO_ROOT}/docs/DOCS_MATRIX_TELEMETRY.md"
 
 @test "both raw/endraw-wrapped docs still contain their Ansible Liquid-like double-curly-brace syntax inside the raw block" {
   for doc in "${GITEA_DOC}" "${FEEDBACK_DOC}"; do

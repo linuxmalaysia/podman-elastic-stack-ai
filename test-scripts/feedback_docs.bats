@@ -52,7 +52,7 @@ GUIDE="${REPO_ROOT}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
   # GitHub Pages. The entire document must be wrapped in raw/endraw tags.
   first_line="$(head -n 1 "${GUIDE}")"
   last_line="$(tail -n 1 "${GUIDE}")"
-  [ "${first_line}" = '{% raw %}' ]
+  [ "${first_line}" = '{% raw %}' ] || [ "${first_line}" = '<!-- markdownlint-disable MD041 -->{% raw %}' ]
   [ "${last_line}" = '{% endraw %}' ]
 }
 

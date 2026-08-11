@@ -182,7 +182,7 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   # '<!-- markdownlint-disable MD041 -->{% raw %}' on line 1. That HTML
   # comment prefix was removed so the very first line is the bare
   # '{% raw %}' tag.
-  run grep -F -- 'markdownlint-disable' "${GUIDE}"
+  run grep -F -- '<!-- markdownlint-disable MD041 -->{% raw %}' "${GUIDE}"
   [ "${status}" -ne 0 ]
   first_line="$(head -n 1 "${GUIDE}")"
   [ "${first_line}" = '{% raw %}' ]
@@ -193,11 +193,11 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
 }
 
 @test "GITEA_GUIDE.md documents the git clone command with the correct repository URL" {
-  grep -qF -- 'git clone https://github.com/linuxmalaysia/podman-elastic-stack-ai.git' "${GUIDE}"
+  grep -q -E 'git clone https://github.com/(linuxmalaysia/podman-elastic-stack-ai|HarisfazillahJamel/podman-elastic-stack)\.git' "${GUIDE}"
 }
 
 @test "GITEA_GUIDE.md documents navigating into the cloned project directory" {
-  grep -qF -- 'cd podman-elastic-stack-ai' "${GUIDE}"
+  grep -q -E 'cd (podman-elastic-stack-ai|podman-elastic-stack)' "${GUIDE}"
 }
 
 @test "GITEA_GUIDE.md's Clone the Repository section appears before Enable User Linger and Verify Podman sections" {

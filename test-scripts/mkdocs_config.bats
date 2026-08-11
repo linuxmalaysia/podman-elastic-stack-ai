@@ -25,7 +25,7 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
 
 @test "mkdocs.yml registers the mkdocs_hooks.py link-rewriting hook" {
   grep -qF 'hooks:' "${MKDOCS_YML}"
-  grep -qF '- scripts/mkdocs_hooks.py' "${MKDOCS_YML}"
+  grep -qF -- '- scripts/mkdocs_hooks.py' "${MKDOCS_YML}"
 }
 
 @test "the hook file referenced in mkdocs.yml actually exists" {
@@ -59,9 +59,9 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
 @test "mkdocs.yml uses the custom primary/accent palette (not a stock Material color) for both light and dark" {
   local count
   count="$(grep -cF 'primary: custom' "${MKDOCS_YML}")"
-  [ "${count}" -eq 1 ]
+  [ "${count}" -eq 2 ]
   count="$(grep -cF 'accent: custom' "${MKDOCS_YML}")"
-  [ "${count}" -eq 1 ]
+  [ "${count}" -eq 2 ]
 }
 
 @test "mkdocs.yml enables navigation.expand and content.code.copy features" {
@@ -71,9 +71,9 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
 
 @test "mkdocs.yml wires up the custom extra CSS and JS assets" {
   grep -qF 'extra_css:' "${MKDOCS_YML}"
-  grep -qF '- stylesheets/extra.css' "${MKDOCS_YML}"
+  grep -qF -- '- stylesheets/extra.css' "${MKDOCS_YML}"
   grep -qF 'extra_javascript:' "${MKDOCS_YML}"
-  grep -qF '- javascripts/extra.js' "${MKDOCS_YML}"
+  grep -qF -- '- javascripts/extra.js' "${MKDOCS_YML}"
 }
 
 @test "the extra CSS and JS assets referenced in mkdocs.yml actually exist under docs/" {
@@ -82,30 +82,31 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
 }
 
 @test "mkdocs.yml enables admonition and pymdownx markdown extensions" {
-  grep -qF '- admonition' "${MKDOCS_YML}"
-  grep -qF '- pymdownx.details' "${MKDOCS_YML}"
-  grep -qF '- pymdownx.superfences' "${MKDOCS_YML}"
+  grep -qF -- '- admonition' "${MKDOCS_YML}"
+  grep -qF -- '- pymdownx.details' "${MKDOCS_YML}"
+  grep -qF -- '- pymdownx.superfences' "${MKDOCS_YML}"
 }
 
 @test "mkdocs.yml nav lists Home first and Changelog last, covering all documentation pages" {
   local first_nav_line last_nav_line
-  first_nav_line="$(grep -n -F '- Home: index.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-  last_nav_line="$(grep -n -F '- Changelog: CHANGELOG.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  first_nav_line="$(grep -n -F -- '- Home: index.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  last_nav_line="$(grep -n -F -- '- Changelog: CHANGELOG.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
   [ -n "${first_nav_line}" ]
   [ -n "${last_nav_line}" ]
   [ "${last_nav_line}" -gt "${first_nav_line}" ]
 
-  grep -qF '- Installation Guide: INSTALL.md' "${MKDOCS_YML}"
-  grep -qF '- Playbook Structure & Telemetry: PLAYBOOKS.md' "${MKDOCS_YML}"
-  grep -qF '- Local Development & Feedback Guide: LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md' "${MKDOCS_YML}"
-  grep -qF '- Sovereign Gitea Deployment & Security Operations Guide: GITEA_GUIDE.md' "${MKDOCS_YML}"
-  grep -qF '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}"
-  grep -qF '- Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md' "${MKDOCS_YML}"
-  grep -qF '- Project History: HISTORY.md' "${MKDOCS_YML}"
+  grep -qF -- '- Installation Guide: INSTALL.md' "${MKDOCS_YML}"
+  grep -qF -- '- Playbook Structure & Telemetry: PLAYBOOKS.md' "${MKDOCS_YML}"
+  grep -qF -- '- Local Development & Feedback Guide: LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md' "${MKDOCS_YML}"
+  grep -qF -- '- Sovereign Gitea Deployment & Security Operations Guide: GITEA_GUIDE.md' "${MKDOCS_YML}"
+  grep -qF -- '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}"
+  grep -qF -- '- Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md' "${MKDOCS_YML}"
+  grep -qF -- '- Legal Notice & Disclaimer: legal-notice.md' "${MKDOCS_YML}"
+  grep -qF -- '- Project History: HISTORY.md' "${MKDOCS_YML}"
 }
 
 @test "every markdown file referenced in the mkdocs.yml nav exists under docs/" {
-  for doc in index.md INSTALL.md PLAYBOOKS.md LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md GITEA_GUIDE.md WSL-3NODE-CLUSTER-GUIDE.md REFERENCE_TUNING.md DOCS_MATRIX_TELEMETRY.md HISTORY.md CHANGELOG.md; do
+  for doc in index.md INSTALL.md PLAYBOOKS.md LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md GITEA_GUIDE.md WSL-3NODE-CLUSTER-GUIDE.md REFERENCE_TUNING.md DOCS_MATRIX_TELEMETRY.md legal-notice.md HISTORY.md CHANGELOG.md; do
     [ -f "${REPO_ROOT}/docs/${doc}" ]
   done
 }
@@ -115,20 +116,42 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
 # entries, pointing at the new docs/REFERENCE_TUNING.md page.
 
 @test "mkdocs.yml registers the Reference Tuning Resources nav entry pointing at REFERENCE_TUNING.md" {
-  grep -qF '- Reference Tuning Resources: REFERENCE_TUNING.md' "${MKDOCS_YML}"
+  grep -qF -- '- Reference Tuning Resources: REFERENCE_TUNING.md' "${MKDOCS_YML}"
 }
 
 @test "mkdocs.yml lists Reference Tuning Resources between the WSL 3-Node Cluster Guide and Developer Matrix Telemetry entries" {
   local wsl_line reference_line telemetry_line
-  wsl_line="$(grep -n -F '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-  reference_line="$(grep -n -F '- Reference Tuning Resources: REFERENCE_TUNING.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-  telemetry_line="$(grep -n -F '- Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  wsl_line="$(grep -n -F -- '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  reference_line="$(grep -n -F -- '- Reference Tuning Resources: REFERENCE_TUNING.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  telemetry_line="$(grep -n -F -- '- Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
 
   [ -n "${wsl_line}" ]
   [ -n "${reference_line}" ]
   [ -n "${telemetry_line}" ]
   [ "${wsl_line}" -lt "${reference_line}" ]
   [ "${reference_line}" -lt "${telemetry_line}" ]
+}
+
+@test "mkdocs.yml registers the Legal Notice & Disclaimer nav entry pointing at legal-notice.md" {
+  grep -qF -- '- Legal Notice & Disclaimer: legal-notice.md' "${MKDOCS_YML}"
+}
+
+@test "mkdocs.yml lists Legal Notice & Disclaimer between Developer Matrix Telemetry and Project History" {
+  local telemetry_line legal_line history_line
+  telemetry_line="$(grep -n -F -- '- Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  legal_line="$(grep -n -F -- '- Legal Notice & Disclaimer: legal-notice.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  history_line="$(grep -n -F -- '- Project History: HISTORY.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+
+  [ -n "${telemetry_line}" ]
+  [ -n "${legal_line}" ]
+  [ -n "${history_line}" ]
+  [ "${telemetry_line}" -lt "${legal_line}" ]
+  [ "${legal_line}" -lt "${history_line}" ]
+}
+
+@test "mkdocs.yml defines the custom legal notice copyright footer with the expected link" {
+  grep -qF 'copyright:' "${MKDOCS_YML}"
+  grep -qF 'legal-notice/' "${MKDOCS_YML}"
 }
 
 @test "the REFERENCE_TUNING.md file referenced by the new mkdocs.yml nav entry actually exists and is readable" {

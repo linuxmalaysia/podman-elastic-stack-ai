@@ -25,6 +25,8 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "${BASE_URL}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE/" "${SITEMAP_TXT}"
   grep -qF "${BASE_URL}/docs/DOCS_MATRIX_TELEMETRY/" "${SITEMAP_TXT}"
   grep -qF "${BASE_URL}/docs/WSL-3NODE-CLUSTER-GUIDE/" "${SITEMAP_TXT}"
+  grep -qF "${BASE_URL}/docs/REFERENCE_TUNING/" "${SITEMAP_TXT}"
+  grep -qF "${BASE_URL}/docs/legal-notice/" "${SITEMAP_TXT}"
 }
 
 @test "sitemap.txt includes the new GITEA_GUIDE URL under docs/" {
@@ -46,10 +48,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   done
 }
 
-@test "sitemap.txt has exactly nine URLs (homepage + 6 relocated docs + HISTORY + CHANGELOG)" {
+@test "sitemap.txt has exactly eleven URLs (homepage + 8 relocated/new docs + HISTORY + CHANGELOG)" {
   local count
   count="$(grep -cF "${BASE_URL}" "${SITEMAP_TXT}")"
-  [ "${count}" -eq 9 ]
+  [ "${count}" -eq 11 ]
 }
 
 @test "sitemap.xml lists the relocated guide URLs under the docs/ path segment" {
@@ -58,6 +60,8 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "<loc>${BASE_URL}/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/DOCS_MATRIX_TELEMETRY/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/WSL-3NODE-CLUSTER-GUIDE/</loc>" "${SITEMAP_XML}"
+  grep -qF "<loc>${BASE_URL}/docs/REFERENCE_TUNING/</loc>" "${SITEMAP_XML}"
+  grep -qF "<loc>${BASE_URL}/docs/legal-notice/</loc>" "${SITEMAP_XML}"
 }
 
 @test "sitemap.xml includes a new <url> entry for GITEA_GUIDE with changefreq/priority metadata" {
@@ -80,8 +84,8 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   python3 -c "import xml.etree.ElementTree as ET; ET.parse('${SITEMAP_XML}')"
 }
 
-@test "sitemap.xml contains exactly nine <url> entries matching sitemap.txt" {
+@test "sitemap.xml contains exactly eleven <url> entries matching sitemap.txt" {
   local count
   count="$(grep -cF '<url>' "${SITEMAP_XML}")"
-  [ "${count}" -eq 9 ]
+  [ "${count}" -eq 11 ]
 }
