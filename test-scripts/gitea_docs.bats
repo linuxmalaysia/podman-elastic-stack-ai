@@ -176,3 +176,69 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   [ "${liquid_line}" -gt "${raw_line}" ]
   [ "${liquid_line}" -lt "${endraw_line}" ]
 }
+
+@test "GITEA_GUIDE.md no longer has a markdownlint-disable comment preceding the Jekyll raw tag" {
+  # Regression guard: previously the file began with
+  # '<!-- markdownlint-disable MD041 -->{% raw %}' on line 1. That HTML
+  # comment prefix was removed so the very first line is the bare
+  # '{% raw %}' tag.
+  run grep -F -- 'markdownlint-disable' "${GUIDE}"
+  [ "${status}" -ne 0 ]
+  first_line="$(head -n 1 "${GUIDE}")"
+  [ "${first_line}" = '{% raw %}' ]
+}
+
+@test "GITEA_GUIDE.md documents a 'Clone the Repository' section under Prerequisites" {
+  grep -qF -- '### Clone the Repository' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md documents the git clone command with the correct repository URL" {
+  grep -qF -- 'git clone https://github.com/linuxmalaysia/podman-elastic-stack-ai.git' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md documents navigating into the cloned project directory" {
+  grep -qF -- 'cd podman-elastic-stack-ai' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md's Clone the Repository section appears before Enable User Linger and Verify Podman sections" {
+  local clone_line linger_line verify_line
+  clone_line="$(grep -n -F -- '### Clone the Repository' "${GUIDE}" | head -1 | cut -d: -f1)"
+  linger_line="$(grep -n -F -- '### Enable User Linger' "${GUIDE}" | head -1 | cut -d: -f1)"
+  verify_line="$(grep -n -F -- '### Verify Podman & Podman Compose' "${GUIDE}" | head -1 | cut -d: -f1)"
+  [ -n "${clone_line}" ]
+  [ -n "${linger_line}" ]
+  [ -n "${verify_line}" ]
+  [ "${clone_line}" -lt "${linger_line}" ]
+  [ "${linger_line}" -lt "${verify_line}" ]
+}
+
+@test "GITEA_GUIDE.md links to the Git Repository section of INSTALL.md for further cloning details" {
+  grep -qF -- '[Git Repository guide in INSTALL.md](INSTALL.md#git-repository)' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md's INSTALL.md#git-repository anchor target actually exists in INSTALL.md" {
+  # Cross-file regression guard: ensures the link added to GITEA_GUIDE.md
+  # points at a heading that genuinely exists in INSTALL.md, so the anchor
+  # does not silently go stale if INSTALL.md's headings are ever renamed.
+  local install_doc="${REPO_ROOT}/docs/INSTALL.md"
+  [ -f "${install_doc}" ]
+  grep -qE -- '^#+[[:space:]]+Git Repository[[:space:]]*$' "${install_doc}"
+}
+
+@test "GITEA_GUIDE.md links to the main Playbooks Guide for Ansible playbook details" {
+  grep -qF -- 'please refer to the main [Playbooks Guide](PLAYBOOKS.md)' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md's PLAYBOOKS.md link target file exists in docs/" {
+  [ -f "${REPO_ROOT}/docs/PLAYBOOKS.md" ]
+}
+
+@test "GITEA_GUIDE.md's Playbooks Guide reference appears within the Automated Ansible Deployment section" {
+  local section_line playbooks_ref_line next_section_line
+  section_line="$(grep -n -F -- '## 2. Option A: Automated Ansible Deployment (Recommended)' "${GUIDE}" | head -1 | cut -d: -f1)"
+  playbooks_ref_line="$(grep -n -F -- '[Playbooks Guide](PLAYBOOKS.md)' "${GUIDE}" | head -1 | cut -d: -f1)"
+  next_section_line="$(grep -n -F -- '## 3. Option B: Pure Command-Line Deployment (Manual)' "${GUIDE}" | head -1 | cut -d: -f1)"
+  [ -n "${playbooks_ref_line}" ]
+  [ "${playbooks_ref_line}" -gt "${section_line}" ]
+  [ "${playbooks_ref_line}" -lt "${next_section_line}" ]
+}
