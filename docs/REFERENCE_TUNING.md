@@ -40,7 +40,19 @@ The following tuning metrics have been successfully integrated into our automate
 - **Interop and GPU**: Explicitly enables Windows interop and GPU acceleration.
 
 ### Global Virtual Machine Tuning (`.wslconfig`)
+- **Active Configuration Path**: Written directly to the active Windows user profile directory at `%UserProfile%\.wslconfig` (resolved dynamically inside WSL using PowerShell/cmd.exe path querying and `wslpath` translation).
 - **Memory Scaling**: Dynamically calculated based on system total RAM (e.g., 10GB for <=16GB systems, 22GB for 32GB, 48GB for 64GB, and 96GB for 128GB).
-- **CPU Allocations**: Configures processors to match host system logical threads (`ansible_processor_vcpus`).
+- **Hardware-Validated Guardrails**: Automatically queries Windows host hardware details via PowerShell if available, clamping the memory selection to guarantee it never exceeds actual physical host RAM.
+- **CPU Allocations**: Configures processors to match host system logical threads (`ansible_processor_vcpus` or Windows query).
 - **Disk and Memory Reclamation**: Enables experimental settings such as `autoMemoryReclaim=gradual` and `sparseVhd=true` to automatically shrink virtual hard drives and release cache.
 - **Mirrored Networking & DNS Tunneling**: Leverages `networkingMode=mirrored` and `dnsTunneling=true` for bidirectional localhost mapping and corporate VPN-friendly DNS routing.
+
+### 🔄 Required Shutdown & Restart Sequence
+
+Because global virtual machine parameters (`.wslconfig`) and distribution parameters (`/etc/wsl.conf`) require a clean state transition, the following steps must be run:
+1. Save work and exit the WSL shell.
+2. From Windows Command Prompt or PowerShell, run:
+   ```cmd
+   wsl.exe --shutdown
+   ```
+3. Restart your WSL distribution (e.g., open a new WSL terminal) for the new parameters, memory limits, and `/etc/wsl.conf` settings to be fully active.
