@@ -56,3 +56,7 @@ dkms.conf
 *gitea_credentials.txt
 *.env
 *.vault
+
+# Python caches
+__pycache__/
+*.pyc
