@@ -72,6 +72,7 @@ nav:
   - Local Development & Feedback Guide: LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md
   - Sovereign Gitea Deployment & Security Operations Guide: GITEA_GUIDE.md
   - WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md
+  - Reference Tuning Resources: REFERENCE_TUNING.md
   - Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md
   - Project History: HISTORY.md
   - Changelog: CHANGELOG.md
