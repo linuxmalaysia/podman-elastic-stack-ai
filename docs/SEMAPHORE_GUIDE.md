@@ -80,6 +80,12 @@ The playbook implements the following precedence chain for secrets:
 2. Previously generated credentials stored in `semaphore_credentials.txt` have the second-highest precedence.
 3. If any of the secrets are blank or undefined, the playbook dynamically generates cryptographically secure values and saves them in the secure credentials file on the host.
 
+Specifically, for the Semaphore Access Key:
+- If `semaphore_access_key` is not provided and not found in existing credentials, the playbook runs `openssl rand -base64 32` to generate a cryptographically secure 32-byte Base64 key.
+- To ensure full idempotency, this read-only generation command is forced unchanged (`changed_when: false`).
+- The generated key is successfully extracted from its stdout, assigned to `final_semaphore_access_key`, and permanently persisted in both the `semaphore_credentials.txt` file and the Kubernetes deployment manifest (`semaphore-stack.yaml`).
+- Subsequent runs reuse this saved key, avoiding repeated regeneration.
+
 ### Upgrading the Image Tag
 
 To upgrade the Semaphore container image version:
@@ -255,7 +261,7 @@ Activate the Quadlet configuration:
 
 ```bash
 systemctl --user daemon-reload
-systemctl --user start semaphore-stack.service
+systemctl --user enable --now semaphore-stack.service
 ```
 
 ---
@@ -346,7 +352,7 @@ To clean up and remove the services and volumes permanently:
 
 ```bash
 # Stop and disable systemd service
-systemctl --user stop semaphore-stack.service
+systemctl --user disable --now semaphore-stack.service
 rm -f ~/.config/containers/systemd/semaphore-stack*
 systemctl --user daemon-reload
 
@@ -362,7 +368,7 @@ SemaphoreUI is designed as a native GitOps CI/CD engine. Rather than mounting lo
 
 ### 1. Initial Login
 
-Access the web dashboard at `https://<jumphost-ip>:3001` (Accept the self-signed certificate warning). Log in using the credentials defined in the Ansible variables:
+Access the web dashboard at `https://<jumphost-ip>:3001`. Before proceeding, verify the certificate fingerprint against your generated key or ensure you have installed the expected Sovereign CA trust root on your client device for a secure connection. Log in using the credentials defined in the Ansible variables:
 *   **Username**: `admin`
 *   **Password**: Your configured `semaphore_admin_password`
 

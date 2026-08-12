@@ -124,10 +124,29 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
 # entries added to both sitemap.txt and sitemap.xml.
 
 @test "sitemap.xml's REFERENCE_TUNING and legal-notice entries carry weekly/0.80 metadata like the other secondary docs" {
-  awk '/docs\/REFERENCE_TUNING\// { found=1 } found && /<changefreq>/ { print; exit }' "${SITEMAP_XML}" | grep -qF 'weekly'
-  awk '/docs\/REFERENCE_TUNING\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
-  awk '/docs\/legal-notice\// { found=1 } found && /<changefreq>/ { print; exit }' "${SITEMAP_XML}" | grep -qF 'weekly'
-  awk '/docs\/legal-notice\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
+  local ref_block
+  ref_block="$(awk '
+    /<url>/ { block=""; inside=1 }
+    inside { block = block "\n" $0 }
+    /<\/url>/ {
+      if (block ~ "docs/REFERENCE_TUNING/") { print block; exit }
+      inside=0
+    }
+  ' "${SITEMAP_XML}")"
+  echo "${ref_block}" | grep -qF '<changefreq>weekly</changefreq>'
+  echo "${ref_block}" | grep -qF '<priority>0.80</priority>'
+
+  local legal_block
+  legal_block="$(awk '
+    /<url>/ { block=""; inside=1 }
+    inside { block = block "\n" $0 }
+    /<\/url>/ {
+      if (block ~ "docs/legal-notice/") { print block; exit }
+      inside=0
+    }
+  ' "${SITEMAP_XML}")"
+  echo "${legal_block}" | grep -qF '<changefreq>weekly</changefreq>'
+  echo "${legal_block}" | grep -qF '<priority>0.80</priority>'
 }
 
 @test "sitemap.txt's new REFERENCE_TUNING and legal-notice URLs end with a trailing slash, consistent with other entries" {

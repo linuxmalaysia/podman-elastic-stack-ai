@@ -10,7 +10,7 @@
     semaphore_admin_password: "" # Randomly generated if blank
     semaphore_access_key: "" # Randomly generated if blank
     semaphore_certs_dir: "{{ ansible_env.HOME }}/.config/containers/semaphoreui/certs"
-    semaphore_credentials_file: "{{ semaphore_credentials_override | default(ansible_env.HOME ~ '/.config/containers/semaphoreui/secrets/semaphore_credentials.txt') }}"
+    semaphore_credentials_file: "{{ semaphore_credentials_override | default(ansible_env.HOME ~ '/.config/containers/semaphoreui/secrets/semaphore_credentials.txt', true) }}"
     semaphore_image_tag: "v2.12"
 
   tasks:
@@ -178,7 +178,8 @@
                 final_semaphore_access_key: "{{ generated_access_key_cmd.stdout | trim }}"
               when:
                 - generated_access_key_cmd is defined
-                - generated_access_key_cmd.changed | default(false)
+                - generated_access_key_cmd.stdout is defined
+                - generated_access_key_cmd.stdout != ""
               no_log: true
 
             - name: Write Semaphore credentials to file with 0600 permissions
