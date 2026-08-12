@@ -6,6 +6,7 @@
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 PLAYBOOK="${REPO_ROOT}/ansible/setup_semaphore.yml"
 
+# setup creates a temporary directory for test files.
 setup() {
   TEST_TMPDIR="$(mktemp -d)"
 }
