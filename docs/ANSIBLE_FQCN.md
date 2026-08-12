@@ -77,7 +77,6 @@ Below is an example of an unprivileged task using proper FQCN and passing user-l
     scope: user
     name: gitea-stack.service
     state: restarted
-    enabled: yes
   environment:
     XDG_RUNTIME_DIR: "/run/user/{{ resolved_uid | default(1000) }}"
     DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/{{ resolved_uid | default(1000) }}/bus"

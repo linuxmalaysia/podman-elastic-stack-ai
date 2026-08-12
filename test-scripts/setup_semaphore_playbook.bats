@@ -50,7 +50,7 @@ PLAYBOOK="${REPO_ROOT}/ansible/setup_semaphore.yml"
 }
 
 @test "ansible/setup_semaphore.yml credentials file path defaults to user config secrets" {
-  grep -qF 'semaphore_credentials_file: "{{ semaphore_credentials_override | default(ansible_env.HOME ~' "${PLAYBOOK}"
+  grep -qF 'semaphore_credentials_file: "{{ semaphore_credentials_override | default(deployment_user_home ~' "${PLAYBOOK}"
   grep -qF '/.config/containers/semaphoreui/secrets/semaphore_credentials.txt' "${PLAYBOOK}"
 }
 
@@ -103,7 +103,7 @@ PLAYBOOK="${REPO_ROOT}/ansible/setup_semaphore.yml"
 }
 
 @test "ansible/setup_semaphore.yml writes the manifest file with 0600 permissions" {
-  manifest_copy_line="$(grep -n -F 'dest: "{{ ansible_env.HOME }}/.config/containers/systemd/semaphore-stack.yaml"' "${PLAYBOOK}" | head -1 | cut -d: -f1)"
+  manifest_copy_line="$(grep -n -F 'dest: "{{ deployment_user_home }}/.config/containers/systemd/semaphore-stack.yaml"' "${PLAYBOOK}" | head -1 | cut -d: -f1)"
   [ -n "${manifest_copy_line}" ]
   context="$(sed -n "${manifest_copy_line},$((manifest_copy_line + 10))p" "${PLAYBOOK}")"
   [[ "${context}" == *'mode: "0600"'* ]]

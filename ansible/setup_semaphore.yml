@@ -4,13 +4,15 @@
   connection: "{{ 'local' if (target_hosts | default('localhost') == 'localhost') else ansible_connection | default('ssh') }}"
   gather_facts: true
   vars:
+    deployment_user: "{{ ansible_user_id }}"
+    deployment_user_home: "{{ ansible_env.HOME | default('/home/' ~ deployment_user, true) }}"
     semaphore_db_user: "semaphore"
     semaphore_db_name: "semaphore"
     semaphore_db_password: "" # Randomly generated if blank
     semaphore_admin_password: "" # Randomly generated if blank
     semaphore_access_key: "" # Randomly generated if blank
-    semaphore_certs_dir: "{{ ansible_env.HOME }}/.config/containers/semaphoreui/certs"
-    semaphore_credentials_file: "{{ semaphore_credentials_override | default(ansible_env.HOME ~ '/.config/containers/semaphoreui/secrets/semaphore_credentials.txt', true) }}"
+    semaphore_certs_dir: "{{ deployment_user_home }}/.config/containers/semaphoreui/certs"
+    semaphore_credentials_file: "{{ semaphore_credentials_override | default(deployment_user_home ~ '/.config/containers/semaphoreui/secrets/semaphore_credentials.txt', true) }}"
     semaphore_image_tag: "v2.12"
 
   tasks:
@@ -100,9 +102,9 @@
     - name: "Step 2 - Enable User Linger"
       block:
         - name: Enable linger for active non-root user
-          command: "loginctl enable-linger {{ ansible_user_id }}"
+          command: "loginctl enable-linger {{ deployment_user }}"
           args:
-            creates: "/var/lib/systemd/linger/{{ ansible_user_id }}"
+            creates: "/var/lib/systemd/linger/{{ deployment_user }}"
           become: true
           ignore_errors: true
           register: linger_result
@@ -271,7 +273,7 @@
       block:
         - name: Ensure user containers systemd directory exists
           file:
-            path: "{{ ansible_env.HOME }}/.config/containers/systemd"
+            path: "{{ deployment_user_home }}/.config/containers/systemd"
             state: directory
             mode: "0755"
 
@@ -286,7 +288,7 @@
 
               [Install]
               WantedBy=default.target
-            dest: "{{ ansible_env.HOME }}/.config/containers/systemd/semaphore-stack.kube"
+            dest: "{{ deployment_user_home }}/.config/containers/systemd/semaphore-stack.kube"
             mode: "0644"
           register: semaphore_kube_unit
 
@@ -374,7 +376,7 @@
                     hostPath:
                       path: "{{ host_ca_bundle_path }}"
                       type: File
-            dest: "{{ ansible_env.HOME }}/.config/containers/systemd/semaphore-stack.yaml"
+            dest: "{{ deployment_user_home }}/.config/containers/systemd/semaphore-stack.yaml"
             mode: "0600"
           register: semaphore_kube_manifest
 
