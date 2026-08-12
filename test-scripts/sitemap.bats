@@ -130,3 +130,12 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   unique="$(grep -F "${BASE_URL}" "${SITEMAP_TXT}" | sort -u | wc -l)"
   [ "${total}" -eq "${unique}" ]
 }
+
+@test "sitemap.txt lists SEMAPHORE_GUIDE immediately after GITEA_GUIDE, matching the order in llms.txt/mkdocs.yml nav" {
+  local gitea_line semaphore_line
+  gitea_line="$(grep -n -F "${BASE_URL}/docs/GITEA_GUIDE/" "${SITEMAP_TXT}" | head -1 | cut -d: -f1)"
+  semaphore_line="$(grep -n -F "${BASE_URL}/docs/SEMAPHORE_GUIDE/" "${SITEMAP_TXT}" | head -1 | cut -d: -f1)"
+  [ -n "${gitea_line}" ]
+  [ -n "${semaphore_line}" ]
+  [ "${semaphore_line}" -eq "$((gitea_line + 1))" ]
+}

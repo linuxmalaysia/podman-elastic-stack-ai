@@ -140,3 +140,66 @@ teardown() {
   grep -qF -- 'systemctl --user daemon-reload' "${PLAYBOOK}"
   grep -qF -- 'systemctl --user enable --now "semaphore-stack.service"' "${PLAYBOOK}"
 }
+
+@test "ansible/setup_semaphore.yml uses MySQL (not Postgres) as the pinned database backend" {
+  # Regression guard against copy-paste drift from the sibling Gitea
+  # playbook, which uses Postgres: Semaphore's Kube manifest must remain
+  # pinned to MySQL 8.0 and never silently reference postgres.
+  grep -qF -- 'image: docker.io/library/mysql:8.0' "${PLAYBOOK}"
+  grep -qF -- 'value: mysql' "${PLAYBOOK}"
+  run grep -qiF -- 'postgres' "${PLAYBOOK}"
+  [ "${status}" -ne 0 ]
+}
+
+@test "ansible/setup_semaphore.yml database container is configured on port 3306 with the mysql dialect" {
+  grep -qF -- 'name: SEMAPHORE_DB_PORT' "${PLAYBOOK}"
+  grep -qF -- 'value: "3306"' "${PLAYBOOK}"
+  grep -qF -- 'name: SEMAPHORE_DB_DIALECT' "${PLAYBOOK}"
+}
+
+@test "ansible/setup_semaphore.yml enables TLS with the certificate/key paths mounted inside the container" {
+  grep -qF -- 'name: SEMAPHORE_TLS_ENABLED' "${PLAYBOOK}"
+  grep -qF -- 'value: "True"' "${PLAYBOOK}"
+  grep -qF -- 'value: /etc/semaphore/certs/semaphore.crt' "${PLAYBOOK}"
+  grep -qF -- 'value: /etc/semaphore/certs/semaphore.key' "${PLAYBOOK}"
+}
+
+@test "ansible/setup_semaphore.yml detects the Host CA Bundle across all three documented candidate paths" {
+  grep -qF -- '/etc/ssl/certs/ca-certificates.crt' "${PLAYBOOK}"
+  grep -qF -- '/etc/pki/tls/certs/ca-bundle.crt' "${PLAYBOOK}"
+  grep -qF -- '/etc/ssl/certs/ca-bundle.crt' "${PLAYBOOK}"
+}
+
+@test "ansible/setup_semaphore.yml generates the access key via openssl rand, not the alnum password lookup (to preserve full Base64 entropy)" {
+  # Regression guard: the 32-byte access key must be generated distinctly
+  # from the 24-char alnum DB/Admin passwords, since Base64 encoding
+  # relies on the full character set (+, /, =) that the
+  # ascii_letters,digits lookup would never produce.
+  access_key_line="$(grep -n -F "name: Generate 32-byte valid Base64 access key" "${PLAYBOOK}" | head -1 | cut -d: -f1)"
+  [ -n "${access_key_line}" ]
+  context="$(sed -n "${access_key_line},$((access_key_line + 5))p" "${PLAYBOOK}")"
+  [[ "${context}" == *"openssl rand -base64 32"* ]]
+  [[ "${context}" != *"ascii_letters,digits"* ]]
+}
+
+@test "ansible/setup_semaphore.yml credential-generation block only runs when the final DB password is undefined or blank (idempotency)" {
+  grep -qF -- 'when: final_semaphore_db_password is not defined or final_semaphore_db_password == ""' "${PLAYBOOK}"
+}
+
+@test "ansible/setup_semaphore.yml Kube Quadlet unit correctly references the Kubernetes YAML manifest" {
+  grep -qF -- 'Description=Sovereign Semaphore UI Stack (Quadlet Kube)' "${PLAYBOOK}"
+  grep -qF -- 'Yaml=semaphore-stack.yaml' "${PLAYBOOK}"
+  grep -qF -- 'WantedBy=default.target' "${PLAYBOOK}"
+}
+
+@test "ansible/setup_semaphore.yml mounts the host CA bundle read-only into the Semaphore app container" {
+  grep -qF -- 'name: host-ca-certs' "${PLAYBOOK}"
+  grep -qF -- 'mountPath: /etc/ssl/certs/ca-certificates.crt' "${PLAYBOOK}"
+  grep -qF -- 'readOnly: true' "${PLAYBOOK}"
+}
+
+@test "ansible/setup_semaphore.yml persists MySQL data via a persistentVolumeClaim (not an ephemeral hostPath)" {
+  grep -qF -- 'name: semaphore-mysql' "${PLAYBOOK}"
+  grep -qF -- 'mountPath: /var/lib/mysql' "${PLAYBOOK}"
+  grep -qF -- 'claimName: semaphore-mysql-pvc' "${PLAYBOOK}"
+}
