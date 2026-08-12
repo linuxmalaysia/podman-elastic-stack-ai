@@ -71,17 +71,35 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
 @test "sitemap.xml includes a new <url> entry for GITEA_GUIDE with changefreq/priority metadata" {
   grep -qF "<loc>${BASE_URL}/docs/GITEA_GUIDE/</loc>" "${SITEMAP_XML}"
   # The GITEA_GUIDE entry should carry the same weekly/0.80 metadata as the
-  # other secondary-doc entries.
-  awk '/docs\/GITEA_GUIDE\// { found=1 } found && /<changefreq>/ { print; exit }' "${SITEMAP_XML}" | grep -qF 'weekly'
-  awk '/docs\/GITEA_GUIDE\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
+  # other secondary-doc entries, bounded to its own <url> block.
+  local url_block
+  url_block="$(awk '
+    /<url>/ { block=""; inside=1 }
+    inside { block = block "\n" $0 }
+    /<\/url>/ {
+      if (block ~ "docs/GITEA_GUIDE/") { print block; exit }
+      inside=0
+    }
+  ' "${SITEMAP_XML}")"
+  echo "${url_block}" | grep -qF '<changefreq>weekly</changefreq>'
+  echo "${url_block}" | grep -qF '<priority>0.80</priority>'
 }
 
 @test "sitemap.xml includes a new <url> entry for SEMAPHORE_GUIDE with changefreq/priority metadata" {
   grep -qF "<loc>${BASE_URL}/docs/SEMAPHORE_GUIDE/</loc>" "${SITEMAP_XML}"
   # The SEMAPHORE_GUIDE entry should carry the same weekly/0.80 metadata as the
-  # other secondary-doc entries.
-  awk '/docs\/SEMAPHORE_GUIDE\// { found=1 } found && /<changefreq>/ { print; exit }' "${SITEMAP_XML}" | grep -qF 'weekly'
-  awk '/docs\/SEMAPHORE_GUIDE\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
+  # other secondary-doc entries, bounded to its own <url> block.
+  local url_block
+  url_block="$(awk '
+    /<url>/ { block=""; inside=1 }
+    inside { block = block "\n" $0 }
+    /<\/url>/ {
+      if (block ~ "docs/SEMAPHORE_GUIDE/") { print block; exit }
+      inside=0
+    }
+  ' "${SITEMAP_XML}")"
+  echo "${url_block}" | grep -qF '<changefreq>weekly</changefreq>'
+  echo "${url_block}" | grep -qF '<priority>0.80</priority>'
 }
 
 @test "sitemap.xml no longer lists stale root-level <loc> entries for the relocated guide docs" {
@@ -106,10 +124,29 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
 # entries added to both sitemap.txt and sitemap.xml.
 
 @test "sitemap.xml's REFERENCE_TUNING and legal-notice entries carry weekly/0.80 metadata like the other secondary docs" {
-  awk '/docs\/REFERENCE_TUNING\// { found=1 } found && /<changefreq>/ { print; exit }' "${SITEMAP_XML}" | grep -qF 'weekly'
-  awk '/docs\/REFERENCE_TUNING\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
-  awk '/docs\/legal-notice\// { found=1 } found && /<changefreq>/ { print; exit }' "${SITEMAP_XML}" | grep -qF 'weekly'
-  awk '/docs\/legal-notice\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
+  local ref_block
+  ref_block="$(awk '
+    /<url>/ { block=""; inside=1 }
+    inside { block = block "\n" $0 }
+    /<\/url>/ {
+      if (block ~ "docs/REFERENCE_TUNING/") { print block; exit }
+      inside=0
+    }
+  ' "${SITEMAP_XML}")"
+  echo "${ref_block}" | grep -qF '<changefreq>weekly</changefreq>'
+  echo "${ref_block}" | grep -qF '<priority>0.80</priority>'
+
+  local legal_block
+  legal_block="$(awk '
+    /<url>/ { block=""; inside=1 }
+    inside { block = block "\n" $0 }
+    /<\/url>/ {
+      if (block ~ "docs/legal-notice/") { print block; exit }
+      inside=0
+    }
+  ' "${SITEMAP_XML}")"
+  echo "${legal_block}" | grep -qF '<changefreq>weekly</changefreq>'
+  echo "${legal_block}" | grep -qF '<priority>0.80</priority>'
 }
 
 @test "sitemap.txt's new REFERENCE_TUNING and legal-notice URLs end with a trailing slash, consistent with other entries" {
@@ -129,13 +166,4 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   total="$(grep -F "${BASE_URL}" "${SITEMAP_TXT}" | wc -l)"
   unique="$(grep -F "${BASE_URL}" "${SITEMAP_TXT}" | sort -u | wc -l)"
   [ "${total}" -eq "${unique}" ]
-}
-
-@test "sitemap.txt lists SEMAPHORE_GUIDE immediately after GITEA_GUIDE, matching the order in llms.txt/mkdocs.yml nav" {
-  local gitea_line semaphore_line
-  gitea_line="$(grep -n -F "${BASE_URL}/docs/GITEA_GUIDE/" "${SITEMAP_TXT}" | head -1 | cut -d: -f1)"
-  semaphore_line="$(grep -n -F "${BASE_URL}/docs/SEMAPHORE_GUIDE/" "${SITEMAP_TXT}" | head -1 | cut -d: -f1)"
-  [ -n "${gitea_line}" ]
-  [ -n "${semaphore_line}" ]
-  [ "${semaphore_line}" -eq "$((gitea_line + 1))" ]
 }

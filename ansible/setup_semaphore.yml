@@ -1,0 +1,406 @@
+---
+- name: Deploy Sovereign Semaphore Stack
+  hosts: "{{ target_hosts | default('localhost') }}"
+  connection: "{{ 'local' if (target_hosts | default('localhost') == 'localhost') else ansible_connection | default('ssh') }}"
+  gather_facts: true
+  vars:
+    semaphore_db_user: "semaphore"
+    semaphore_db_name: "semaphore"
+    semaphore_db_password: "" # Randomly generated if blank
+    semaphore_admin_password: "" # Randomly generated if blank
+    semaphore_access_key: "" # Randomly generated if blank
+    semaphore_certs_dir: "{{ ansible_env.HOME }}/.config/containers/semaphoreui/certs"
+    semaphore_credentials_file: "{{ semaphore_credentials_override | default(ansible_env.HOME ~ '/.config/containers/semaphoreui/secrets/semaphore_credentials.txt', true) }}"
+    semaphore_image_tag: "v2.12"
+
+  tasks:
+    - name: "Step 1 - Check and Install Podman"
+      block:
+        - name: Check if podman is missing
+          command: which podman
+          register: command_check
+          ignore_errors: true
+          changed_when: false
+
+        - name: Set missing command flag
+          set_fact:
+            commands_missing: "{{ command_check.rc != 0 }}"
+
+        - name: Install dependencies on Debian/Ubuntu
+          block:
+            - name: Update apt cache
+              apt:
+                update_cache: yes
+              become: true
+
+            - name: Install podman via apt
+              apt:
+                name:
+                  - podman
+                state: present
+              become: true
+              register: apt_install_result
+              ignore_errors: true
+
+            - name: Check if apt installation failed
+              fail:
+                msg: "Failed to install required podman package via apt."
+              when: apt_install_result.failed | default(false)
+          when:
+            - commands_missing
+            - ansible_os_family == 'Debian'
+
+        - name: Install dependencies on RedHat/CentOS/AlmaLinux
+          block:
+            - name: Install EPEL release via dnf
+              dnf:
+                name: epel-release
+                state: present
+              become: true
+              register: epel_install_result
+              failed_when: false
+
+            - name: Install podman via dnf
+              dnf:
+                name:
+                  - podman
+                state: present
+              become: true
+              register: dnf_install_result
+              ignore_errors: true
+
+            - name: Check if dnf installation failed
+              fail:
+                msg: "Failed to install required podman package."
+              when: dnf_install_result.failed | default(false)
+          when:
+            - commands_missing
+            - ansible_os_family == 'RedHat'
+
+    - name: "Step 1.5 - Verify Podman is available"
+      command: which podman
+      changed_when: false
+
+    - name: "Step 1.6 - Check Podman Version is 5 or Newer"
+      block:
+        - name: Query Podman version
+          command: podman --version
+          register: podman_version_out
+          changed_when: false
+
+        - name: Parse Podman version
+          set_fact:
+            podman_version: "{{ podman_version_out.stdout | regex_search('version ([0-9]+)\\.', '\\1') | first | int }}"
+
+        - name: Assert Podman version is 5 or newer
+          fail:
+            msg: "Podman version must be 5 or newer to support Kube Quadlets. Installed version is {{ podman_version_out.stdout | trim }}."
+          when: podman_version | int < 5
+
+    - name: "Step 2 - Enable User Linger"
+      block:
+        - name: Enable linger for active non-root user
+          command: "loginctl enable-linger {{ ansible_user_id }}"
+          args:
+            creates: "/var/lib/systemd/linger/{{ ansible_user_id }}"
+          become: true
+          ignore_errors: true
+          register: linger_result
+
+        - name: Warn if linger enablement failed
+          debug:
+            msg: "Warning: loginctl enable-linger failed or was skipped. Linger may not be enabled."
+          when: linger_result.failed | default(false)
+
+    - name: "Step 3 - Securely Manage Passwords"
+      block:
+        - name: Ensure target directory for credentials exists
+          file:
+            path: "{{ semaphore_credentials_file | dirname }}"
+            state: directory
+            mode: "0700"
+
+        - name: Check if credentials file already exists
+          stat:
+            path: "{{ semaphore_credentials_file }}"
+          register: creds_file_stat
+
+        - name: Slurp existing Semaphore credentials if file exists
+          ansible.builtin.slurp:
+            src: "{{ semaphore_credentials_file }}"
+          register: semaphore_creds_slurp
+          when: creds_file_stat.stat.exists
+          no_log: true
+
+        - name: Initialize parsed credentials dictionary
+          set_fact:
+            parsed_creds: {}
+          no_log: true
+
+        - name: Parse existing Semaphore credentials from slurped content
+          set_fact:
+            parsed_creds: "{{ semaphore_creds_slurp.content | b64decode | from_yaml | default({}, true) }}"
+          when:
+            - creds_file_stat.stat.exists
+            - semaphore_creds_slurp.content is defined
+          no_log: true
+
+        - name: Set parsed credential facts with precedence and defaults
+          set_fact:
+            final_semaphore_db_password: "{{ semaphore_db_password if (semaphore_db_password != '') else (parsed_creds.SEMAPHORE_DB_PASSWORD | default('')) }}"
+            final_semaphore_admin_password: "{{ semaphore_admin_password if (semaphore_admin_password != '') else (parsed_creds.SEMAPHORE_ADMIN_PASSWORD | default('')) }}"
+            final_semaphore_access_key: "{{ semaphore_access_key if (semaphore_access_key != '') else (parsed_creds.SEMAPHORE_ACCESS_KEY | default('')) }}"
+          no_log: true
+
+        - name: Generate and save new credentials if not found
+          block:
+            - name: Generate random secure DB password if missing
+              set_fact:
+                final_semaphore_db_password: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters,digits length=24') }}"
+              when: final_semaphore_db_password is not defined or final_semaphore_db_password == ""
+              no_log: true
+
+            - name: Generate random secure Admin password if missing
+              set_fact:
+                final_semaphore_admin_password: "{{ lookup('ansible.builtin.password', '/dev/null chars=ascii_letters,digits length=24') }}"
+              when: final_semaphore_admin_password is not defined or final_semaphore_admin_password == ""
+              no_log: true
+
+            - name: Generate 32-byte valid Base64 access key if missing
+              command: openssl rand -base64 32
+              register: generated_access_key_cmd
+              when: final_semaphore_access_key is not defined or final_semaphore_access_key == ""
+              changed_when: false
+              no_log: true
+
+            - name: Set final access key from command output if generated
+              set_fact:
+                final_semaphore_access_key: "{{ generated_access_key_cmd.stdout | trim }}"
+              when:
+                - generated_access_key_cmd is defined
+                - generated_access_key_cmd.stdout is defined
+                - generated_access_key_cmd.stdout != ""
+              no_log: true
+
+            - name: Write Semaphore credentials to file with 0600 permissions
+              copy:
+                dest: "{{ semaphore_credentials_file }}"
+                content: "{{ {'SEMAPHORE_DB_USER': semaphore_db_user, 'SEMAPHORE_DB_NAME': semaphore_db_name, 'SEMAPHORE_DB_PASSWORD': final_semaphore_db_password, 'SEMAPHORE_ADMIN_PASSWORD': final_semaphore_admin_password, 'SEMAPHORE_ACCESS_KEY': final_semaphore_access_key} | to_nice_yaml }}"
+                mode: "0600"
+              no_log: true
+          when: >
+            (final_semaphore_db_password is not defined or final_semaphore_db_password == "") or
+            (final_semaphore_admin_password is not defined or final_semaphore_admin_password == "") or
+            (final_semaphore_access_key is not defined or final_semaphore_access_key == "")
+
+    - name: "Step 4 - TLS Configuration & Internal CA Trust"
+      block:
+        - name: Ensure Semaphore certs directory exists
+          file:
+            path: "{{ semaphore_certs_dir }}"
+            state: directory
+            mode: "0755"
+
+        - name: Check if Semaphore certificates already exist
+          stat:
+            path: "{{ semaphore_certs_dir }}/semaphore.crt"
+          register: semaphore_cert_stat
+
+        - name: Generate 10-year self-signed TLS certificate
+          command: >
+            openssl req -x509 -newkey rsa:4096 -nodes
+            -keyout "{{ semaphore_certs_dir }}/semaphore.key"
+            -out "{{ semaphore_certs_dir }}/semaphore.crt"
+            -sha256 -days 3650
+            -subj "/C=MY/ST=Kuala Lumpur/L=Kuala Lumpur/O=Sovereign/OU=IT/CN=localhost"
+          when: not semaphore_cert_stat.stat.exists
+
+        - name: Set Semaphore key permissions to 0600
+          file:
+            path: "{{ semaphore_certs_dir }}/semaphore.key"
+            mode: "0600"
+
+        - name: Detect Host CA Bundle Path
+          stat:
+            path: "{{ item }}"
+          loop:
+            - /etc/ssl/certs/ca-certificates.crt
+            - /etc/pki/tls/certs/ca-bundle.crt
+            - /etc/ssl/certs/ca-bundle.crt
+          register: ca_bundle_stats
+
+        - name: Set Host CA Bundle Path Fact
+          set_fact:
+            host_ca_bundle_path: "{{ (ca_bundle_stats.results | selectattr('stat.exists', 'equalto', true) | map(attribute='item') | list | first) | default('/etc/ssl/certs/ca-certificates.crt') }}"
+
+        - name: Install Semaphore self-signed certificate to host trust store (Debian/Ubuntu)
+          block:
+            - name: Copy certificate to ca-certificates folder (Debian)
+              copy:
+                src: "{{ semaphore_certs_dir }}/semaphore.crt"
+                dest: "/usr/local/share/ca-certificates/semaphore.crt"
+                mode: "0644"
+                remote_src: yes
+              become: true
+              register: debian_ca_copy
+
+            - name: Update CA certificates on host (Debian)
+              command: update-ca-certificates
+              become: true
+              when: debian_ca_copy.changed | default(false)
+          when: ansible_os_family == 'Debian'
+
+        - name: Install Semaphore self-signed certificate to host trust store (RedHat/CentOS/AlmaLinux)
+          block:
+            - name: Copy certificate to ca-trust folder (RPM)
+              copy:
+                src: "{{ semaphore_certs_dir }}/semaphore.crt"
+                dest: "/etc/pki/ca-trust/source/anchors/semaphore.crt"
+                mode: "0644"
+                remote_src: yes
+              become: true
+              register: rpm_ca_copy
+
+            - name: Update CA trust on host (RPM)
+              command: update-ca-trust
+              become: true
+              when: rpm_ca_copy.changed | default(false)
+          when: ansible_os_family == 'RedHat'
+
+    - name: "Step 5 - Create Kube Quadlet and Kubernetes YAML"
+      block:
+        - name: Ensure user containers systemd directory exists
+          file:
+            path: "{{ ansible_env.HOME }}/.config/containers/systemd"
+            state: directory
+            mode: "0755"
+
+        - name: Create Podman Kube Quadlet file
+          copy:
+            content: |
+              [Unit]
+              Description=Sovereign Semaphore UI Stack (Quadlet Kube)
+
+              [Kube]
+              Yaml=semaphore-stack.yaml
+
+              [Install]
+              WantedBy=default.target
+            dest: "{{ ansible_env.HOME }}/.config/containers/systemd/semaphore-stack.kube"
+            mode: "0644"
+          register: semaphore_kube_unit
+
+        - name: Create Kubernetes YAML manifest file
+          no_log: true
+          copy:
+            content: |
+              apiVersion: v1
+              kind: Pod
+              metadata:
+                name: semaphore-stack
+              spec:
+                containers:
+                  - name: semaphore-db
+                    image: docker.io/library/mysql:8.0
+                    env:
+                      - name: MYSQL_RANDOM_ROOT_PASSWORD
+                        value: "yes"
+                      - name: MYSQL_DATABASE
+                        value: "{{ semaphore_db_name }}"
+                      - name: MYSQL_USER
+                        value: "{{ semaphore_db_user }}"
+                      - name: MYSQL_PASSWORD
+                        value: "{{ final_semaphore_db_password }}"
+                      - name: TZ
+                        value: "Asia/Kuala_Lumpur"
+                    volumeMounts:
+                      - name: semaphore-mysql
+                        mountPath: /var/lib/mysql
+                  - name: semaphore-app
+                    image: docker.io/semaphoreui/semaphore:{{ semaphore_image_tag }}
+                    ports:
+                      - containerPort: 3000
+                        hostPort: 3001
+                    env:
+                      - name: SEMAPHORE_DB_USER
+                        value: "{{ semaphore_db_user }}"
+                      - name: SEMAPHORE_DB_PASS
+                        value: "{{ final_semaphore_db_password }}"
+                      - name: SEMAPHORE_DB_HOST
+                        value: localhost
+                      - name: SEMAPHORE_DB_PORT
+                        value: "3306"
+                      - name: SEMAPHORE_DB_DIALECT
+                        value: mysql
+                      - name: SEMAPHORE_DB
+                        value: "{{ semaphore_db_name }}"
+                      - name: SEMAPHORE_PLAYBOOK_PATH
+                        value: /tmp/semaphore/
+                      - name: SEMAPHORE_ADMIN_PASSWORD
+                        value: "{{ final_semaphore_admin_password }}"
+                      - name: SEMAPHORE_ADMIN_NAME
+                        value: admin
+                      - name: SEMAPHORE_ADMIN_EMAIL
+                        value: admin@localhost
+                      - name: SEMAPHORE_ADMIN
+                        value: admin
+                      - name: SEMAPHORE_ACCESS_KEY_ENCRYPTION
+                        value: "{{ final_semaphore_access_key }}"
+                      - name: SEMAPHORE_LDAP_ACTIVATED
+                        value: "no"
+                      - name: SEMAPHORE_TLS_ENABLED
+                        value: "True"
+                      - name: SEMAPHORE_TLS_CERT_FILE
+                        value: /etc/semaphore/certs/semaphore.crt
+                      - name: SEMAPHORE_TLS_KEY_FILE
+                        value: /etc/semaphore/certs/semaphore.key
+                      - name: TZ
+                        value: "Asia/Kuala_Lumpur"
+                    volumeMounts:
+                      - name: semaphore-certs
+                        mountPath: /etc/semaphore/certs
+                      - name: host-ca-certs
+                        mountPath: /etc/ssl/certs/ca-certificates.crt
+                        readOnly: true
+                volumes:
+                  - name: semaphore-mysql
+                    persistentVolumeClaim:
+                      claimName: semaphore-mysql-pvc
+                  - name: semaphore-certs
+                    hostPath:
+                      path: "{{ semaphore_certs_dir }}"
+                      type: Directory
+                  - name: host-ca-certs
+                    hostPath:
+                      path: "{{ host_ca_bundle_path }}"
+                      type: File
+            dest: "{{ ansible_env.HOME }}/.config/containers/systemd/semaphore-stack.yaml"
+            mode: "0600"
+          register: semaphore_kube_manifest
+
+    - name: "Step 6 - Systemd Integration"
+      block:
+        - name: Reload user systemd daemon and enable Semaphore service
+          systemd:
+            name: "semaphore-stack.service"
+            scope: user
+            state: "{{ 'restarted' if (semaphore_kube_unit.changed | default(false) or semaphore_kube_manifest.changed | default(false)) else 'started' }}"
+            enabled: yes
+            daemon_reload: yes
+          ignore_errors: true
+          register: systemd_user_enable
+
+        - name: Alternative shell reload and enable if scope user fails
+          shell: |
+            systemctl --user daemon-reload && \
+            systemctl --user enable --now "semaphore-stack.service"
+          when: systemd_user_enable.failed | default(false)
+          ignore_errors: true
+          register: systemd_user_enable_run
+
+        - name: Fail if Semaphore systemd activation failed on both methods
+          fail:
+            msg: "Semaphore systemd user service activation failed."
+          when: >
+            (systemd_user_enable.failed | default(false) and
+            (systemd_user_enable_run.failed | default(true)))

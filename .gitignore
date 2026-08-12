@@ -54,6 +54,7 @@ dkms.conf
 # Credentials and secrets
 *temp_credentials.txt
 *gitea_credentials.txt
+*semaphore_credentials*
 *.env
 *.vault
 
