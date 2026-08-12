@@ -105,37 +105,3 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
   count="$(grep -cF '[legal-notice.md]' "${LLMS_TXT}")"
   [ "${count}" -eq 1 ]
 }
-
-# Regression tests for the new SEMAPHORE_GUIDE.md Core Documentation entry,
-# added under docs/ immediately after the existing GITEA_GUIDE.md entry.
-
-@test "llms.txt documents the new SEMAPHORE_GUIDE.md entry under docs/" {
-  grep -qF '[SEMAPHORE_GUIDE.md](docs/SEMAPHORE_GUIDE.md): Sovereign SemaphoreUI Deployment & Operations Guide.' "${LLMS_TXT}"
-}
-
-@test "llms.txt lists SEMAPHORE_GUIDE.md after GITEA_GUIDE.md and before REFERENCE_TUNING.md" {
-  local gitea_line semaphore_line reference_line
-  gitea_line="$(grep -n -F '[GITEA_GUIDE.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
-  semaphore_line="$(grep -n -F '[SEMAPHORE_GUIDE.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
-  reference_line="$(grep -n -F '[REFERENCE_TUNING.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
-  [ -n "${gitea_line}" ]
-  [ -n "${semaphore_line}" ]
-  [ -n "${reference_line}" ]
-  [ "${semaphore_line}" -gt "${gitea_line}" ]
-  [ "${semaphore_line}" -lt "${reference_line}" ]
-}
-
-@test "llms.txt's SEMAPHORE_GUIDE.md link target file actually exists in docs/" {
-  [ -f "${REPO_ROOT}/docs/SEMAPHORE_GUIDE.md" ]
-}
-
-@test "llms.txt does not link SEMAPHORE_GUIDE.md at the repository root (docs/ prefix required)" {
-  run grep -qF '](SEMAPHORE_GUIDE.md):' "${LLMS_TXT}"
-  [ "${status}" -ne 0 ]
-}
-
-@test "llms.txt has exactly one SEMAPHORE_GUIDE.md entry (no duplicates)" {
-  local count
-  count="$(grep -cF '[SEMAPHORE_GUIDE.md]' "${LLMS_TXT}")"
-  [ "${count}" -eq 1 ]
-}

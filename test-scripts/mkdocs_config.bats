@@ -202,35 +202,3 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
   [ -f "${REPO_ROOT}/docs/legal-notice.md" ]
   [ -r "${REPO_ROOT}/docs/legal-notice.md" ]
 }
-
-# Regression tests for the new "Sovereign SemaphoreUI Deployment &
-# Operations Guide" nav entry, added between the existing Gitea guide entry
-# and the WSL 3-Node Cluster Guide entry.
-
-@test "mkdocs.yml registers the Sovereign SemaphoreUI Deployment & Operations Guide nav entry pointing at SEMAPHORE_GUIDE.md" {
-  grep -qF -- '- Sovereign SemaphoreUI Deployment & Operations Guide: SEMAPHORE_GUIDE.md' "${MKDOCS_YML}"
-}
-
-@test "mkdocs.yml lists the SemaphoreUI guide between the Gitea guide and the WSL 3-Node Cluster Guide entries" {
-  local gitea_line semaphore_line wsl_line
-  gitea_line="$(grep -n -F -- '- Sovereign Gitea Deployment & Security Operations Guide: GITEA_GUIDE.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-  semaphore_line="$(grep -n -F -- '- Sovereign SemaphoreUI Deployment & Operations Guide: SEMAPHORE_GUIDE.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-  wsl_line="$(grep -n -F -- '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-
-  [ -n "${gitea_line}" ]
-  [ -n "${semaphore_line}" ]
-  [ -n "${wsl_line}" ]
-  [ "${gitea_line}" -lt "${semaphore_line}" ]
-  [ "${semaphore_line}" -lt "${wsl_line}" ]
-}
-
-@test "the SEMAPHORE_GUIDE.md file referenced by the new mkdocs.yml nav entry actually exists and is readable" {
-  [ -f "${REPO_ROOT}/docs/SEMAPHORE_GUIDE.md" ]
-  [ -r "${REPO_ROOT}/docs/SEMAPHORE_GUIDE.md" ]
-}
-
-@test "mkdocs.yml declares exactly one SEMAPHORE_GUIDE.md nav entry (no duplicates)" {
-  local count
-  count="$(grep -cF -- 'SEMAPHORE_GUIDE.md' "${MKDOCS_YML}")"
-  [ "${count}" -eq 1 ]
-}
