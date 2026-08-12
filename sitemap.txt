@@ -4,6 +4,7 @@ https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/PLAYBOOKS/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/DOCS_MATRIX_TELEMETRY/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/GITEA_GUIDE/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/SEMAPHORE_GUIDE/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/HISTORY/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/CHANGELOG/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/WSL-3NODE-CLUSTER-GUIDE/

@@ -33,6 +33,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "${BASE_URL}/docs/GITEA_GUIDE/" "${SITEMAP_TXT}"
 }
 
+@test "sitemap.txt includes the new SEMAPHORE_GUIDE URL under docs/" {
+  grep -qF "${BASE_URL}/docs/SEMAPHORE_GUIDE/" "${SITEMAP_TXT}"
+}
+
 @test "sitemap.txt keeps HISTORY and CHANGELOG URLs at the root (not under docs/)" {
   grep -qF "${BASE_URL}/HISTORY/" "${SITEMAP_TXT}"
   grep -qF "${BASE_URL}/CHANGELOG/" "${SITEMAP_TXT}"
@@ -48,10 +52,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   done
 }
 
-@test "sitemap.txt has exactly eleven URLs (homepage + 8 relocated/new docs + HISTORY + CHANGELOG)" {
+@test "sitemap.txt has exactly twelve URLs (homepage + 9 relocated/new docs + HISTORY + CHANGELOG)" {
   local count
   count="$(grep -cF "${BASE_URL}" "${SITEMAP_TXT}")"
-  [ "${count}" -eq 11 ]
+  [ "${count}" -eq 12 ]
 }
 
 @test "sitemap.xml lists the relocated guide URLs under the docs/ path segment" {
@@ -72,6 +76,14 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   awk '/docs\/GITEA_GUIDE\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
 }
 
+@test "sitemap.xml includes a new <url> entry for SEMAPHORE_GUIDE with changefreq/priority metadata" {
+  grep -qF "<loc>${BASE_URL}/docs/SEMAPHORE_GUIDE/</loc>" "${SITEMAP_XML}"
+  # The SEMAPHORE_GUIDE entry should carry the same weekly/0.80 metadata as the
+  # other secondary-doc entries.
+  awk '/docs\/SEMAPHORE_GUIDE\// { found=1 } found && /<changefreq>/ { print; exit }' "${SITEMAP_XML}" | grep -qF 'weekly'
+  awk '/docs\/SEMAPHORE_GUIDE\// { found=1 } found && /<priority>/ { print; exit }' "${SITEMAP_XML}" | grep -qF '0.80'
+}
+
 @test "sitemap.xml no longer lists stale root-level <loc> entries for the relocated guide docs" {
   for slug in INSTALL PLAYBOOKS LOCAL_DEVELOPMENT_FEEDBACK_GUIDE DOCS_MATRIX_TELEMETRY WSL-3NODE-CLUSTER-GUIDE; do
     run grep -qF "<loc>${BASE_URL}/${slug}/</loc>" "${SITEMAP_XML}"
@@ -84,10 +96,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   python3 -c "import xml.etree.ElementTree as ET; ET.parse('${SITEMAP_XML}')"
 }
 
-@test "sitemap.xml contains exactly eleven <url> entries matching sitemap.txt" {
+@test "sitemap.xml contains exactly twelve <url> entries matching sitemap.txt" {
   local count
   count="$(grep -cF '<url>' "${SITEMAP_XML}")"
-  [ "${count}" -eq 11 ]
+  [ "${count}" -eq 12 ]
 }
 
 # Regression tests for the new REFERENCE_TUNING.md and legal-notice.md
