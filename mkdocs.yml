@@ -11,6 +11,7 @@ site_author: Harisfazillah Jamel (LinuxMalaysia)
 repo_url: https://github.com/linuxmalaysia/podman-elastic-stack-ai
 site_url: https://linuxmalaysia.github.io/podman-elastic-stack-ai/
 edit_uri: blob/main/docs/
+copyright: 'All costs, designs, unit amounts, and scenarios detailed within this project are based entirely on assumptions. Compiled strictly for training, educational, and planning proposal purposes. Use at your own risk. We are not going to be responsible. We have done our best to protect anyone and organisation. <br> <a href="https://linuxmalaysia.github.io/podman-elastic-stack-ai/legal-notice/">Legal Notice, Privacy Policy, Critical Assumptions & Disclaimer of Liability</a> • Copyright &copy; 2025 - 2026 Harisfazillah Jamel (LinuxMalaysia)'
 
 hooks:
   - scripts/mkdocs_hooks.py
@@ -74,5 +75,6 @@ nav:
   - WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md
   - Reference Tuning Resources: REFERENCE_TUNING.md
   - Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md
+  - Legal Notice & Disclaimer: legal-notice.md
   - Project History: HISTORY.md
   - Changelog: CHANGELOG.md

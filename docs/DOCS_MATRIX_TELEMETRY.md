@@ -1,3 +1,4 @@
+{% raw %}
 # SYSTEM ARCHITECTURE & BLUEPRINT DIRECTIVE: MATRIX TELEMETRY & FEEDBACK PIPELINE
 
 <!-- markdownlint-disable-file MD041 -->
@@ -247,3 +248,4 @@ The bridge script is an idempotent Bash runner responsible for parsing the JSON 
 ---
 
 *This document serves as the master architectural specification for local multi-OS telemetry extraction and bidirectional agent-human orchestration loops.*
+{% endraw %}

@@ -11,6 +11,8 @@ This repository automates the setup, testing, and deployment of Elasticsearch 9.
 - [DOCS_MATRIX_TELEMETRY.md](docs/DOCS_MATRIX_TELEMETRY.md): Architectural layout of developer mode metrics, resource auditing, block/rescue logs, and the telemetry format (`/tmp/jules_telemetry.json`).
 - [WSL-3NODE-CLUSTER-GUIDE.md](docs/WSL-3NODE-CLUSTER-GUIDE.md): Step-by-step guide to run a fully functional 3-Node Elasticsearch Cluster + Kibana configuration on Windows Subsystem for Linux (WSL2) using Podman.
 - [GITEA_GUIDE.md](docs/GITEA_GUIDE.md): Sovereign Gitea Deployment and Security Operations Guide.
+- [REFERENCE_TUNING.md](docs/REFERENCE_TUNING.md): Compilation of reference tuning URLs and WSL2/kernel optimization parameters.
+- [legal-notice.md](docs/legal-notice.md): Legal Notice, Privacy Policy, Critical Assumptions, and Assumption of Risk / Liability Disclaimer.
 
 ## Setup & Execution Scripts
 

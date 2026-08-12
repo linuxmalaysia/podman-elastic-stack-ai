@@ -45,4 +45,14 @@
     <changefreq>weekly</changefreq>
     <priority>0.80</priority>
   </url>
+  <url>
+    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/REFERENCE_TUNING/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/legal-notice/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
 </urlset>
