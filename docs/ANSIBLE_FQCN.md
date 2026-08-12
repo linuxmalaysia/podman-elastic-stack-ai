@@ -8,6 +8,7 @@ resource: file:///docs/ANSIBLE_FQCN.md
 timestamp: 2026-07-12T10:00:00Z
 ---
 {% raw %}
+
 # 🤖 Ansible Best Practices & Rootless Service Orchestration Guide
 
 This guide compiles modern Ansible standards adopted in our project to manage unprivileged container setups, enforce Fully Qualified Collection Names (FQCN), and implement a symmetric privilege separation strategy.
@@ -16,12 +17,12 @@ This guide compiles modern Ansible standards adopted in our project to manage un
 
 ## 1. Fully Qualified Collection Names (FQCN)
 
-Modern Ansible mandates the use of **Fully Qualified Collection Names (FQCN)** (e.g., `ansible.builtin.copy` instead of `copy`, or `ansible.builtin.template` instead of `template`). Enforcing FQCN:
+Our project establishes the use of **Fully Qualified Collection Names (FQCN)** (e.g., `ansible.builtin.copy` instead of `copy`, or `ansible.builtin.template` instead of `template`) as a recommended **repository convention** rather than an absolute Ansible Core runtime mandate. This convention:
 - **Prevents Naming Collisions**: Avoids module lookup confusion when custom community collections are installed in the same environment.
 - **Guarantees Predictability**: Ensures playbooks are forward-compatible across Ansible Core upgrades.
-- **Enterprise Grade**: Meets Red Hat enterprise standards and Ansible Galaxy deployment rules.
+- **Enterprise Grade**: Aligns our automated tasks with Red Hat enterprise standards and Ansible Galaxy deployment rules while co-existing with existing unqualified task definitions where appropriate.
 
-Our project strictly enforces FQCN syntax in all tasks across Elasticsearch, Kibana, Fleet, Gitea, and Semaphore playbooks.
+We encourage developers to adopt FQCN syntax consistently for new playbooks and roles.
 
 ---
 
@@ -30,10 +31,12 @@ Our project strictly enforces FQCN syntax in all tasks across Elasticsearch, Kib
 To achieve a hardened security posture, Ansible playbooks must decouple administrative host operations from the deployment of unprivileged application containers.
 
 ### A. Rootful OS Hardening (Superuser Privilege)
+
 - **Role**: Performed with `become: yes` (sudo as root).
 - **Actions**: Installs packages (`podman`, `podman-compose`), manages kernel tuning (adjusting `vm.max_map_count`, `fs.inotify.max_user_watches`), creates system user/groups, and configures OS security baselines in `/etc/wsl.conf` or `/etc/security/limits.conf`.
 
 ### B. Rootless Deployments (Unprivileged Privilege)
+
 - **Role**: Performed with the context of the unprivileged deployment user (e.g., `become: yes` combined with `become_user: dsom-admin` or similar, or executed directly from user workspace connection).
 - **Actions**: Creates unprivileged data volumes, writes user-level configuration templates to `~/.config/containers/systemd/` or standard paths, reloads unprivileged user-level systemd daemons, and manages active container states.
 

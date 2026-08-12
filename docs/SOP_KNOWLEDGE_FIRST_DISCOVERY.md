@@ -8,6 +8,7 @@ resource: file:///docs/SOP_KNOWLEDGE_FIRST_DISCOVERY.md
 timestamp: 2026-07-12T10:00:00Z
 ---
 {% raw %}
+
 # 🔍 Local Knowledge-First Discovery & Context Preservation Protocol
 
 This document establishes the official Local Knowledge-First SOP for agentic development sessions, aimed at preventing unnecessary filesystem searches, token window exhaustion, and context loss.

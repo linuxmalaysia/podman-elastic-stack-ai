@@ -30,24 +30,35 @@ NEW_DOCS=(
 
 @test "all new adoption documentation files contain valid OKF metadata and topics" {
   for doc in "${NEW_DOCS[@]}"; do
-    grep -q 'okf_version: 0.1' "${REPO_ROOT}/${doc}"
-    grep -q 'type: documentation' "${REPO_ROOT}/${doc}"
-    grep -q 'resource: file:///' "${REPO_ROOT}/${doc}"
-    # Check that topics is defined
-    grep -q 'topics: \[' "${REPO_ROOT}/${doc}"
+    # Extract frontmatter between the first two --- markers
+    frontmatter="$(awk 'BEGIN {show=0; count=0} /^---$/ {count++; if(count==1) {show=1; next} if(count==2) {show=0; exit}} show {print}' "${REPO_ROOT}/${doc}")"
+
+    # Validate okf_version, type, resource, and topics only within that block
+    echo "${frontmatter}" | grep -q 'okf_version: 0.1'
+    echo "${frontmatter}" | grep -q 'type: documentation'
+    echo "${frontmatter}" | grep -q 'resource: file:///'
+    echo "${frontmatter}" | grep -q 'topics: \['
   done
 }
 
 @test "all new adoption documentation files are properly wrapped in Jekyll {% raw %}/{% endraw %} tags" {
   for doc in "${NEW_DOCS[@]}"; do
-    # Verify presence of raw and endraw tags
-    grep -qF '{% raw %}' "${REPO_ROOT}/${doc}"
-    grep -qF '{% endraw %}' "${REPO_ROOT}/${doc}"
+    # Find line numbers of second --- marker and Jekyll tags
+    marker2_line="$(grep -n '^---$' "${REPO_ROOT}/${doc}" | sed -n '2p' | cut -d: -f1)"
+    raw_line="$(grep -nF '{% raw %}' "${REPO_ROOT}/${doc}" | head -1 | cut -d: -f1)"
+    endraw_line="$(grep -nF '{% endraw %}' "${REPO_ROOT}/${doc}" | head -1 | cut -d: -f1)"
 
-    # Confirm there is exactly one raw and one endraw tag
+    # Assert exactly one {% raw %} and {% endraw %}
     raw_count="$(grep -cF '{% raw %}' "${REPO_ROOT}/${doc}")"
     endraw_count="$(grep -cF '{% endraw %}' "${REPO_ROOT}/${doc}")"
     [ "${raw_count}" -eq 1 ]
     [ "${endraw_count}" -eq 1 ]
+
+    # Assert {% raw %} occurring after the closing frontmatter marker and before {% endraw %}
+    [ -n "${marker2_line}" ]
+    [ -n "${raw_line}" ]
+    [ -n "${endraw_line}" ]
+    [ "${raw_line}" -gt "${marker2_line}" ]
+    [ "${endraw_line}" -gt "${raw_line}" ]
   done
 }

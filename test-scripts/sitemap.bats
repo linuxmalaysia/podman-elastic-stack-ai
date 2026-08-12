@@ -27,6 +27,11 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "${BASE_URL}/docs/WSL-3NODE-CLUSTER-GUIDE/" "${SITEMAP_TXT}"
   grep -qF "${BASE_URL}/docs/REFERENCE_TUNING/" "${SITEMAP_TXT}"
   grep -qF "${BASE_URL}/docs/legal-notice/" "${SITEMAP_TXT}"
+  grep -qF "${BASE_URL}/docs/PODMAN_ROOTLESS/" "${SITEMAP_TXT}"
+  grep -qF "${BASE_URL}/docs/ANSIBLE_FQCN/" "${SITEMAP_TXT}"
+  grep -qF "${BASE_URL}/docs/ANSIBLE_ADOPTION_REVIEW/" "${SITEMAP_TXT}"
+  grep -qF "${BASE_URL}/docs/ANSIBLE_PLAYBOOK_MAP/" "${SITEMAP_TXT}"
+  grep -qF "${BASE_URL}/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/" "${SITEMAP_TXT}"
 }
 
 @test "sitemap.txt includes the new GITEA_GUIDE URL under docs/" {
@@ -66,6 +71,11 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "<loc>${BASE_URL}/docs/WSL-3NODE-CLUSTER-GUIDE/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/REFERENCE_TUNING/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/legal-notice/</loc>" "${SITEMAP_XML}"
+  grep -qF "<loc>${BASE_URL}/docs/PODMAN_ROOTLESS/</loc>" "${SITEMAP_XML}"
+  grep -qF "<loc>${BASE_URL}/docs/ANSIBLE_FQCN/</loc>" "${SITEMAP_XML}"
+  grep -qF "<loc>${BASE_URL}/docs/ANSIBLE_ADOPTION_REVIEW/</loc>" "${SITEMAP_XML}"
+  grep -qF "<loc>${BASE_URL}/docs/ANSIBLE_PLAYBOOK_MAP/</loc>" "${SITEMAP_XML}"
+  grep -qF "<loc>${BASE_URL}/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/</loc>" "${SITEMAP_XML}"
 }
 
 @test "sitemap.xml includes a new <url> entry for GITEA_GUIDE with changefreq/priority metadata" {

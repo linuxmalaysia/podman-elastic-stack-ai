@@ -8,6 +8,7 @@ resource: file:///docs/ANSIBLE_PLAYBOOK_MAP.md
 timestamp: 2026-07-12T10:00:00Z
 ---
 {% raw %}
+
 # 🗺️ Master Playbook and Document Matrix
 
 This guide provides a comprehensive dictionary linking automated Ansible playbooks, their core roles, managed services, and corresponding documentation sections.
@@ -41,9 +42,11 @@ The table below serves as a directory, tracing every playbook file directly to i
 Our automation fabric enforces a modular, stepwise execution path:
 
 ### A. Phase 0: Host Environment Preparation (Rootful Privilege)
+
 Executes system bootstrap routines, package installation, and kernel parameter adjustments (such as `vm.max_map_count` and `fs.inotify.max_user_watches` updates).
 
 ### B. Phase 1: Unprivileged Application Provisioning (Rootless Privilege)
+
 Generates user-level configuration templates, registers systemd Quadlet files under user config paths, starts containers, and retrieves secure, cryptographically generated credentials.
 
 ---
