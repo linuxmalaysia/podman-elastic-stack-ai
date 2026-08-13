@@ -67,6 +67,7 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
     "docs/SOP_KNOWLEDGE_FIRST_DISCOVERY.md"
     "docs/WSL-3NODE-CLUSTER-GUIDE.md"
     "docs/GITEA_GUIDE.md"
+    "docs/ELASTIC_9_UPGRADE_PLAN.md"
   )
   for rel_path in "${rel_paths[@]}"; do
     [ -f "${REPO_ROOT}/${rel_path}" ]
@@ -101,6 +102,7 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
 @test "llms.txt's REFERENCE_TUNING.md and legal-notice.md link targets actually exist in docs/" {
   [ -f "${REPO_ROOT}/docs/REFERENCE_TUNING.md" ]
   [ -f "${REPO_ROOT}/docs/legal-notice.md" ]
+  [ -f "${REPO_ROOT}/docs/ELASTIC_9_UPGRADE_PLAN.md" ]
 }
 
 @test "llms.txt does not link legal-notice.md or REFERENCE_TUNING.md at the repository root (docs/ prefix required)" {

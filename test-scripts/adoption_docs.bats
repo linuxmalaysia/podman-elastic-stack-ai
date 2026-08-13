@@ -12,6 +12,7 @@ NEW_DOCS=(
   "docs/ANSIBLE_ADOPTION_REVIEW.md"
   "docs/ANSIBLE_PLAYBOOK_MAP.md"
   "docs/SOP_KNOWLEDGE_FIRST_DISCOVERY.md"
+  "docs/ELASTIC_9_UPGRADE_PLAN.md"
 )
 
 @test "all new adoption documentation files exist and are readable" {
