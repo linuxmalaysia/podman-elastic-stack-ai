@@ -19,6 +19,24 @@ This repository automates the setup, testing, and deployment of Elasticsearch 9.
 - [SEMAPHORE_GUIDE.md](docs/SEMAPHORE_GUIDE.md): Sovereign SemaphoreUI Deployment & Operations Guide.
 - [REFERENCE_TUNING.md](docs/REFERENCE_TUNING.md): Compilation of reference tuning URLs and WSL2/kernel optimization parameters.
 - [legal-notice.md](docs/legal-notice.md): Legal Notice, Privacy Policy, Critical Assumptions, and Assumption of Risk / Liability Disclaimer.
+- [ELASTIC_9_UPGRADE_PLAN.md](docs/ELASTIC_9_UPGRADE_PLAN.md): Comprehensive Guide and 2-Week Plan for Upgrading the Podman-based Elastic Stack to Version 9.5.0.
+
+## Diátaxis Framework Documentation
+
+- [SUMMARY.md](docs/SUMMARY.md): Master Table of Contents and menu navigation block for GitBook.
+- [README.md](docs/README.md): Master documentation home explaining the Diátaxis structure.
+- [tutorials/installation.md](docs/tutorials/installation.md): Step-by-Step Installation Tutorial for first-time unprivileged single-node setups.
+- [tutorials/ansible_quickstart.md](docs/tutorials/ansible_quickstart.md): Guided step-by-step introduction to infrastructure orchestration.
+- [how-to/system_tuning.md](docs/how-to/system_tuning.md): Practical guide detailing host kernel parameters and inotify limits.
+- [how-to/wsl2_cluster.md](docs/how-to/wsl2_cluster.md): Practical guide to deploy and audit simulated WSL2 clusters.
+- [how-to/secure_gitea_semaphore.md](docs/how-to/secure_gitea_semaphore.md): How-to instructions for secure secret generation and cross-service trust.
+- [reference/cli_scripts.md](docs/reference/cli_scripts.md): Reference listing entrypoints, parameters, and dependencies for setup scripts.
+- [reference/playbooks_spec.md](docs/reference/playbooks_spec.md): Technical spec mapping role hierarchies and developer telemetry bounds.
+- [reference/compose_configs.md](docs/reference/compose_configs.md): Reference details for unprivileged Podman Compose stacks.
+- [reference/mkdocs_hook_api.md](docs/reference/mkdocs_hook_api.md): Reference documentation detailing parameters of the python link-rewriting hook.
+- [explanation/architecture_overview.md](docs/explanation/architecture_overview.md): Architectural guide explaining unprivileged bounds and rootless layers.
+- [explanation/security_decisions.md](docs/explanation/security_decisions.md): Conceptual context detailing Zero-CVE Wolfi bases and secret generation.
+- [explanation/diataxis.md](docs/explanation/diataxis.md): Conceptual article explaining the usage and structure of Diátaxis in this project.
 
 ## Setup & Execution Scripts
 
