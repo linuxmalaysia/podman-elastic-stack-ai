@@ -117,6 +117,10 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
   done
 }
 
+@test "mkdocs.yml contains the exact navigation entry for ELASTIC_9_UPGRADE_PLAN.md" {
+  grep -qF -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}"
+}
+
 # Regression tests for the "Reference Tuning Resources" nav entry, added
 # between the WSL 3-Node Cluster Guide and the Developer Matrix Telemetry
 # entries, pointing at the new docs/REFERENCE_TUNING.md page.

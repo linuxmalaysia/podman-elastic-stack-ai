@@ -117,3 +117,7 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
   count="$(grep -cF '[legal-notice.md]' "${LLMS_TXT}")"
   [ "${count}" -eq 1 ]
 }
+
+@test "llms.txt has the exact entry for ELASTIC_9_UPGRADE_PLAN.md" {
+  grep -qF '[ELASTIC_9_UPGRADE_PLAN.md](docs/ELASTIC_9_UPGRADE_PLAN.md): Comprehensive Guide and 2-Week Plan for Upgrading the Podman-based Elastic Stack to Version 9.5.0.' "${LLMS_TXT}"
+}

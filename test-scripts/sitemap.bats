@@ -42,6 +42,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "${BASE_URL}/docs/SEMAPHORE_GUIDE/" "${SITEMAP_TXT}"
 }
 
+@test "sitemap.txt includes the exact route for ELASTIC_9_UPGRADE_PLAN" {
+  grep -qF "${BASE_URL}/docs/ELASTIC_9_UPGRADE_PLAN/" "${SITEMAP_TXT}"
+}
+
 @test "sitemap.txt keeps HISTORY and CHANGELOG URLs at the root (not under docs/)" {
   grep -qF "${BASE_URL}/HISTORY/" "${SITEMAP_TXT}"
   grep -qF "${BASE_URL}/CHANGELOG/" "${SITEMAP_TXT}"
@@ -122,6 +126,21 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
 @test "sitemap.xml is well-formed XML" {
   command -v python3 >/dev/null 2>&1 || skip "python3 not available"
   python3 -c "import xml.etree.ElementTree as ET; ET.parse('${SITEMAP_XML}')"
+}
+
+@test "sitemap.xml includes a new <url> entry for ELASTIC_9_UPGRADE_PLAN with weekly/0.80 metadata" {
+  grep -qF "<loc>${BASE_URL}/docs/ELASTIC_9_UPGRADE_PLAN/</loc>" "${SITEMAP_XML}"
+  local url_block
+  url_block="$(awk '
+    /<url>/ { block=""; inside=1 }
+    inside { block = block "\n" $0 }
+    /<\/url>/ {
+      if (block ~ "docs/ELASTIC_9_UPGRADE_PLAN/") { print block; exit }
+      inside=0
+    }
+  ' "${SITEMAP_XML}")"
+  echo "${url_block}" | grep -qF '<changefreq>weekly</changefreq>'
+  echo "${url_block}" | grep -qF '<priority>0.80</priority>'
 }
 
 @test "sitemap.xml contains exactly eighteen <url> entries matching sitemap.txt" {

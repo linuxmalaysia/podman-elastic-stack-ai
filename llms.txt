@@ -19,7 +19,7 @@ This repository automates the setup, testing, and deployment of Elasticsearch 9.
 - [SEMAPHORE_GUIDE.md](docs/SEMAPHORE_GUIDE.md): Sovereign SemaphoreUI Deployment & Operations Guide.
 - [REFERENCE_TUNING.md](docs/REFERENCE_TUNING.md): Compilation of reference tuning URLs and WSL2/kernel optimization parameters.
 - [legal-notice.md](docs/legal-notice.md): Legal Notice, Privacy Policy, Critical Assumptions, and Assumption of Risk / Liability Disclaimer.
-- [ELASTIC_9_UPGRADE_PLAN.md](docs/ELASTIC_9_UPGRADE_PLAN.md): Comprehensive Guide and 2-Week Plan for Upgrading the Podman-based Elastic Stack to Version 9.5.x or Latest.
+- [ELASTIC_9_UPGRADE_PLAN.md](docs/ELASTIC_9_UPGRADE_PLAN.md): Comprehensive Guide and 2-Week Plan for Upgrading the Podman-based Elastic Stack to Version 9.5.0.
 
 ## Setup & Execution Scripts
 
