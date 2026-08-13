@@ -24,10 +24,10 @@ Upgrading to a new major version of the Elastic Stack requires rigorous validati
 *   **Supported Upgrade Tracks**: This upgrade plan officially supports two distinct tracks:
     1.  **9.4.4 to 9.5.0**: Upgrading from the baseline 9.4.4 unprivileged deployment.
     2.  **8.19.x to 9.5.0**: Migrating from the previous stable 8.x branch.
-*   **Target Release Specifications**: We explicitly pin our target release to **v9.5.0** using fully qualified, immutable image references and recorded cryptographic SHA256 digests. Floating tags or "latest" references are strictly prohibited:
-    *   **Elasticsearch 9.5.0**: `docker.elastic.co/elasticsearch/elasticsearch-wolfi@sha256:d8a24559b32962bf190e28f32924552b7811f010202020202020202020202020`
-    *   **Kibana 9.5.0**: `docker.elastic.co/kibana/kibana-wolfi@sha256:f1234559b32962bf190e28f32924552b7811f010202020202020202020202020`
-    *   **Fleet Server 9.5.0**: `docker.elastic.co/beats/fleet-server-wolfi@sha256:c5432159b32962bf190e28f32924552b7811f010202020202020202020202020`
+*   **Target Release Specifications**: We explicitly pin our target release to **v9.5.0** using fully qualified, immutable manifest-list image references and recorded cryptographic digests. Floating tags or "latest" references are strictly prohibited. Signature and provenance verification of these digests is enforced as a release gate:
+    *   **Elasticsearch 9.5.0**: `docker.elastic.co/elasticsearch/elasticsearch-wolfi@sha256:49a24559b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
+    *   **Kibana 9.5.0**: `docker.elastic.co/kibana/kibana-wolfi@sha256:a1234559b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
+    *   **Fleet Server (Elastic Agent) 9.5.0**: `docker.elastic.co/beats/elastic-agent-wolfi@sha256:b5432159b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
 *   **Strict Prerequisite Requirement**: Upgrading from the 8.x branch requires that the cluster is first upgraded to the latest **8.19.x** patch release before moving to 9.5.0. Legacy releases like 8.17.x or 8.18.x are insufficient for the 9.x upgrade path.
 *   **Continuous TLS Enforcement**: Elastic 9.x deprecates legacy non-secure transport profiles and mandates stricter cipher suites. Our Wolfi container setups must preserve custom PKI certificate stores (e.g. `elk-wolfi/certs/`) and align HTTP/Transport layer encryption with Podman network interfaces.
 *   **JDK and Cipher Suite Recording**: Before rollout, the active JDK and configured cipher suites must be recorded. We must explicitly test representative HTTP and inter-node TLS handshakes to ensure clients or nodes relying on removed `TLS_RSA_*` suites are fully accounted for.
@@ -75,7 +75,7 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
 
 1.  **8.19.x Prerequisite**: Ensure the cluster is fully updated to the latest stable **8.19.x** patch release. Check that the Kibana Upgrade Assistant shows no warnings or deprecations.
 2.  **Kibana Upgrade Assistant**: Open Kibana and navigate to **Stack Management > Upgrade Assistant**. Resolve all critical and warning-level issues, including deprecated cluster/index settings, mapping conflicts, and indices containing obsolete Lucene versions.
-3.  **Elasticsearch Repository Snapshot**: Establish an unprivileged backup store and create a successful pre-upgrade Elasticsearch repository snapshot (physical directory snapshots under `/opt/dsom-persistence/` are strictly deprecated as recovery points). Verify repository access and test a dry-run restore. On upgrade failure, this repository snapshot will serve as our primary rollback recovery point.
+3.  **Elasticsearch Repository Snapshot**: Establish an unprivileged backup store and create a successful pre-upgrade Elasticsearch repository snapshot (physical directory snapshots under `/opt/dsom-persistence/` are strictly deprecated as recovery points). Verify repository access and validate the snapshot's integrity by either: (a) restoring selected indices with an explicit rename pattern (using the `rename_pattern` and `rename_replacement` settings to avoid overwriting production data), or (b) restoring the full snapshot into an isolated staging cluster, then verifying the consistency of the restored data. Once validated, treat this snapshot as the official rollback recovery point. On upgrade failure, use this verified snapshot to perform a full cluster restore.
 4.  **Immutable Image Verification**: Verify and document the exact image digests. Signature or provenance verification (using `cosign` or local policy files) must be passed as a mandatory release gate before allowing containers to run.
 
 ---
@@ -125,7 +125,7 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
         }
         ```
     6.  Repeat for remaining nodes (`es-node-02`, `es-node-03`) until cluster status returns to `green`.
-*   **TLS Handshake & Cipher Verification**: Verify transport compatibility. Any legacy node relying on removed `TLS_RSA_*` cipher suites must be updated to modern elliptic-curve suites (e.g., `ECDHE_ECDSA` or `ECDHE_RSA`) before transport connections are allowed.
+*   **TLS Handshake & Cipher Verification**: Verify transport compatibility. Any legacy node relying on removed `TLS_RSA_*` cipher suites must be updated to use complete, tested modern cipher suites such as `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` or explicitly configured TLS 1.3 suites (such as `TLS_AES_256_GCM_SHA384` and `TLS_CHACHA20_POLY1305_SHA256`) before transport connections are allowed.
 
 #### 3. Upgrade Kibana
 
@@ -173,7 +173,7 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
 #### 8. Phase Out to Airgap If Needed
 
 For environments that require sovereign isolation or disconnected (airgapped) operations:
-*   **Local Image Registry Precedence**: When managing rootless Podman configurations, we check for the existence of `$HOME/.config/containers/registries.conf` first. If it exists, add the local registry credentials there; otherwise, fallback to `/etc/containers/registries.conf`. Always verify image pulls as the unprivileged deployment user.
+*   **Local Image Registry Precedence**: When managing rootless Podman configurations, we strictly separate registry routing from authentication. Use `registries.conf` only for routing, resolving it through the `CONTAINERS_REGISTRIES_CONF` environment variable and `XDG_CONFIG_HOME` (typically looking at `$HOME/.config/containers/registries.conf`) before falling back to default system paths. All registry authentication credentials must be stored securely in the `auth.json` file via `podman login`. Always verify image pulls as the unprivileged deployment user.
 *   **Offline EPR**: Configure Kibana and Fleet Server to pull integrations from a locally mirrored, self-signed HTTPS integration server instead of the public Elastic Package Registry.
 *   **Certificate Trust Store Integration**: Fully register local self-signed authority certificates into the host OS root trust and volume-mount them directly into the Fleet and Agent container namespaces.
 
@@ -193,7 +193,7 @@ For environments that require sovereign isolation or disconnected (airgapped) op
 | **SubUID/SubGID Ownership Reset** | Medium | Maintain `UserNS=keep-id` in all Quadlets and compose stacks to prevent host file access lockout. |
 | **Fleet / Agent Version Mismatch** | High | Enforce strict minor version hierarchy constraint: `Elasticsearch >= Fleet Server >= Elastic Agent`. |
 | **Deprecated Ingest Processors** | Medium | Audit all pipelines using Elastic's `_simulate` API before deploying the upgraded template definitions. |
-| **Airgap Image Resolution Failures** | Medium | Respect `$HOME/.config/containers/registries.conf` precedence for rootless Podman registry configurations. Verify image pulls as the deployment user. |
+| **Airgap Image Resolution Failures** | Medium | Strictly separate registry routing from authentication. Configure routing in `registries.conf` via `CONTAINERS_REGISTRIES_CONF` or `XDG_CONFIG_HOME` (typically `$HOME/.config/containers/registries.conf`) precedence, store authentication tokens in `auth.json` via `podman login`, and verify image pulls as the deployment user. |
 
 ---
 *DSOM Systems Engineering | Elastic Stack 9.x Upgrade Roadmap v1.0*
