@@ -14,15 +14,23 @@ This guide provides practical instructions for operating secure, unprivileged co
 
 If not manually set, Gitea playbooks dynamically generate strong passwords.
 
+
 ### Step 1: Identify Password Files
-Sovereign credentials are automatically created and isolated from Git tracking inside local `.txt` paths:
-* **Gitea Secrets**: `gitea_credentials.txt`
-* **Semaphore Secrets**: `semaphore_credentials.txt`
+
+Sovereign credentials are automatically created and isolated from Git tracking inside local `.txt` paths. Gitea credentials default to `gitea_credentials.txt` in the deployment directory. Semaphore credentials are saved to the path defined by `semaphore_credentials_file` (which defaults to `~/.config/containers/semaphoreui/secrets/semaphore_credentials.txt` but can be overridden with the `semaphore_credentials_override` variable):
+
+*   **Gitea Secrets**: `gitea_credentials.txt`
+*   **Semaphore Secrets**: Configured via `semaphore_credentials_file`
+
 
 ### Step 2: Enforce Strict File Permissions
-Ensure secrets are not readable by other unprivileged system accounts:
+
+Ensure secrets are not readable by other unprivileged system accounts. The chmod example should target the resolved configured path rather than assuming a current-directory filename:
+
 ```bash
-chmod 0600 gitea_credentials.txt semaphore_credentials.txt
+# Secure the dynamically generated credentials files
+chmod 0600 gitea_credentials.txt
+chmod 0600 "${HOME}/.config/containers/semaphoreui/secrets/semaphore_credentials.txt"
 ```
 
 ---
@@ -31,16 +39,22 @@ chmod 0600 gitea_credentials.txt semaphore_credentials.txt
 
 To enable Semaphore's `go-git` engine to securely clone repositories from local self-signed HTTPS Gitea instances, the self-signed certificate must be registered in the host CA store.
 
+
 ### Step 1: Register Certificate
+
 ```bash
 sudo cp gitea.crt /usr/local/share/ca-certificates/
 sudo update-ca-certificates
 ```
 
+
 ### Step 2: Volume Mount Host Bundle
+
 The Semaphore deployment automatically mounts the host CA bundle directly inside the execution containers:
+
 ```yaml
 volumes:
   - /etc/ssl/certs:/etc/ssl/certs:ro
 ```
+
 This ensures secure, bidirectional trusted pipeline integrations.

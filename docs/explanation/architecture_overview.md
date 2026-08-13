@@ -35,4 +35,4 @@ Standard setups often run container runtimes with root privileges, creating pote
 Our project enforces a **Strict Zero-Privilege Rule**:
 1. All container tasks are managed under standard user permissions via rootless Podman execution contexts.
 2. Port binding ranges are shifted above privileged values (e.g. mapping internal ports securely to host ranges such as `3000` or `5601`).
-3. Services utilize shared unprivileged user bridges to isolate database communication entirely from the default host network interface.
+3. Services utilize shared unprivileged user bridges to isolate internal backend database communication. However, this bridge isolation is bounded: selected services are exposed to external clients on explicitly bound host ports. Specifically, the helper scripts `setup_elasticsearch.sh` and `setup_kibana.sh` accept a `BIND_ADDRESS` variable (defaulting to `127.0.0.1`) that configures the interface on which those services bind their public-facing ports (such as `9200` and `5601`), thus restricting public access to the chosen local or external host interfaces.

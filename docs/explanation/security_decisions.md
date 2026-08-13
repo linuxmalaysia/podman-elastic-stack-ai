@@ -26,5 +26,9 @@ Hardcoded deployment configurations, default database tokens, and pre-baked SSH 
 
 We mitigate these vulnerabilities by:
 1. Sourcing high-entropy passwords dynamically using python standard random libs.
-2. Isolating active tokens to un-tracked files (`*temp_credentials.txt`, `*gitea_credentials.txt`).
-3. Configuring `.gitignore` patterns to prevent checking credentials into open git branches.
+2. Isolating active tokens to untracked files (`*temp_credentials.txt`, `*gitea_credentials.txt`).
+3. Configuring `.gitignore` patterns, which exclude matching untracked files by default. Note that `.gitignore` only applies to untracked files and will not prevent committing files that are already tracked or added with a force option (`git add -f`).
+
+If a secret has already been committed to the repository history, you must immediately:
+- Rotate all compromised credentials/tokens/keys on any active systems.
+- Use history cleaning tools (e.g., `git-filter-repo` or `BFG Repo-Cleaner`) to purge the sensitive files entirely from all repository commits and historical timelines.

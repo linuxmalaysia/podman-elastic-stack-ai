@@ -3364,12 +3364,12 @@ Upgrading to a new major version of the Elastic Stack requires rigorous validati
 *   **Target Release Specifications**: We explicitly pin our target release to **v9.5.0** using fully qualified, immutable manifest-list image references and recorded cryptographic digests. Floating tags or "latest" references are strictly prohibited. Signature and provenance verification of these digests is enforced as a release gate:
     *   **Elasticsearch 9.5.0**: `docker.elastic.co/elasticsearch/elasticsearch-wolfi@sha256:49a24559b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
     *   **Kibana 9.5.0**: `docker.elastic.co/kibana/kibana-wolfi@sha256:a1234559b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
-    *   **Fleet Server (Elastic Agent) 9.5.0**: `docker.elastic.co/beats/elastic-agent-wolfi@sha256:b5432159b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
+    *   **Fleet Server (Elastic Agent) 9.5.0**: `docker.elastic.co/elastic-agent/elastic-agent-complete-wolfi@sha256:b5432159b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
 *   **Strict Prerequisite Requirement**: Upgrading from the 8.x branch requires that the cluster is first upgraded to the latest **8.19.x** patch release before moving to 9.5.0. Legacy releases like 8.17.x or 8.18.x are insufficient for the 9.x upgrade path.
 *   **Continuous TLS Enforcement**: Elastic 9.x deprecates legacy non-secure transport profiles and mandates stricter cipher suites. Our Wolfi container setups must preserve custom PKI certificate stores (e.g. `elk-wolfi/certs/`) and align HTTP/Transport layer encryption with Podman network interfaces.
 *   **JDK and Cipher Suite Recording**: Before rollout, the active JDK and configured cipher suites must be recorded. We must explicitly test representative HTTP and inter-node TLS handshakes to ensure clients or nodes relying on removed `TLS_RSA_*` suites are fully accounted for.
 *   **Unprivileged Permission Preservation**: High-range subuids (e.g., mapped via `UserNS=keep-id` at container boundaries) must remain perfectly consistent. When container image tags shift to `9.5.0`, local data mounts under `/opt/dsom-persistence/` must not experience permission drift or ownership locking.
-*   **Zero-Downtime Pipeline Continuity**: Custom ingest pipelines, Machine Learning (ML) integration states, and security log-shipper loops must be progressively phased to avoid data ingestion gaps or out-of-order schema validation.
+*   **Zero-Downtime Pipeline Continuity**: Custom ingest pipelines, Machine Learning (ML) integration states, and security log-shipper loops must be progressively phased to avoid data ingestion gaps or out-of-order schema validation. Note that this pipeline continuity covers Elasticsearch and ingestion only, not Kibana availability. A self-managed upgrade stops `kib01.service` and requires a scheduled Kibana outage or maintenance window (minimum 2 hours).
 
 ---
 
@@ -3434,7 +3434,9 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
 #### 2. Upgrade Elasticsearch Cluster
 
 *   **Multi-Node WSL / Hardware rolling upgrade**:
+
     1.  Disable shard allocation:
+
         ```json
         PUT _cluster/settings
         {
@@ -3443,16 +3445,23 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
           }
         }
         ```
+
     2.  Stop the unprivileged node container or systemd Quadlet service:
+
         ```bash
         systemctl --user stop dsom-persistence-es-node-01.service
         ```
+
     3.  Update the image tag and digest configuration in `ansible/group_vars/all.yml` or container manifests (`elk-wolfi/podman-compose-elasticsearch.yml`).
+
     4.  Restart the container node and monitor start progress via unprivileged systemd journal:
+
         ```bash
         journalctl --user -u dsom-persistence-es-node-01.service -f
         ```
+
     5.  Re-enable shard allocation once the node joins the cluster:
+
         ```json
         PUT _cluster/settings
         {
@@ -3461,18 +3470,21 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
           }
         }
         ```
+
     6.  Repeat for remaining nodes (`es-node-02`, `es-node-03`) until cluster status returns to `green`.
 *   **TLS Handshake & Cipher Verification**: Verify transport compatibility. Any legacy node relying on removed `TLS_RSA_*` cipher suites must be updated to use complete, tested modern cipher suites such as `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` or explicitly configured TLS 1.3 suites (such as `TLS_AES_256_GCM_SHA384` and `TLS_CHACHA20_POLY1305_SHA256`) before transport connections are allowed.
 
 #### 3. Upgrade Kibana
 
 *   **Container Switchover**: Stop the active Kibana service, update its container compose or Quadlet definition to reference the matching pinned `9.5.0` Wolfi Kibana image digest, and launch:
+
     ```bash
     systemctl --user stop kib01.service
     # Update config and restart
     systemctl --user daemon-reload
     systemctl --user start kib01.service
     ```
+
 *   **API Verification**: Run unprivileged validation scripts to verify that Kibana successfully authenticates against the Elasticsearch cluster using stored `temp_credentials.txt` or vault secrets.
 
 #### 4. Upgrade Elastic Fleet Integration + Elastic Agent Related
@@ -3591,22 +3603,30 @@ Welcome to our production-ready, structured documentation system. This documenta
 
 ## 🗺️ Navigation Map
 
+
 ### Tutorials
+
 1. **[Step-by-Step Installation](tutorials/installation.md)**: Build an unprivileged, rootless single-node Elastic Stack on WSL2 or bare-metal Linux.
 2. **[Ansible Quickstart](tutorials/ansible_quickstart.md)**: Get up and running with our Ansible playbooks in less than five minutes.
 
+
 ### How-To Guides
+
 1. **[System Tuning & Optimization](how-to/system_tuning.md)**: Apply kernel rules (`vm.max_map_count`, memory limits) on WSL2 or Linux hosts.
 2. **[Distributed WSL2 Cluster](how-to/wsl2_cluster.md)**: Scale up a simulated multi-node high-availability Elastic Cluster.
 3. **[Gitea & Semaphore Secure Operations](how-to/secure_gitea_semaphore.md)**: Set up rootless git servers and secure, trusted CI pipelines.
 
+
 ### Reference
+
 1. **[CLI Scripts Reference](reference/cli_scripts.md)**: Detailed option and interface breakdown for setup and feedback scripts.
 2. **[Ansible Playbooks Spec](reference/playbooks_spec.md)**: Complete map of roles, tasks, variables, and telemetry logs.
 3. **[Podman Compose Configurations](reference/compose_configs.md)**: Core environment attributes, resource bounds, and network topologies.
 4. **[MkDocs Rewriter Hook API](reference/mkdocs_hook_api.md)**: Functional parameters, regex patterns, and normalization mechanics.
 
+
 ### Explanation
+
 1. **[Architecture Overview](explanation/architecture_overview.md)**: Core structural topology, unprivileged workflows, and data boundary rules.
 2. **[Hardened Wolfi Images & Security Decisions](explanation/security_decisions.md)**: Snyk audit, Zero-CVE Wolfi bases, TLS trust setups, and telemetry logging bounds.
 3. **[Diátaxis Framework Integration](explanation/diataxis.md)**: Comprehensive explanation of the Diátaxis architecture in this workspace.
@@ -3630,6 +3650,7 @@ This step-by-step tutorial teaches you how to deploy a single-node instance of E
 ---
 
 ## 🎓 Learning Objectives
+
 By the end of this tutorial, you will be able to:
 1. Initialize an unprivileged, secure bridge network using Podman.
 2. Build and run a single-node Elasticsearch database.
@@ -3645,6 +3666,7 @@ First, ensure that Podman is properly installed on your active Linux or WSL2 env
 ```bash
 podman --version
 ```
+
 *(Verify that Podman version 5.0+ or higher is active.)*
 
 ---
@@ -3658,7 +3680,9 @@ chmod +x setup_elasticsearch.sh
 ./setup_elasticsearch.sh
 ```
 
+
 ### What happened behind the scenes?
+
 1. Sourced helper utilities from `scripts/utils.sh`.
 2. Created a secure bridge network named `elastic_stack_net`.
 3. Auto-generated high-entropy passwords for the root `elastic` user.
@@ -3676,11 +3700,27 @@ chmod +x setup_kibana.sh
 ```
 
 Once completed, open your web browser and navigate to:
+
 ```text
 http://localhost:5601
 ```
 
 Log in using the `elastic` user and the password stored in `elk-wolfi/temp_credentials.txt`. You have successfully deployed a secure, local Elastic Stack!
+
+---
+
+## 🔒 Step 4: Verify Server-to-Server TLS Authentication
+
+To verify that the Elasticsearch cluster is fully secured and that server-to-server TLS authentication is active, perform a handshake against the HTTPS endpoint using our generated CA certificate `elk-wolfi/certs/http_ca.crt`:
+
+```bash
+# Verify the TLS handshake using the local CA bundle and output the cluster name
+curl --cacert elk-wolfi/certs/http_ca.crt -u elastic https://localhost:9200/
+```
+
+*(When prompted, input the password stored in `elk-wolfi/temp_credentials.txt`)*
+
+If successful, you will receive a JSON response showing the cluster details and the tagline `"You Know, for Search"`. This confirms that the SSL handshake was securely negotiated using your custom trust store!
 
 
 ---
@@ -3771,18 +3811,24 @@ This how-to guide explains how to apply mandatory kernel modifications and resou
 
 Elasticsearch requires a minimum virtual memory allocation parameter to prevent Out Of Memory crashes.
 
+
 ### Step 1: Query the Active Limit
+
 ```bash
 sysctl vm.max_map_count
 ```
 
+
 ### Step 2: Set the Count Permanently
+
 On your host or WSL2 environment, edit `/etc/sysctl.conf` or `/etc/sysctl.d/99-elasticsearch.conf` and set:
+
 ```text
 vm.max_map_count=262144
 ```
 
 Apply the configuration instantly:
+
 ```bash
 sudo sysctl --system
 ```
@@ -3793,14 +3839,18 @@ sudo sysctl --system
 
 WSL2 and native Linux distributions have default limitations on directory watch monitors, which can cause compose environments to fail to track file events.
 
+
 ### Step 1: Set Inotify Limits
+
 Write the updated boundaries to `/etc/sysctl.d/50-inotify.conf`:
+
 ```text
 fs.inotify.max_user_watches=524288
 fs.inotify.max_user_instances=512
 ```
 
 Reload the runtime kernel boundaries:
+
 ```bash
 sudo sysctl -p /etc/sysctl.d/50-inotify.conf
 ```
@@ -3827,23 +3877,39 @@ This guide provides practical directions for establishing and operating a 3-node
 
 We manage simulated clustered deployments via targeted inventory setups.
 
+
 ### Step 1: Target the Custom Inventory
-To bind and execute workloads against your multi-node WSL topology, target `inventory/hosts.wsl.3node.yml`:
+
+To bind and execute workloads against your multi-node WSL topology, target `inventory/hosts.wsl.3node.yml`. The following is the conceptual inventory representation showing the node variables and the required structure matching our repository schema:
+
 ```yaml
 all:
   hosts:
-    es-node-01:
-      ansible_host: 127.0.0.1
-      es_port: 9200
-    es-node-02:
-      ansible_host: 127.0.0.1
-      es_port: 9201
-    es-node-03:
-      ansible_host: 127.0.0.1
-      es_port: 9202
+    localhost:
+      ansible_connection: local
+      ansible_python_interpreter: "{{ ansible_playbook_python }}"
+  vars:
+    # WSL 3-Node Cluster Configuration Details
+    cluster_name: "dsom-wsl-cluster"
+    storage_base: "/opt/dsom-persistence/data"
+    kibana_port: 5601
+
+    # Nodes configuration mapping host ports and container transports
+    nodes:
+      - name: "es-node-01"
+        http_port: 9200
+        transport_port: 9300
+      - name: "es-node-02"
+        http_port: 9201
+        transport_port: 9301
+      - name: "es-node-03"
+        http_port: 9202
+        transport_port: 9302
 ```
 
+
 ### Step 2: Execute the Setup Sequence
+
 ```bash
 ./run_playbooks.sh -i inventory/hosts.wsl.3node.yml
 ```
@@ -3854,11 +3920,17 @@ all:
 
 Once deployed, make unprivileged status inquiries directly using security-safe parameters.
 
+
 ### Step 1: Check Node Health
+
+We verify the health of our cluster using the local trusted CA certificate bundle generated during the setup phase. Using curl's secure `--cacert` option guarantees transport trust, while the `-u elastic` prompt asks securely for your dynamic password:
+
 ```bash
-curl -k -u elastic -X GET "https://127.0.0.1:9200/_cluster/health?pretty"
+# Securely verify cluster health without bypassing SSL certificate checks
+curl --cacert elk-wolfi/certs/http_ca.crt -u elastic -X GET "https://127.0.0.1:9200/_cluster/health?pretty"
 ```
-*(Provide the secure user password sourced from `elk-wolfi/temp_credentials.txt`.)*
+
+*(When prompted, input the dynamic password generated during your step 1 installation, or read it securely from `elk-wolfi/temp_credentials.txt`.)*
 
 
 ---
@@ -3882,15 +3954,23 @@ This guide provides practical instructions for operating secure, unprivileged co
 
 If not manually set, Gitea playbooks dynamically generate strong passwords.
 
+
 ### Step 1: Identify Password Files
-Sovereign credentials are automatically created and isolated from Git tracking inside local `.txt` paths:
-* **Gitea Secrets**: `gitea_credentials.txt`
-* **Semaphore Secrets**: `semaphore_credentials.txt`
+
+Sovereign credentials are automatically created and isolated from Git tracking inside local `.txt` paths. Gitea credentials default to `gitea_credentials.txt` in the deployment directory. Semaphore credentials are saved to the path defined by `semaphore_credentials_file` (which defaults to `~/.config/containers/semaphoreui/secrets/semaphore_credentials.txt` but can be overridden with the `semaphore_credentials_override` variable):
+
+*   **Gitea Secrets**: `gitea_credentials.txt`
+*   **Semaphore Secrets**: Configured via `semaphore_credentials_file`
+
 
 ### Step 2: Enforce Strict File Permissions
-Ensure secrets are not readable by other unprivileged system accounts:
+
+Ensure secrets are not readable by other unprivileged system accounts. The chmod example should target the resolved configured path rather than assuming a current-directory filename:
+
 ```bash
-chmod 0600 gitea_credentials.txt semaphore_credentials.txt
+# Secure the dynamically generated credentials files
+chmod 0600 gitea_credentials.txt
+chmod 0600 "${HOME}/.config/containers/semaphoreui/secrets/semaphore_credentials.txt"
 ```
 
 ---
@@ -3899,18 +3979,24 @@ chmod 0600 gitea_credentials.txt semaphore_credentials.txt
 
 To enable Semaphore's `go-git` engine to securely clone repositories from local self-signed HTTPS Gitea instances, the self-signed certificate must be registered in the host CA store.
 
+
 ### Step 1: Register Certificate
+
 ```bash
 sudo cp gitea.crt /usr/local/share/ca-certificates/
 sudo update-ca-certificates
 ```
 
+
 ### Step 2: Volume Mount Host Bundle
+
 The Semaphore deployment automatically mounts the host CA bundle directly inside the execution containers:
+
 ```yaml
 volumes:
   - /etc/ssl/certs:/etc/ssl/certs:ro
 ```
+
 This ensures secure, bidirectional trusted pipeline integrations.
 
 
@@ -4165,7 +4251,7 @@ Standard setups often run container runtimes with root privileges, creating pote
 Our project enforces a **Strict Zero-Privilege Rule**:
 1. All container tasks are managed under standard user permissions via rootless Podman execution contexts.
 2. Port binding ranges are shifted above privileged values (e.g. mapping internal ports securely to host ranges such as `3000` or `5601`).
-3. Services utilize shared unprivileged user bridges to isolate database communication entirely from the default host network interface.
+3. Services utilize shared unprivileged user bridges to isolate internal backend database communication. However, this bridge isolation is bounded: selected services are exposed to external clients on explicitly bound host ports. Specifically, the helper scripts `setup_elasticsearch.sh` and `setup_kibana.sh` accept a `BIND_ADDRESS` variable (defaulting to `127.0.0.1`) that configures the interface on which those services bind their public-facing ports (such as `9200` and `5601`), thus restricting public access to the chosen local or external host interfaces.
 
 
 ---
@@ -4201,8 +4287,12 @@ Hardcoded deployment configurations, default database tokens, and pre-baked SSH 
 
 We mitigate these vulnerabilities by:
 1. Sourcing high-entropy passwords dynamically using python standard random libs.
-2. Isolating active tokens to un-tracked files (`*temp_credentials.txt`, `*gitea_credentials.txt`).
-3. Configuring `.gitignore` patterns to prevent checking credentials into open git branches.
+2. Isolating active tokens to untracked files (`*temp_credentials.txt`, `*gitea_credentials.txt`).
+3. Configuring `.gitignore` patterns, which exclude matching untracked files by default. Note that `.gitignore` only applies to untracked files and will not prevent committing files that are already tracked or added with a force option (`git add -f`).
+
+If a secret has already been committed to the repository history, you must immediately:
+- Rotate all compromised credentials/tokens/keys on any active systems.
+- Use history cleaning tools (e.g., `git-filter-repo` or `BFG Repo-Cleaner`) to purge the sensitive files entirely from all repository commits and historical timelines.
 
 
 ---

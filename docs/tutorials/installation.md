@@ -11,6 +11,7 @@ This step-by-step tutorial teaches you how to deploy a single-node instance of E
 ---
 
 ## 🎓 Learning Objectives
+
 By the end of this tutorial, you will be able to:
 1. Initialize an unprivileged, secure bridge network using Podman.
 2. Build and run a single-node Elasticsearch database.
@@ -26,6 +27,7 @@ First, ensure that Podman is properly installed on your active Linux or WSL2 env
 ```bash
 podman --version
 ```
+
 *(Verify that Podman version 5.0+ or higher is active.)*
 
 ---
@@ -39,7 +41,9 @@ chmod +x setup_elasticsearch.sh
 ./setup_elasticsearch.sh
 ```
 
+
 ### What happened behind the scenes?
+
 1. Sourced helper utilities from `scripts/utils.sh`.
 2. Created a secure bridge network named `elastic_stack_net`.
 3. Auto-generated high-entropy passwords for the root `elastic` user.
@@ -57,8 +61,24 @@ chmod +x setup_kibana.sh
 ```
 
 Once completed, open your web browser and navigate to:
+
 ```text
 http://localhost:5601
 ```
 
 Log in using the `elastic` user and the password stored in `elk-wolfi/temp_credentials.txt`. You have successfully deployed a secure, local Elastic Stack!
+
+---
+
+## 🔒 Step 4: Verify Server-to-Server TLS Authentication
+
+To verify that the Elasticsearch cluster is fully secured and that server-to-server TLS authentication is active, perform a handshake against the HTTPS endpoint using our generated CA certificate `elk-wolfi/certs/http_ca.crt`:
+
+```bash
+# Verify the TLS handshake using the local CA bundle and output the cluster name
+curl --cacert elk-wolfi/certs/http_ca.crt -u elastic https://localhost:9200/
+```
+
+*(When prompted, input the password stored in `elk-wolfi/temp_credentials.txt`)*
+
+If successful, you will receive a JSON response showing the cluster details and the tagline `"You Know, for Search"`. This confirms that the SSL handshake was securely negotiated using your custom trust store!
