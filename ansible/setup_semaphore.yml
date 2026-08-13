@@ -387,7 +387,6 @@
             name: "semaphore-stack.service"
             scope: user
             state: "{{ 'restarted' if (semaphore_kube_unit.changed | default(false) or semaphore_kube_manifest.changed | default(false)) else 'started' }}"
-            enabled: yes
             daemon_reload: yes
           ignore_errors: true
           register: systemd_user_enable
@@ -395,7 +394,7 @@
         - name: Alternative shell reload and enable if scope user fails
           shell: |
             systemctl --user daemon-reload && \
-            systemctl --user enable --now "semaphore-stack.service"
+            systemctl --user start "semaphore-stack.service"
           when: systemd_user_enable.failed | default(false)
           ignore_errors: true
           register: systemd_user_enable_run

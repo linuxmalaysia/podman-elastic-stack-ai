@@ -34,9 +34,9 @@ NEW_DOCS=(
     frontmatter="$(awk 'BEGIN {show=0; count=0} /^---$/ {count++; if(count==1) {show=1; next} if(count==2) {show=0; exit}} show {print}' "${REPO_ROOT}/${doc}")"
 
     # Validate okf_version, type, resource, and topics only within that block, anchored to full field values
-    echo "${frontmatter}" | grep -q '^okf_version: 0.1$'
-    echo "${frontmatter}" | grep -q '^type: documentation$'
-    echo "${frontmatter}" | grep -q "^resource: file:///${doc}$"
+    echo "${frontmatter}" | grep -Fxq 'okf_version: 0.1'
+    echo "${frontmatter}" | grep -Fxq 'type: documentation'
+    echo "${frontmatter}" | grep -Fxq "resource: file:///${doc}"
     echo "${frontmatter}" | grep -q '^topics: \[[a-z0-9, -]*\]$'
   done
 }
