@@ -60,4 +60,29 @@
     <changefreq>weekly</changefreq>
     <priority>0.80</priority>
   </url>
+  <url>
+    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/PODMAN_ROOTLESS/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_FQCN/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_ADOPTION_REVIEW/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_PLAYBOOK_MAP/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+  <url>
+    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
 </urlset>

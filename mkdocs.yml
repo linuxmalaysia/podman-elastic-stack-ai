@@ -71,6 +71,11 @@ nav:
   - Installation Guide: INSTALL.md
   - Playbook Structure & Telemetry: PLAYBOOKS.md
   - Local Development & Feedback Guide: LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md
+  - Rootless Podman 5+ & Quadlet Guide: PODMAN_ROOTLESS.md
+  - Modern Ansible & FQCN Guide: ANSIBLE_FQCN.md
+  - Ansible Adoption Review: ANSIBLE_ADOPTION_REVIEW.md
+  - Playbook and Documents Map: ANSIBLE_PLAYBOOK_MAP.md
+  - Local Knowledge-First Discovery SOP: SOP_KNOWLEDGE_FIRST_DISCOVERY.md
   - Sovereign Gitea Deployment & Security Operations Guide: GITEA_GUIDE.md
   - Sovereign SemaphoreUI Deployment & Operations Guide: SEMAPHORE_GUIDE.md
   - WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md

@@ -10,3 +10,8 @@ https://linuxmalaysia.github.io/podman-elastic-stack-ai/CHANGELOG/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/WSL-3NODE-CLUSTER-GUIDE/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/REFERENCE_TUNING/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/legal-notice/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/PODMAN_ROOTLESS/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_FQCN/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_ADOPTION_REVIEW/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_PLAYBOOK_MAP/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/

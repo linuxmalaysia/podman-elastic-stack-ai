@@ -4,6 +4,8 @@
   connection: "{{ 'local' if (target_hosts | default('localhost') == 'localhost') else ansible_connection | default('ssh') }}"
   gather_facts: true
   vars:
+    deployment_user: "{{ ansible_user_id }}"
+    deployment_user_home: "{{ ansible_env.HOME | default('/home/' ~ deployment_user, true) }}"
     gitea_db_user: "gitea"
     gitea_db_name: "gitea"
     gitea_db_password: "" # Randomly generated if blank
@@ -94,7 +96,7 @@
     - name: "Step 2 - Enable User Linger"
       block:
         - name: Enable linger for active non-root user
-          command: "loginctl enable-linger {{ ansible_user_id }}"
+          command: "loginctl enable-linger {{ deployment_user }}"
           become: true
           ignore_errors: true
           register: linger_result
@@ -288,14 +290,14 @@
       block:
         - name: Ensure user systemd directory exists
           file:
-            path: "{{ ansible_env.HOME }}/.config/systemd/user"
+            path: "{{ deployment_user_home }}/.config/systemd/user"
             state: directory
             mode: "0755"
 
         - name: Generate systemd unit files from running pod
           command: "podman generate systemd --name {{ gitea_pod_name }} --files --new"
           args:
-            chdir: "{{ ansible_env.HOME }}/.config/systemd/user"
+            chdir: "{{ deployment_user_home }}/.config/systemd/user"
           changed_when: true
 
         - name: Stop and remove existing Gitea pod to transfer ownership to systemd

@@ -6,6 +6,14 @@
 REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 PLAYBOOK="${REPO_ROOT}/ansible/setup_semaphore.yml"
 
+setup() {
+  TEST_TMPDIR="$(mktemp -d)"
+}
+
+teardown() {
+  rm -rf "${TEST_TMPDIR}"
+}
+
 @test "ansible/setup_semaphore.yml exists and is readable" {
   [ -f "${PLAYBOOK}" ]
   [ -r "${PLAYBOOK}" ]
@@ -50,7 +58,7 @@ PLAYBOOK="${REPO_ROOT}/ansible/setup_semaphore.yml"
 }
 
 @test "ansible/setup_semaphore.yml credentials file path defaults to user config secrets" {
-  grep -qF 'semaphore_credentials_file: "{{ semaphore_credentials_override | default(ansible_env.HOME ~' "${PLAYBOOK}"
+  grep -qF 'semaphore_credentials_file: "{{ semaphore_credentials_override | default(deployment_user_home ~' "${PLAYBOOK}"
   grep -qF '/.config/containers/semaphoreui/secrets/semaphore_credentials.txt' "${PLAYBOOK}"
 }
 
@@ -103,7 +111,7 @@ PLAYBOOK="${REPO_ROOT}/ansible/setup_semaphore.yml"
 }
 
 @test "ansible/setup_semaphore.yml writes the manifest file with 0600 permissions" {
-  manifest_copy_line="$(grep -n -F 'dest: "{{ ansible_env.HOME }}/.config/containers/systemd/semaphore-stack.yaml"' "${PLAYBOOK}" | head -1 | cut -d: -f1)"
+  manifest_copy_line="$(grep -n -F 'dest: "{{ deployment_user_home }}/.config/containers/systemd/semaphore-stack.yaml"' "${PLAYBOOK}" | head -1 | cut -d: -f1)"
   [ -n "${manifest_copy_line}" ]
   context="$(sed -n "${manifest_copy_line},$((manifest_copy_line + 10))p" "${PLAYBOOK}")"
   [[ "${context}" == *'mode: "0600"'* ]]
@@ -138,5 +146,60 @@ PLAYBOOK="${REPO_ROOT}/ansible/setup_semaphore.yml"
   grep -qF -- 'name: Alternative shell reload and enable if scope user fails' "${PLAYBOOK}"
   grep -qF -- 'when: systemd_user_enable.failed | default(false)' "${PLAYBOOK}"
   grep -qF -- 'systemctl --user daemon-reload' "${PLAYBOOK}"
-  grep -qF -- 'systemctl --user enable --now "semaphore-stack.service"' "${PLAYBOOK}"
+  grep -qF -- 'systemctl --user start "semaphore-stack.service"' "${PLAYBOOK}"
+}
+
+@test "ansible/setup_semaphore.yml deployment-user behavior and paths consistency" {
+  # 1. Structural Checks on setup_semaphore.yml paths consistency:
+  # Verify that deployment_user and deployment_user_home are declared
+  grep -qF 'deployment_user: "{{ ansible_user_id }}"' "${PLAYBOOK}"
+  grep -qF "deployment_user_home: \"{{ ansible_env.HOME | default('/home/' ~ deployment_user, true) }}\"" "${PLAYBOOK}"
+
+  # Verify lingering and systemd/config paths use the unified variables consistently
+  grep -qF 'command: "loginctl enable-linger {{ deployment_user }}"' "${PLAYBOOK}"
+  grep -qF 'creates: "/var/lib/systemd/linger/{{ deployment_user }}"' "${PLAYBOOK}"
+  grep -qF 'path: "{{ deployment_user_home }}/.config/containers/systemd"' "${PLAYBOOK}"
+  grep -qF 'dest: "{{ deployment_user_home }}/.config/containers/systemd/semaphore-stack.kube"' "${PLAYBOOK}"
+  grep -qF 'dest: "{{ deployment_user_home }}/.config/containers/systemd/semaphore-stack.yaml"' "${PLAYBOOK}"
+
+  # 2. Dynamic Execution/Rendering check using minimal Ansible fixture:
+  if ! command -v ansible-playbook >/dev/null 2>&1; then
+    skip "ansible-playbook is not available to run dynamic fixture test"
+  fi
+
+  local render_playbook="${TEST_TMPDIR}/render_semaphore_fixture.yml"
+  local output_file="${TEST_TMPDIR}/render_output.txt"
+
+  cat > "${render_playbook}" <<EOF
+---
+- name: Render Semaphore variables fixture
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    ansible_user_id: "mockdeploymentuser"
+    ansible_env:
+      HOME: "/home/mockdeploymentuser"
+    deployment_user: "{{ ansible_user_id }}"
+    deployment_user_home: "{{ ansible_env.HOME | default('/home/' ~ deployment_user, true) }}"
+    semaphore_certs_dir: "{{ deployment_user_home }}/.config/containers/semaphoreui/certs"
+    semaphore_credentials_file: "{{ semaphore_credentials_override | default(deployment_user_home ~ '/.config/containers/semaphoreui/secrets/semaphore_credentials.txt', true) }}"
+  tasks:
+    - name: write rendered paths to file
+      copy:
+        content: |
+          user: {{ deployment_user }}
+          home: {{ deployment_user_home }}
+          certs: {{ semaphore_certs_dir }}
+          creds: {{ semaphore_credentials_file }}
+        dest: "${output_file}"
+EOF
+
+  ansible-playbook "${render_playbook}" >/dev/null
+
+  # Assert the rendered output has the correct values
+  grep -qF "user: mockdeploymentuser" "${output_file}"
+  grep -qF "home: /home/mockdeploymentuser" "${output_file}"
+  grep -qF "certs: /home/mockdeploymentuser/.config/containers/semaphoreui/certs" "${output_file}"
+  grep -qF "creds: /home/mockdeploymentuser/.config/containers/semaphoreui/secrets/semaphore_credentials.txt" "${output_file}"
 }

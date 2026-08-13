@@ -19,6 +19,11 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
   grep -qF '[LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md](docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md):' "${LLMS_TXT}"
   grep -qF '[DOCS_MATRIX_TELEMETRY.md](docs/DOCS_MATRIX_TELEMETRY.md):' "${LLMS_TXT}"
   grep -qF '[WSL-3NODE-CLUSTER-GUIDE.md](docs/WSL-3NODE-CLUSTER-GUIDE.md):' "${LLMS_TXT}"
+  grep -qF '[PODMAN_ROOTLESS.md](docs/PODMAN_ROOTLESS.md):' "${LLMS_TXT}"
+  grep -qF '[ANSIBLE_FQCN.md](docs/ANSIBLE_FQCN.md):' "${LLMS_TXT}"
+  grep -qF '[ANSIBLE_ADOPTION_REVIEW.md](docs/ANSIBLE_ADOPTION_REVIEW.md):' "${LLMS_TXT}"
+  grep -qF '[ANSIBLE_PLAYBOOK_MAP.md](docs/ANSIBLE_PLAYBOOK_MAP.md):' "${LLMS_TXT}"
+  grep -qF '[SOP_KNOWLEDGE_FIRST_DISCOVERY.md](docs/SOP_KNOWLEDGE_FIRST_DISCOVERY.md):' "${LLMS_TXT}"
 }
 
 @test "llms.txt documents the new GITEA_GUIDE.md entry under docs/" {
@@ -55,6 +60,11 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
     "docs/PLAYBOOKS.md"
     "docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md"
     "docs/DOCS_MATRIX_TELEMETRY.md"
+    "docs/PODMAN_ROOTLESS.md"
+    "docs/ANSIBLE_FQCN.md"
+    "docs/ANSIBLE_ADOPTION_REVIEW.md"
+    "docs/ANSIBLE_PLAYBOOK_MAP.md"
+    "docs/SOP_KNOWLEDGE_FIRST_DISCOVERY.md"
     "docs/WSL-3NODE-CLUSTER-GUIDE.md"
     "docs/GITEA_GUIDE.md"
   )

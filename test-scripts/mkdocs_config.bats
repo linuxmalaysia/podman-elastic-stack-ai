@@ -98,7 +98,13 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
   grep -qF -- '- Installation Guide: INSTALL.md' "${MKDOCS_YML}"
   grep -qF -- '- Playbook Structure & Telemetry: PLAYBOOKS.md' "${MKDOCS_YML}"
   grep -qF -- '- Local Development & Feedback Guide: LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md' "${MKDOCS_YML}"
+  grep -qF -- '- Rootless Podman 5+ & Quadlet Guide: PODMAN_ROOTLESS.md' "${MKDOCS_YML}"
+  grep -qF -- '- Modern Ansible & FQCN Guide: ANSIBLE_FQCN.md' "${MKDOCS_YML}"
+  grep -qF -- '- Ansible Adoption Review: ANSIBLE_ADOPTION_REVIEW.md' "${MKDOCS_YML}"
+  grep -qF -- '- Playbook and Documents Map: ANSIBLE_PLAYBOOK_MAP.md' "${MKDOCS_YML}"
+  grep -qF -- '- Local Knowledge-First Discovery SOP: SOP_KNOWLEDGE_FIRST_DISCOVERY.md' "${MKDOCS_YML}"
   grep -qF -- '- Sovereign Gitea Deployment & Security Operations Guide: GITEA_GUIDE.md' "${MKDOCS_YML}"
+  grep -qF -- '- Sovereign SemaphoreUI Deployment & Operations Guide: SEMAPHORE_GUIDE.md' "${MKDOCS_YML}"
   grep -qF -- '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}"
   grep -qF -- '- Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md' "${MKDOCS_YML}"
   grep -qF -- '- Legal Notice & Disclaimer: legal-notice.md' "${MKDOCS_YML}"
@@ -106,7 +112,7 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
 }
 
 @test "every markdown file referenced in the mkdocs.yml nav exists under docs/" {
-  for doc in index.md INSTALL.md PLAYBOOKS.md LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md GITEA_GUIDE.md WSL-3NODE-CLUSTER-GUIDE.md REFERENCE_TUNING.md DOCS_MATRIX_TELEMETRY.md legal-notice.md HISTORY.md CHANGELOG.md; do
+  for doc in index.md INSTALL.md PLAYBOOKS.md LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md PODMAN_ROOTLESS.md ANSIBLE_FQCN.md ANSIBLE_ADOPTION_REVIEW.md ANSIBLE_PLAYBOOK_MAP.md SOP_KNOWLEDGE_FIRST_DISCOVERY.md GITEA_GUIDE.md SEMAPHORE_GUIDE.md WSL-3NODE-CLUSTER-GUIDE.md REFERENCE_TUNING.md DOCS_MATRIX_TELEMETRY.md legal-notice.md HISTORY.md CHANGELOG.md; do
     [ -f "${REPO_ROOT}/docs/${doc}" ]
   done
 }
