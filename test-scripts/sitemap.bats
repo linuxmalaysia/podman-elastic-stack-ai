@@ -57,10 +57,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   done
 }
 
-@test "sitemap.txt has exactly seventeen URLs (homepage + 14 relocated/new docs + HISTORY + CHANGELOG)" {
+@test "sitemap.txt has exactly eighteen URLs (homepage + 15 relocated/new docs + HISTORY + CHANGELOG)" {
   local count
   count="$(grep -cF "${BASE_URL}" "${SITEMAP_TXT}")"
-  [ "${count}" -eq 17 ]
+  [ "${count}" -eq 18 ]
 }
 
 @test "sitemap.xml lists the relocated guide URLs under the docs/ path segment" {
@@ -124,10 +124,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   python3 -c "import xml.etree.ElementTree as ET; ET.parse('${SITEMAP_XML}')"
 }
 
-@test "sitemap.xml contains exactly seventeen <url> entries matching sitemap.txt" {
+@test "sitemap.xml contains exactly eighteen <url> entries matching sitemap.txt" {
   local count
   count="$(grep -cF '<url>' "${SITEMAP_XML}")"
-  [ "${count}" -eq 17 ]
+  [ "${count}" -eq 18 ]
 }
 
 # Regression tests for the new REFERENCE_TUNING.md and legal-notice.md
@@ -176,4 +176,45 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   total="$(grep -F "${BASE_URL}" "${SITEMAP_TXT}" | wc -l)"
   unique="$(grep -F "${BASE_URL}" "${SITEMAP_TXT}" | sort -u | wc -l)"
   [ "${total}" -eq "${unique}" ]
+}
+
+# Regression tests for the new ELASTIC_9_UPGRADE_PLAN URL added to
+# sitemap.txt and sitemap.xml as the final (18th) entry in both files.
+
+@test "sitemap.txt includes the new ELASTIC_9_UPGRADE_PLAN URL under docs/ as its final entry" {
+  grep -qF "${BASE_URL}/docs/ELASTIC_9_UPGRADE_PLAN/" "${SITEMAP_TXT}"
+  local last_line
+  last_line="$(tail -n 1 "${SITEMAP_TXT}")"
+  [ "${last_line}" = "${BASE_URL}/docs/ELASTIC_9_UPGRADE_PLAN/" ]
+}
+
+@test "sitemap.xml includes a new <url> entry for ELASTIC_9_UPGRADE_PLAN with changefreq/priority metadata" {
+  grep -qF "<loc>${BASE_URL}/docs/ELASTIC_9_UPGRADE_PLAN/</loc>" "${SITEMAP_XML}"
+  # The ELASTIC_9_UPGRADE_PLAN entry should carry the same weekly/0.80
+  # metadata as the other secondary-doc entries, bounded to its own <url>
+  # block.
+  local url_block
+  url_block="$(awk '
+    /<url>/ { block=""; inside=1 }
+    inside { block = block "\n" $0 }
+    /<\/url>/ {
+      if (block ~ "docs/ELASTIC_9_UPGRADE_PLAN/") { print block; exit }
+      inside=0
+    }
+  ' "${SITEMAP_XML}")"
+  echo "${url_block}" | grep -qF '<changefreq>weekly</changefreq>'
+  echo "${url_block}" | grep -qF '<priority>0.80</priority>'
+}
+
+@test "sitemap.xml's ELASTIC_9_UPGRADE_PLAN <url> entry is the last entry before the closing </urlset> tag" {
+  local last_url_line urlset_close_line
+  last_url_line="$(grep -n -F -- '<loc>' "${SITEMAP_XML}" | tail -1 | cut -d: -f1)"
+  urlset_close_line="$(grep -n -F -- '</urlset>' "${SITEMAP_XML}" | head -1 | cut -d: -f1)"
+  [ -n "${last_url_line}" ]
+  [ -n "${urlset_close_line}" ]
+  [ "${last_url_line}" -lt "${urlset_close_line}" ]
+
+  local last_loc
+  last_loc="$(grep -oE '<loc>[^<]+</loc>' "${SITEMAP_XML}" | tail -1)"
+  [ "${last_loc}" = "<loc>${BASE_URL}/docs/ELASTIC_9_UPGRADE_PLAN/</loc>" ]
 }

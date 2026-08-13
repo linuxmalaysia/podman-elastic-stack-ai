@@ -67,6 +67,7 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
     "docs/SOP_KNOWLEDGE_FIRST_DISCOVERY.md"
     "docs/WSL-3NODE-CLUSTER-GUIDE.md"
     "docs/GITEA_GUIDE.md"
+    "docs/ELASTIC_9_UPGRADE_PLAN.md"
   )
   for rel_path in "${rel_paths[@]}"; do
     [ -f "${REPO_ROOT}/${rel_path}" ]
@@ -101,6 +102,7 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
 @test "llms.txt's REFERENCE_TUNING.md and legal-notice.md link targets actually exist in docs/" {
   [ -f "${REPO_ROOT}/docs/REFERENCE_TUNING.md" ]
   [ -f "${REPO_ROOT}/docs/legal-notice.md" ]
+  [ -f "${REPO_ROOT}/docs/ELASTIC_9_UPGRADE_PLAN.md" ]
 }
 
 @test "llms.txt does not link legal-notice.md or REFERENCE_TUNING.md at the repository root (docs/ prefix required)" {
@@ -114,4 +116,32 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
   local count
   count="$(grep -cF '[legal-notice.md]' "${LLMS_TXT}")"
   [ "${count}" -eq 1 ]
+}
+
+# Regression tests for the new ELASTIC_9_UPGRADE_PLAN.md Core Documentation
+# entry, added under docs/ as the final entry in the Core Documentation
+# section, after legal-notice.md.
+
+@test "llms.txt documents the new ELASTIC_9_UPGRADE_PLAN.md entry under docs/ with the expected description" {
+  grep -qF '[ELASTIC_9_UPGRADE_PLAN.md](docs/ELASTIC_9_UPGRADE_PLAN.md): Comprehensive Guide and 2-Week Plan for Upgrading the Podman-based Elastic Stack to Version 9.5.x or Latest.' "${LLMS_TXT}"
+}
+
+@test "llms.txt lists ELASTIC_9_UPGRADE_PLAN.md after the legal-notice.md entry" {
+  local legal_line upgrade_line
+  legal_line="$(grep -n -F '[legal-notice.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
+  upgrade_line="$(grep -n -F '[ELASTIC_9_UPGRADE_PLAN.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
+  [ -n "${legal_line}" ]
+  [ -n "${upgrade_line}" ]
+  [ "${upgrade_line}" -gt "${legal_line}" ]
+}
+
+@test "llms.txt has exactly one ELASTIC_9_UPGRADE_PLAN.md entry (no duplicates)" {
+  local count
+  count="$(grep -cF '[ELASTIC_9_UPGRADE_PLAN.md]' "${LLMS_TXT}")"
+  [ "${count}" -eq 1 ]
+}
+
+@test "llms.txt does not link ELASTIC_9_UPGRADE_PLAN.md at the repository root (docs/ prefix required)" {
+  run grep -qF '](ELASTIC_9_UPGRADE_PLAN.md):' "${LLMS_TXT}"
+  [ "${status}" -ne 0 ]
 }
