@@ -17,7 +17,7 @@ https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_PLAYBOOK_MA
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ELASTIC_9_UPGRADE_PLAN/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/SUMMARY/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/README/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/diataxis_index/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/tutorials/installation/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/tutorials/ansible_quickstart/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/how-to/system_tuning/

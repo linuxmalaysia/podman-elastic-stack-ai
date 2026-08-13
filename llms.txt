@@ -24,7 +24,7 @@ This repository automates the setup, testing, and deployment of Elasticsearch 9.
 ## Diátaxis Framework Documentation
 
 - [SUMMARY.md](docs/SUMMARY.md): Master Table of Contents and menu navigation block for GitBook.
-- [README.md](docs/README.md): Master documentation home explaining the Diátaxis structure.
+- [diataxis_index.md](docs/diataxis_index.md): Master documentation home explaining the Diátaxis structure.
 - [tutorials/installation.md](docs/tutorials/installation.md): Step-by-Step Installation Tutorial for first-time unprivileged single-node setups.
 - [tutorials/ansible_quickstart.md](docs/tutorials/ansible_quickstart.md): Guided step-by-step introduction to infrastructure orchestration.
 - [how-to/system_tuning.md](docs/how-to/system_tuning.md): Practical guide detailing host kernel parameters and inotify limits.

@@ -3524,7 +3524,7 @@ For environments that require sovereign isolation or disconnected (airgapped) op
     <description>Master Table of Contents and menu navigation block for GitBook.</description>
     <raw_content># Summary - Diátaxis Documentation
 
-* [Home](README.md)
+* [Home](diataxis_index.md)
 
 ## Tutorials
 * [Step-by-Step Installation](tutorials/installation.md)
@@ -3548,8 +3548,8 @@ For environments that require sovereign isolation or disconnected (airgapped) op
 </raw_content>
   </document>
   <document>
-    <title>README.md</title>
-    <url>docs/README.md</url>
+    <title>diataxis_index.md</title>
+    <url>docs/diataxis_index.md</url>
     <description>Master documentation home explaining the Diátaxis structure.</description>
     <raw_content>---
 title: &quot;Documentation Home&quot;

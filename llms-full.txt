@@ -3544,7 +3544,7 @@ Description: Master Table of Contents and menu navigation block for GitBook.
 
 # Summary - Diátaxis Documentation
 
-* [Home](README.md)
+* [Home](diataxis_index.md)
 
 ## Tutorials
 * [Step-by-Step Installation](tutorials/installation.md)
@@ -3568,8 +3568,8 @@ Description: Master Table of Contents and menu navigation block for GitBook.
 
 
 ---
-## Document: README.md
-Path: docs/README.md
+## Document: diataxis_index.md
+Path: docs/diataxis_index.md
 Description: Master documentation home explaining the Diátaxis structure.
 
 ---

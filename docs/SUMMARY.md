@@ -1,6 +1,6 @@
 # Summary - Diátaxis Documentation
 
-* [Home](README.md)
+* [Home](diataxis_index.md)
 
 ## Tutorials
 * [Step-by-Step Installation](tutorials/installation.md)
