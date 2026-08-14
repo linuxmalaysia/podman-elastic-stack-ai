@@ -61,10 +61,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   done
 }
 
-@test "sitemap.txt has exactly eighteen URLs (homepage + 15 relocated/new docs + HISTORY + CHANGELOG)" {
+@test "sitemap.txt has exactly thirty-one URLs (homepage + 15 relocated/new docs + 13 Diataxis docs + HISTORY + CHANGELOG)" {
   local count
   count="$(grep -cF "${BASE_URL}" "${SITEMAP_TXT}")"
-  [ "${count}" -eq 18 ]
+  [ "${count}" -eq 31 ]
 }
 
 @test "sitemap.xml lists the relocated guide URLs under the docs/ path segment" {
@@ -144,9 +144,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
 }
 
 @test "sitemap.xml contains exactly eighteen <url> entries matching sitemap.txt" {
+@test "sitemap.xml contains exactly thirty-one <url> entries matching sitemap.txt" {
   local count
   count="$(grep -cF '<url>' "${SITEMAP_XML}")"
-  [ "${count}" -eq 18 ]
+  [ "${count}" -eq 31 ]
 }
 
 # Regression tests for the new REFERENCE_TUNING.md and legal-notice.md

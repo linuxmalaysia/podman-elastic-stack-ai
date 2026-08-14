@@ -61,6 +61,14 @@ UPGRADE_PLAN_DOC="${REPO_ROOT}/docs/ELASTIC_9_UPGRADE_PLAN.md"
   echo "${es_line}" | grep -qE 'docker.elastic.co/elasticsearch/elasticsearch-wolfi@sha256:[a-f0-9]{64}'
   echo "${kib_line}" | grep -qE 'docker.elastic.co/kibana/kibana-wolfi@sha256:[a-f0-9]{64}'
   echo "${fleet_line}" | grep -qE 'docker.elastic.co/beats/elastic-agent-wolfi@sha256:[a-f0-9]{64}'
+  echo "${es_line}" | grep -qF 'docker.elastic.co/elasticsearch/elasticsearch-wolfi@sha256:49a24559b32962bf190e28f32924552b7811f010202020202020202020202020'
+  echo "${kib_line}" | grep -qF 'docker.elastic.co/kibana/kibana-wolfi@sha256:a1234559b32962bf190e28f32924552b7811f010202020202020202020202020'
+  echo "${fleet_line}" | grep -qF 'docker.elastic.co/elastic-agent/elastic-agent-complete-wolfi@sha256:b5432159b32962bf190e28f32924552b7811f010202020202020202020202020'
+
+  # Secondary format and registry/provenance checks
+  echo "${es_line}" | grep -qE 'docker.elastic.co/elasticsearch/elasticsearch-wolfi@sha256:[a-f0-9]{64}'
+  echo "${kib_line}" | grep -qE 'docker.elastic.co/kibana/kibana-wolfi@sha256:[a-f0-9]{64}'
+  echo "${fleet_line}" | grep -qE 'docker.elastic.co/elastic-agent/elastic-agent-complete-wolfi@sha256:[a-f0-9]{64}'
 }
 
 @test "docs/ELASTIC_9_UPGRADE_PLAN.md specifies correct 8.19.x prerequisite and separate supported tracks" {
@@ -76,4 +84,27 @@ UPGRADE_PLAN_DOC="${REPO_ROOT}/docs/ELASTIC_9_UPGRADE_PLAN.md"
 @test "docs/ELASTIC_9_UPGRADE_PLAN.md has proper block fence presence and spacing" {
   # Verify block fence presence
   [ -n "$(grep -F '```text' "${UPGRADE_PLAN_DOC}")" ]
+
+  # Ensure every line starting with ``` has a blank line before and after it (or tags/delimiters)
+  python3 -c "
+with open('${UPGRADE_PLAN_DOC}', 'r') as f:
+    lines = f.readlines()
+inside_block = False
+for i, line in enumerate(lines):
+    if line.strip().startswith(chr(96) * 3):
+        if not inside_block:
+            if i > 0:
+                prec = lines[i-1].strip()
+                if prec != '' and not prec.startswith('{%') and not prec.startswith('---'):
+                    print('MD031 error before line %d: %s' % (i+1, prec))
+                    exit(1)
+            inside_block = True
+        else:
+            if i < len(lines) - 1:
+                succ = lines[i+1].strip()
+                if succ != '' and not succ.startswith('{%') and not succ.startswith('---') and not succ.startswith('<!--'):
+                    print('MD031 error after line %d: %s' % (i+1, succ))
+                    exit(1)
+            inside_block = False
+"
 }
