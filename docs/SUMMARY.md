@@ -11,6 +11,9 @@
 * [Distributed WSL2 Cluster](how-to/wsl2_cluster.md)
 * [Gitea & Semaphore Secure Operations](how-to/secure_gitea_semaphore.md)
 
+## Upgrade Plans
+* [Elastic 9.5.0 Upgrade Plan](ELASTIC_9_UPGRADE_PLAN.md)
+
 ## Reference
 * [CLI Scripts Reference](reference/cli_scripts.md)
 * [Ansible Playbooks Spec](reference/playbooks_spec.md)

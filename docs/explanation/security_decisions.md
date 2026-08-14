@@ -25,7 +25,7 @@ Our architecture tackles this through **Wolfi-hardened base images**:
 Hardcoded deployment configurations, default database tokens, and pre-baked SSH keys represent significant risks.
 
 We mitigate these vulnerabilities by:
-1. Sourcing high-entropy passwords dynamically using python standard random libs.
+1. Sourcing high-entropy passwords dynamically using the exact security generators: the playbooks leverage `ansible.builtin.password` to provision secure 24-character passwords and invoke `openssl rand -base64 32` to generate robust API access keys.
 2. Isolating active tokens to untracked files (`*temp_credentials.txt`, `*gitea_credentials.txt`).
 3. Configuring `.gitignore` patterns, which exclude matching untracked files by default. Note that `.gitignore` only applies to untracked files and will not prevent committing files that are already tracked or added with a force option (`git add -f`).
 

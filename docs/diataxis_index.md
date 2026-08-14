@@ -31,6 +31,11 @@ Welcome to our production-ready, structured documentation system. This documenta
 3. **[Gitea & Semaphore Secure Operations](how-to/secure_gitea_semaphore.md)**: Set up rootless git servers and secure, trusted CI pipelines.
 
 
+### Upgrade Plans
+
+1. **[Elastic 9.5.0 Upgrade Plan](ELASTIC_9_UPGRADE_PLAN.md)**: Master architectural blueprint and 2-week upgrade roadmap.
+
+
 ### Reference
 
 1. **[CLI Scripts Reference](reference/cli_scripts.md)**: Detailed option and interface breakdown for setup and feedback scripts.

@@ -50,11 +50,11 @@ sudo update-ca-certificates
 
 ### Step 2: Volume Mount Host Bundle
 
-The Semaphore deployment automatically mounts the host CA bundle directly inside the execution containers:
+The Semaphore deployment automatically mounts the host CA bundle directly inside the execution containers as a read-only volume:
 
 ```yaml
 volumes:
   - /etc/ssl/certs:/etc/ssl/certs:ro
 ```
 
-This ensures secure, bidirectional trusted pipeline integrations.
+This read-only CA bundle enables Semaphore execution containers to verify server certificates for outbound HTTPS connections, establishing secure one-way server authentication. Client certificates are managed separately and are required only if mutual TLS (mTLS) is explicitly enforced for bidirectional verification.

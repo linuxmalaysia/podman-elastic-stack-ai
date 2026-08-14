@@ -109,18 +109,21 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
         }
         ```
 
-    2.  Stop the unprivileged node container or systemd Quadlet service:
+    2.  Stop the unprivileged node container or the Podman compose stack:
 
         ```bash
-        systemctl --user stop dsom-persistence-es-node-01.service
+        cd elk-wolfi
+        podman-compose down
         ```
 
-    3.  Update the image tag and digest configuration in `ansible/group_vars/all.yml` or container manifests (`elk-wolfi/podman-compose-elasticsearch.yml`).
+    3.  Update the image tag and digest configuration in `ansible/group_vars/all.yml` or container manifests (`elk-wolfi/podman-compose.yml`).
 
-    4.  Restart the container node and monitor start progress via unprivileged systemd journal:
+    4.  Restart the container node and monitor start progress:
 
         ```bash
-        journalctl --user -u dsom-persistence-es-node-01.service -f
+        cd elk-wolfi
+        podman-compose up -d
+        podman-compose logs -f es01
         ```
 
     5.  Re-enable shard allocation once the node joins the cluster:

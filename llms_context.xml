@@ -3427,18 +3427,21 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
         }
         ```
 
-    2.  Stop the unprivileged node container or systemd Quadlet service:
+    2.  Stop the unprivileged node container or the Podman compose stack:
 
         ```bash
-        systemctl --user stop dsom-persistence-es-node-01.service
+        cd elk-wolfi
+        podman-compose down
         ```
 
-    3.  Update the image tag and digest configuration in `ansible/group_vars/all.yml` or container manifests (`elk-wolfi/podman-compose-elasticsearch.yml`).
+    3.  Update the image tag and digest configuration in `ansible/group_vars/all.yml` or container manifests (`elk-wolfi/podman-compose.yml`).
 
-    4.  Restart the container node and monitor start progress via unprivileged systemd journal:
+    4.  Restart the container node and monitor start progress:
 
         ```bash
-        journalctl --user -u dsom-persistence-es-node-01.service -f
+        cd elk-wolfi
+        podman-compose up -d
+        podman-compose logs -f es01
         ```
 
     5.  Re-enable shard allocation once the node joins the cluster:
@@ -3547,6 +3550,9 @@ For environments that require sovereign isolation or disconnected (airgapped) op
 * [Distributed WSL2 Cluster](how-to/wsl2_cluster.md)
 * [Gitea &amp; Semaphore Secure Operations](how-to/secure_gitea_semaphore.md)
 
+## Upgrade Plans
+* [Elastic 9.5.0 Upgrade Plan](ELASTIC_9_UPGRADE_PLAN.md)
+
 ## Reference
 * [CLI Scripts Reference](reference/cli_scripts.md)
 * [Ansible Playbooks Spec](reference/playbooks_spec.md)
@@ -3594,6 +3600,11 @@ Welcome to our production-ready, structured documentation system. This documenta
 1. **[System Tuning &amp; Optimization](how-to/system_tuning.md)**: Apply kernel rules (`vm.max_map_count`, memory limits) on WSL2 or Linux hosts.
 2. **[Distributed WSL2 Cluster](how-to/wsl2_cluster.md)**: Scale up a simulated multi-node high-availability Elastic Cluster.
 3. **[Gitea &amp; Semaphore Secure Operations](how-to/secure_gitea_semaphore.md)**: Set up rootless git servers and secure, trusted CI pipelines.
+
+
+### Upgrade Plans
+
+1. **[Elastic 9.5.0 Upgrade Plan](ELASTIC_9_UPGRADE_PLAN.md)**: Master architectural blueprint and 2-week upgrade roadmap.
 
 
 ### Reference
@@ -3964,14 +3975,14 @@ sudo update-ca-certificates
 
 ### Step 2: Volume Mount Host Bundle
 
-The Semaphore deployment automatically mounts the host CA bundle directly inside the execution containers:
+The Semaphore deployment automatically mounts the host CA bundle directly inside the execution containers as a read-only volume:
 
 ```yaml
 volumes:
   - /etc/ssl/certs:/etc/ssl/certs:ro
 ```
 
-This ensures secure, bidirectional trusted pipeline integrations.
+This read-only CA bundle enables Semaphore execution containers to verify server certificates for outbound HTTPS connections, establishing secure one-way server authentication. Client certificates are managed separately and are required only if mutual TLS (mTLS) is explicitly enforced for bidirectional verification.
 </raw_content>
   </document>
   <document>
@@ -4220,7 +4231,8 @@ Standard setups often run container runtimes with root privileges, creating pote
 Our project enforces a **Strict Zero-Privilege Rule**:
 1. All container tasks are managed under standard user permissions via rootless Podman execution contexts.
 2. Port binding ranges are shifted above privileged values (e.g. mapping internal ports securely to host ranges such as `3000` or `5601`).
-3. Services utilize shared unprivileged user bridges to isolate internal backend database communication. However, this bridge isolation is bounded: selected services are exposed to external clients on explicitly bound host ports. Specifically, the helper scripts `setup_elasticsearch.sh` and `setup_kibana.sh` accept a `BIND_ADDRESS` variable (defaulting to `127.0.0.1`) that configures the interface on which those services bind their public-facing ports (such as `9200` and `5601`), thus restricting public access to the chosen local or external host interfaces.
+3. Services utilize a shared unprivileged user bridge that provides internal container connectivity and isolation from unrelated external host networks, rather than enforcing logical network isolation between the attached services themselves.
+4. Separate from this bridge layer, host-port exposure is bounded: selected services are made accessible externally via explicitly configured interface bindings. Specifically, the setup helper scripts `setup_elasticsearch.sh` and `setup_kibana.sh` accept an optional `BIND_ADDRESS` parameter (defaulting to `127.0.0.1`) which enforces that public-facing container ports (e.g., `9200` and `5601`) bind strictly to the specified host interface.
 </raw_content>
   </document>
   <document>
@@ -4254,7 +4266,7 @@ Our architecture tackles this through **Wolfi-hardened base images**:
 Hardcoded deployment configurations, default database tokens, and pre-baked SSH keys represent significant risks.
 
 We mitigate these vulnerabilities by:
-1. Sourcing high-entropy passwords dynamically using python standard random libs.
+1. Sourcing high-entropy passwords dynamically using the exact security generators: the playbooks leverage `ansible.builtin.password` to provision secure 24-character passwords and invoke `openssl rand -base64 32` to generate robust API access keys.
 2. Isolating active tokens to untracked files (`*temp_credentials.txt`, `*gitea_credentials.txt`).
 3. Configuring `.gitignore` patterns, which exclude matching untracked files by default. Note that `.gitignore` only applies to untracked files and will not prevent committing files that are already tracked or added with a force option (`git add -f`).
 
