@@ -109,21 +109,21 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
         }
         ```
 
-    2.  Stop the unprivileged node container or the Podman compose stack:
+    2.  Stop the unprivileged node container or the Podman compose service explicitly:
 
         ```bash
         cd elk-wolfi
-        podman-compose down
+        podman-compose stop es-node-01
         ```
 
     3.  Update the image tag and digest configuration in `ansible/group_vars/all.yml` or container manifests (`elk-wolfi/podman-compose.yml`).
 
-    4.  Restart the container node and monitor start progress:
+    4.  Restart only the target container service and monitor its start progress:
 
         ```bash
         cd elk-wolfi
-        podman-compose up -d
-        podman-compose logs -f es01
+        podman-compose up -d es-node-01
+        podman-compose logs -f es-node-01
         ```
 
     5.  Re-enable shard allocation once the node joins the cluster:
