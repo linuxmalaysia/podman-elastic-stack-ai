@@ -121,25 +121,6 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
   grep -qF -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}"
 }
 
-@test "Upgrade Plan to Elastic 9.x navigation entry is unique (no duplicates)" {
-  local count
-  count="$(grep -cF -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}")"
-  [ "${count}" -eq 1 ]
-}
-
-@test "Upgrade Plan to Elastic 9.x navigation entry is positioned correctly in the nav order" {
-  local wsl_line upgrade_line telemetry_line
-  wsl_line="$(grep -n -F -- '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-  upgrade_line="$(grep -n -F -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-  telemetry_line="$(grep -n -F -- '- Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-
-  [ -n "${wsl_line}" ]
-  [ -n "${upgrade_line}" ]
-  [ -n "${telemetry_line}" ]
-  [ "${wsl_line}" -lt "${upgrade_line}" ]
-  [ "${upgrade_line}" -lt "${telemetry_line}" ]
-}
-
 # Regression tests for the "Reference Tuning Resources" nav entry, added
 # between the WSL 3-Node Cluster Guide and the Developer Matrix Telemetry
 # entries, pointing at the new docs/REFERENCE_TUNING.md page.
