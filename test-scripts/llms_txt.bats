@@ -118,12 +118,14 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
   [ "${count}" -eq 1 ]
 }
 
-# Regression tests for the new ELASTIC_9_UPGRADE_PLAN.md Core Documentation
-# entry, added under docs/ as the final entry in the Core Documentation
-# section, after legal-notice.md.
+@test "llms.txt has the exact entry for ELASTIC_9_UPGRADE_PLAN.md" {
+  grep -qF '[ELASTIC_9_UPGRADE_PLAN.md](docs/ELASTIC_9_UPGRADE_PLAN.md): Comprehensive Guide and 2-Week Plan for Upgrading the Podman-based Elastic Stack to Version 9.5.0.' "${LLMS_TXT}"
+}
 
-@test "llms.txt documents the new ELASTIC_9_UPGRADE_PLAN.md entry under docs/ with the expected description" {
-  grep -qF '[ELASTIC_9_UPGRADE_PLAN.md](docs/ELASTIC_9_UPGRADE_PLAN.md): Comprehensive Guide and 2-Week Plan for Upgrading the Podman-based Elastic Stack to Version 9.5.x or Latest.' "${LLMS_TXT}"
+@test "llms.txt has exactly one ELASTIC_9_UPGRADE_PLAN.md entry (no duplicates)" {
+  local count
+  count="$(grep -cF '[ELASTIC_9_UPGRADE_PLAN.md]' "${LLMS_TXT}")"
+  [ "${count}" -eq 1 ]
 }
 
 @test "llms.txt lists ELASTIC_9_UPGRADE_PLAN.md after the legal-notice.md entry" {
@@ -133,12 +135,6 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
   [ -n "${legal_line}" ]
   [ -n "${upgrade_line}" ]
   [ "${upgrade_line}" -gt "${legal_line}" ]
-}
-
-@test "llms.txt has exactly one ELASTIC_9_UPGRADE_PLAN.md entry (no duplicates)" {
-  local count
-  count="$(grep -cF '[ELASTIC_9_UPGRADE_PLAN.md]' "${LLMS_TXT}")"
-  [ "${count}" -eq 1 ]
 }
 
 @test "llms.txt does not link ELASTIC_9_UPGRADE_PLAN.md at the repository root (docs/ prefix required)" {

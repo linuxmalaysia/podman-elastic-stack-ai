@@ -117,6 +117,29 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
   done
 }
 
+@test "mkdocs.yml contains the exact navigation entry for ELASTIC_9_UPGRADE_PLAN.md" {
+  grep -qF -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}"
+}
+
+@test "Upgrade Plan to Elastic 9.x navigation entry is unique (no duplicates)" {
+  local count
+  count="$(grep -cF -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}")"
+  [ "${count}" -eq 1 ]
+}
+
+@test "Upgrade Plan to Elastic 9.x navigation entry is positioned correctly in the nav order" {
+  local wsl_line upgrade_line telemetry_line
+  wsl_line="$(grep -n -F -- '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  upgrade_line="$(grep -n -F -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+  telemetry_line="$(grep -n -F -- '- Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
+
+  [ -n "${wsl_line}" ]
+  [ -n "${upgrade_line}" ]
+  [ -n "${telemetry_line}" ]
+  [ "${wsl_line}" -lt "${upgrade_line}" ]
+  [ "${upgrade_line}" -lt "${telemetry_line}" ]
+}
+
 # Regression tests for the "Reference Tuning Resources" nav entry, added
 # between the WSL 3-Node Cluster Guide and the Developer Matrix Telemetry
 # entries, pointing at the new docs/REFERENCE_TUNING.md page.
@@ -207,36 +230,4 @@ MKDOCS_YML="${REPO_ROOT}/mkdocs.yml"
 @test "the legal-notice.md file referenced by the new mkdocs.yml nav entry and copyright footer actually exists and is readable" {
   [ -f "${REPO_ROOT}/docs/legal-notice.md" ]
   [ -r "${REPO_ROOT}/docs/legal-notice.md" ]
-}
-
-# Regression tests for the new "Upgrade Plan to Elastic 9.x" nav entry,
-# added between the WSL 3-Node Cluster Guide and Reference Tuning Resources
-# entries, pointing at the new docs/ELASTIC_9_UPGRADE_PLAN.md page.
-
-@test "mkdocs.yml registers the Upgrade Plan to Elastic 9.x nav entry pointing at ELASTIC_9_UPGRADE_PLAN.md" {
-  grep -qF -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}"
-}
-
-@test "mkdocs.yml lists Upgrade Plan to Elastic 9.x between the WSL 3-Node Cluster Guide and Reference Tuning Resources entries" {
-  local wsl_line upgrade_line reference_line
-  wsl_line="$(grep -n -F -- '- WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-  upgrade_line="$(grep -n -F -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-  reference_line="$(grep -n -F -- '- Reference Tuning Resources: REFERENCE_TUNING.md' "${MKDOCS_YML}" | head -1 | cut -d: -f1)"
-
-  [ -n "${wsl_line}" ]
-  [ -n "${upgrade_line}" ]
-  [ -n "${reference_line}" ]
-  [ "${wsl_line}" -lt "${upgrade_line}" ]
-  [ "${upgrade_line}" -lt "${reference_line}" ]
-}
-
-@test "mkdocs.yml declares exactly one Upgrade Plan to Elastic 9.x nav entry (no duplicates)" {
-  local count
-  count="$(grep -cF -- '- Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md' "${MKDOCS_YML}")"
-  [ "${count}" -eq 1 ]
-}
-
-@test "the ELASTIC_9_UPGRADE_PLAN.md file referenced by the new mkdocs.yml nav entry actually exists and is readable" {
-  [ -f "${REPO_ROOT}/docs/ELASTIC_9_UPGRADE_PLAN.md" ]
-  [ -r "${REPO_ROOT}/docs/ELASTIC_9_UPGRADE_PLAN.md" ]
 }
