@@ -16,16 +16,3 @@ https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_ADOPTION_RE
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_PLAYBOOK_MAP/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ELASTIC_9_UPGRADE_PLAN/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/diataxis_index/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/tutorials/installation/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/tutorials/ansible_quickstart/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/how-to/system_tuning/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/how-to/wsl2_cluster/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/how-to/secure_gitea_semaphore/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/reference/cli_scripts/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/reference/playbooks_spec/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/reference/compose_configs/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/reference/mkdocs_hook_api/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/explanation/architecture_overview/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/explanation/security_decisions/
-https://linuxmalaysia.github.io/podman-elastic-stack-ai/explanation/diataxis/

@@ -28,13 +28,11 @@ Upgrading to a new major version of the Elastic Stack requires rigorous validati
     *   **Elasticsearch 9.5.0**: `docker.elastic.co/elasticsearch/elasticsearch-wolfi@sha256:49a24559b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
     *   **Kibana 9.5.0**: `docker.elastic.co/kibana/kibana-wolfi@sha256:a1234559b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
     *   **Fleet Server (Elastic Agent) 9.5.0**: `docker.elastic.co/beats/elastic-agent-wolfi@sha256:b5432159b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
-    *   **Fleet Server (Elastic Agent) 9.5.0**: `docker.elastic.co/elastic-agent/elastic-agent-complete-wolfi@sha256:b5432159b32962bf190e28f32924552b7811f010202020202020202020202020` (Official multi-arch manifest-list digest)
 *   **Strict Prerequisite Requirement**: Upgrading from the 8.x branch requires that the cluster is first upgraded to the latest **8.19.x** patch release before moving to 9.5.0. Legacy releases like 8.17.x or 8.18.x are insufficient for the 9.x upgrade path.
 *   **Continuous TLS Enforcement**: Elastic 9.x deprecates legacy non-secure transport profiles and mandates stricter cipher suites. Our Wolfi container setups must preserve custom PKI certificate stores (e.g. `elk-wolfi/certs/`) and align HTTP/Transport layer encryption with Podman network interfaces.
 *   **JDK and Cipher Suite Recording**: Before rollout, the active JDK and configured cipher suites must be recorded. We must explicitly test representative HTTP and inter-node TLS handshakes to ensure clients or nodes relying on removed `TLS_RSA_*` suites are fully accounted for.
 *   **Unprivileged Permission Preservation**: High-range subuids (e.g., mapped via `UserNS=keep-id` at container boundaries) must remain perfectly consistent. When container image tags shift to `9.5.0`, local data mounts under `/opt/dsom-persistence/` must not experience permission drift or ownership locking.
 *   **Zero-Downtime Pipeline Continuity**: Custom ingest pipelines, Machine Learning (ML) integration states, and security log-shipper loops must be progressively phased to avoid data ingestion gaps or out-of-order schema validation.
-*   **Zero-Downtime Pipeline Continuity**: Custom ingest pipelines, Machine Learning (ML) integration states, and security log-shipper loops must be progressively phased to avoid data ingestion gaps or out-of-order schema validation. Note that this pipeline continuity covers Elasticsearch and ingestion only, not Kibana availability. A self-managed upgrade stops `kib01.service` and requires a scheduled Kibana outage or maintenance window (minimum 2 hours).
 
 ---
 
@@ -100,9 +98,6 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
 
 *   **Multi-Node WSL / Hardware rolling upgrade**:
     1.  Disable shard allocation:
-
-    1.  Disable shard allocation:
-
         ```json
         PUT _cluster/settings
         {
@@ -121,26 +116,6 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
         journalctl --user -u dsom-persistence-es-node-01.service -f
         ```
     5.  Re-enable shard allocation once the node joins the cluster:
-
-    2.  Stop the unprivileged node container or the Podman compose service explicitly:
-
-        ```bash
-        cd elk-wolfi
-        podman-compose stop es-node-01
-        ```
-
-    3.  Update the image tag and digest configuration in `ansible/group_vars/all.yml` or container manifests (`elk-wolfi/podman-compose.yml`).
-
-    4.  Restart only the target container service and monitor its start progress:
-
-        ```bash
-        cd elk-wolfi
-        podman-compose up -d es-node-01
-        podman-compose logs -f es-node-01
-        ```
-
-    5.  Re-enable shard allocation once the node joins the cluster:
-
         ```json
         PUT _cluster/settings
         {
@@ -149,21 +124,18 @@ Major-version upgrades in Elasticsearch are restricted to specific upgrade paths
           }
         }
         ```
-
     6.  Repeat for remaining nodes (`es-node-02`, `es-node-03`) until cluster status returns to `green`.
 *   **TLS Handshake & Cipher Verification**: Verify transport compatibility. Any legacy node relying on removed `TLS_RSA_*` cipher suites must be updated to use complete, tested modern cipher suites such as `TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256` or explicitly configured TLS 1.3 suites (such as `TLS_AES_256_GCM_SHA384` and `TLS_CHACHA20_POLY1305_SHA256`) before transport connections are allowed.
 
 #### 3. Upgrade Kibana
 
 *   **Container Switchover**: Stop the active Kibana service, update its container compose or Quadlet definition to reference the matching pinned `9.5.0` Wolfi Kibana image digest, and launch:
-
     ```bash
     systemctl --user stop kib01.service
     # Update config and restart
     systemctl --user daemon-reload
     systemctl --user start kib01.service
     ```
-
 *   **API Verification**: Run unprivileged validation scripts to verify that Kibana successfully authenticates against the Elasticsearch cluster using stored `temp_credentials.txt` or vault secrets.
 
 #### 4. Upgrade Elastic Fleet Integration + Elastic Agent Related

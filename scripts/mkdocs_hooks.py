@@ -12,12 +12,8 @@ def resolve_relative_url(url, page, config):
     """
     Resolve relative URLs to clean paths.
     """
-    # Keep external, protocol-relative, scheme-qualified, or anchor-only links intact
-    if (
-        url.startswith('#') or
-        url.startswith('//') or
-        re.match(r'^[a-zA-Z][a-zA-Z0-9+.-]*:', url)
-    ):
+    # Keep external, mailto, or anchor-only links intact
+    if url.startswith(('http://', 'https://', 'mailto:', 'ftp:', '#')):
         return url
 
     # Extract anchor if present
@@ -30,27 +26,15 @@ def resolve_relative_url(url, page, config):
     # If the link starts with 'docs/', make it relative to the current page's depth
     if base_url.startswith('docs/'):
         target_path = base_url[5:]
-        if page and hasattr(page, 'file') and hasattr(page.file, 'src_uri') and page.file.src_uri:
-            doc_dir = posixpath.dirname(page.file.src_uri)
-        else:
-            doc_dir = ""
+        doc_dir = posixpath.dirname(page.file.src_uri)
         if doc_dir:
             rel = os.path.relpath(target_path, doc_dir).replace('\\', '/')
         else:
             rel = target_path
         return rel + anchor
 
-    # Support simple back-referencing without page instance for unit testing
-    # If the URL is absolute relative to docs or contains ../../, handle it cleanly
-    if not page:
-        if base_url.startswith('../../'):
-            return "../" + base_url[6:] + anchor
-        elif base_url.startswith('../../../'):
-            return "../../" + base_url[9:] + anchor
-        return base_url + anchor
-
     # Resolve any relative link (e.g. starting with ../ or otherwise) against the current page's repository path
-    doc_dir = posixpath.dirname(page.file.src_uri) if (page and hasattr(page, 'file') and hasattr(page.file, 'src_uri')) else ""
+    doc_dir = posixpath.dirname(page.file.src_uri)
     current_repo_dir = posixpath.join("docs", doc_dir) if doc_dir else "docs"
 
     # Resolve the target path relative to the repository root
@@ -66,7 +50,7 @@ def resolve_relative_url(url, page, config):
         return rel + anchor
     else:
         # If it points outside docs/, resolve it to the GitHub repository if repo_url is available
-        repo_url = config.get('repo_url', '') if config else ''
+        repo_url = config.get('repo_url', '')
         if repo_url:
             repo_url = repo_url.rstrip('/')
             return f"{repo_url}/blob/main/{repo_path}{anchor}"

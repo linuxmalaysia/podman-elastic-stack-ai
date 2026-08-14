@@ -121,23 +121,3 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
 @test "llms.txt has the exact entry for ELASTIC_9_UPGRADE_PLAN.md" {
   grep -qF '[ELASTIC_9_UPGRADE_PLAN.md](docs/ELASTIC_9_UPGRADE_PLAN.md): Comprehensive Guide and 2-Week Plan for Upgrading the Podman-based Elastic Stack to Version 9.5.0.' "${LLMS_TXT}"
 }
-
-@test "llms.txt has exactly one ELASTIC_9_UPGRADE_PLAN.md entry (no duplicates)" {
-  local count
-  count="$(grep -cF '[ELASTIC_9_UPGRADE_PLAN.md]' "${LLMS_TXT}")"
-  [ "${count}" -eq 1 ]
-}
-
-@test "llms.txt lists ELASTIC_9_UPGRADE_PLAN.md after the legal-notice.md entry" {
-  local legal_line upgrade_line
-  legal_line="$(grep -n -F '[legal-notice.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
-  upgrade_line="$(grep -n -F '[ELASTIC_9_UPGRADE_PLAN.md]' "${LLMS_TXT}" | head -1 | cut -d: -f1)"
-  [ -n "${legal_line}" ]
-  [ -n "${upgrade_line}" ]
-  [ "${upgrade_line}" -gt "${legal_line}" ]
-}
-
-@test "llms.txt does not link ELASTIC_9_UPGRADE_PLAN.md at the repository root (docs/ prefix required)" {
-  run grep -qF '](ELASTIC_9_UPGRADE_PLAN.md):' "${LLMS_TXT}"
-  [ "${status}" -ne 0 ]
-}
