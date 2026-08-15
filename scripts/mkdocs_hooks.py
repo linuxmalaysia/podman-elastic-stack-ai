@@ -23,18 +23,23 @@ def resolve_relative_url(url, page, config):
         base_url, anchor = url.split('#', 1)
         anchor = "#" + anchor
 
+    # Safely retrieve the current document directory if page and page.file are populated
+    doc_dir = ""
+    if page and getattr(page, 'file', None) and getattr(page.file, 'src_uri', None):
+        doc_dir = posixpath.dirname(page.file.src_uri)
+
     # If the link starts with 'docs/', make it relative to the current page's depth
     if base_url.startswith('docs/'):
         target_path = base_url[5:]
-        doc_dir = posixpath.dirname(page.file.src_uri)
         if doc_dir:
             rel = os.path.relpath(target_path, doc_dir).replace('\\', '/')
         else:
             rel = target_path
         return rel + anchor
+    elif base_url.startswith('../../'):
+        return base_url[3:] + anchor
 
     # Resolve any relative link (e.g. starting with ../ or otherwise) against the current page's repository path
-    doc_dir = posixpath.dirname(page.file.src_uri)
     current_repo_dir = posixpath.join("docs", doc_dir) if doc_dir else "docs"
 
     # Resolve the target path relative to the repository root
@@ -50,7 +55,7 @@ def resolve_relative_url(url, page, config):
         return rel + anchor
     else:
         # If it points outside docs/, resolve it to the GitHub repository if repo_url is available
-        repo_url = config.get('repo_url', '')
+        repo_url = config.get('repo_url', '') if config else ''
         if repo_url:
             repo_url = repo_url.rstrip('/')
             return f"{repo_url}/blob/main/{repo_path}{anchor}"

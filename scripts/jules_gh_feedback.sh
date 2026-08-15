@@ -101,6 +101,8 @@ if isinstance(results, str):
     except Exception:
         results = []
 
+logs_section = ["\n### 📝 Execution Logs"]
+
 for res in results:
     distro = res.get("distro", "Unknown")
     img = res.get("image", "Unknown")
@@ -110,19 +112,14 @@ for res in results:
     cpu = res.get("cpu_percentage", "0.0%")
     mem = str(res.get("memory_usage_bytes", "0"))
     err = res.get("error_summary", "") or "-"
-    md.append(f"| **{distro}** | \`{img}\` | **{emoji}** | \`{code}\` | \`{cpu}\` | \`{mem}\` | {err} |")
+    logs = res.get("logs", "") or "No output logged."
 
-md.append("\n### 📝 Execution Logs")
-for res in results:
-    distro = res.get("distro", "Unknown")
-    logs = res.get("logs", "")
-    status = res.get("status", "Unknown").upper()
-    md.append("<details>")
-    md.append(f"<summary><b>{distro} ({status}) Log Output</b></summary>\n")
-    md.append("\`\`\`text")
-    md.append(logs if logs else "No output logged.")
-    md.append("\`\`\`")
-    md.append("</details>\n")
+    md.append(f"| **{distro}** | \`{img}\` | **{emoji}** | \`{code}\` | \`{cpu}\` | \`{mem}\` | {err} |")
+    logs_section.append(
+        f"<details>\n<summary><b>{distro} ({status}) Log Output</b></summary>\n\n\`\`\`text\n{logs}\n\`\`\`\n</details>\n"
+    )
+
+md.extend(logs_section)
 
 try:
     with open("${REPORT_MD}", "w") as f:
