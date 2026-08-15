@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -34,10 +35,11 @@ class TestJulesGhFeedback(unittest.TestCase):
             ],
         }
 
-        telemetry_path = "/tmp/test_jules_telemetry.json"
-        with open(telemetry_path, "w") as f:
+        with tempfile.NamedTemporaryFile("w", delete=False, suffix=".json") as f:
             json.dump(telemetry_data, f)
+            telemetry_path = f.name
 
+        report_path = None
         try:
             env = {
                 "TELEMETRY_JSON": telemetry_path,
@@ -65,6 +67,8 @@ class TestJulesGhFeedback(unittest.TestCase):
         finally:
             if os.path.exists(telemetry_path):
                 os.remove(telemetry_path)
+            if report_path and os.path.exists(report_path):
+                os.remove(report_path)
 
 
 if __name__ == "__main__":
