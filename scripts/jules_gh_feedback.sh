@@ -22,7 +22,7 @@ REPORT_MD=""
 # Establish Trap for Cleanup and Exit Status Tracking on EXIT
 cleanup() {
     local exit_code=$?
-    if [ -n "${REPORT_MD}" ] && [ -f "${REPORT_MD}" ]; then
+    if [ "${KEEP_REPORT:-0}" -ne 1 ] && [ -n "${REPORT_MD}" ] && [ -f "${REPORT_MD}" ]; then
         rm -f "${REPORT_MD}"
     fi
     if [ "${exit_code}" -eq 0 ]; then
@@ -114,10 +114,17 @@ for res in results:
     err = res.get("error_summary", "") or "-"
     logs = res.get("logs", "") or "No output logged."
 
-    # Determine code fence length dynamically to prevent logs containing triple backticks from terminating the block
-    fence = "```"
-    while fence in logs:
-        fence += "`"
+    # Determine code fence length dynamically in a single O(N) pass over backticks
+    max_run = 0
+    curr_run = 0
+    for ch in logs:
+        if ch == "\`":
+            curr_run += 1
+            if curr_run > max_run:
+                max_run = curr_run
+        else:
+            curr_run = 0
+    fence = "\`" * max(3, max_run + 1)
 
     md.append(f"| **{distro}** | \`{img}\` | **{emoji}** | \`{code}\` | \`{cpu}\` | \`{mem}\` | {err} |")
     logs_section.append(
