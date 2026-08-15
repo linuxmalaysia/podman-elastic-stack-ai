@@ -16,13 +16,13 @@ log_warn()    { echo -e "\033[1;33m[WARN]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - 
 log_error()   { echo -e "\033[1;31m[ERROR]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
 
 # Establish variables
-TELEMETRY_JSON="/tmp/jules_telemetry.json"
+TELEMETRY_JSON="${TELEMETRY_JSON:-/tmp/jules_telemetry.json}"
 REPORT_MD=""
 
 # Establish Trap for Cleanup and Exit Status Tracking on EXIT
 cleanup() {
     local exit_code=$?
-    if [ -n "${REPORT_MD}" ] && [ -f "${REPORT_MD}" ]; then
+    if [ "${KEEP_REPORT:-0}" -ne 1 ] && [ -n "${REPORT_MD}" ] && [ -f "${REPORT_MD}" ]; then
         rm -f "${REPORT_MD}"
     fi
     if [ "${exit_code}" -eq 0 ]; then
@@ -101,6 +101,8 @@ if isinstance(results, str):
     except Exception:
         results = []
 
+logs_section = ["\n### 📝 Execution Logs"]
+
 for res in results:
     distro = res.get("distro", "Unknown")
     img = res.get("image", "Unknown")
@@ -110,19 +112,26 @@ for res in results:
     cpu = res.get("cpu_percentage", "0.0%")
     mem = str(res.get("memory_usage_bytes", "0"))
     err = res.get("error_summary", "") or "-"
-    md.append(f"| **{distro}** | \`{img}\` | **{emoji}** | \`{code}\` | \`{cpu}\` | \`{mem}\` | {err} |")
+    logs = res.get("logs", "") or "No output logged."
 
-md.append("\n### 📝 Execution Logs")
-for res in results:
-    distro = res.get("distro", "Unknown")
-    logs = res.get("logs", "")
-    status = res.get("status", "Unknown").upper()
-    md.append("<details>")
-    md.append(f"<summary><b>{distro} ({status}) Log Output</b></summary>\n")
-    md.append("\`\`\`text")
-    md.append(logs if logs else "No output logged.")
-    md.append("\`\`\`")
-    md.append("</details>\n")
+    # Determine code fence length dynamically in a single O(N) pass over backticks
+    max_run = 0
+    curr_run = 0
+    for ch in logs:
+        if ch == "\`":
+            curr_run += 1
+            if curr_run > max_run:
+                max_run = curr_run
+        else:
+            curr_run = 0
+    fence = "\`" * max(3, max_run + 1)
+
+    md.append(f"| **{distro}** | \`{img}\` | **{emoji}** | \`{code}\` | \`{cpu}\` | \`{mem}\` | {err} |")
+    logs_section.append(
+        f"<details>\n<summary><b>{distro} ({status}) Log Output</b></summary>\n\n{fence}text\n{logs}\n{fence}\n</details>\n"
+    )
+
+md.extend(logs_section)
 
 try:
     with open("${REPORT_MD}", "w") as f:
