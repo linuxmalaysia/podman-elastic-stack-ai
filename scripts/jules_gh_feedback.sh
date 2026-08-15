@@ -16,7 +16,7 @@ log_warn()    { echo -e "\033[1;33m[WARN]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - 
 log_error()   { echo -e "\033[1;31m[ERROR]\033[0m $(date '+%Y-%m-%d %H:%M:%S') - $1"; }
 
 # Establish variables
-TELEMETRY_JSON="/tmp/jules_telemetry.json"
+TELEMETRY_JSON="${TELEMETRY_JSON:-/tmp/jules_telemetry.json}"
 REPORT_MD=""
 
 # Establish Trap for Cleanup and Exit Status Tracking on EXIT
@@ -114,9 +114,14 @@ for res in results:
     err = res.get("error_summary", "") or "-"
     logs = res.get("logs", "") or "No output logged."
 
+    # Determine code fence length dynamically to prevent logs containing triple backticks from terminating the block
+    fence = "```"
+    while fence in logs:
+        fence += "`"
+
     md.append(f"| **{distro}** | \`{img}\` | **{emoji}** | \`{code}\` | \`{cpu}\` | \`{mem}\` | {err} |")
     logs_section.append(
-        f"<details>\n<summary><b>{distro} ({status}) Log Output</b></summary>\n\n\`\`\`text\n{logs}\n\`\`\`\n</details>\n"
+        f"<details>\n<summary><b>{distro} ({status}) Log Output</b></summary>\n\n{fence}text\n{logs}\n{fence}\n</details>\n"
     )
 
 md.extend(logs_section)

@@ -36,7 +36,8 @@ def resolve_relative_url(url, page, config):
         else:
             rel = target_path
         return rel + anchor
-    elif base_url.startswith('../../'):
+
+    if base_url.startswith('../../'):
         return base_url[3:] + anchor
 
     # Resolve any relative link (e.g. starting with ../ or otherwise) against the current page's repository path
