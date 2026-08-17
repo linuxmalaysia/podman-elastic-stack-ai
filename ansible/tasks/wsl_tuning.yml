@@ -5,156 +5,52 @@
 # Sourced from: https://linuxmalaysia.github.io/podman-elastic-stack-ai/WSL-3NODE-CLUSTER-GUIDE/
 # ==============================================================================
 
-- name: "Part A - Query Windows host hardware parameters via PowerShell if available"
+- name: "Part A - Username Update (Dynamic Inventory & Variable Patching)"
   block:
-    - name: Query Windows host TotalPhysicalMemory
-      shell: |
-        powershell.exe -NoProfile -Command "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"
-      register: win_mem_out
+    - name: Detect active username via whoami
+      command: whoami
+      register: whoami_out
       changed_when: false
       failed_when: false
 
-    - name: Query Windows host NumberOfLogicalProcessors
-      shell: |
-        powershell.exe -NoProfile -Command "(Get-CimInstance Win32_Processor).NumberOfLogicalProcessors"
-      register: win_cpu_out
+    - name: Detect active username via id -un
+      command: id -un
+      register: id_out
       changed_when: false
       failed_when: false
 
-    - name: Resolve Host CPU count
+    - name: Resolve active username
       set_fact:
-        host_vcpus: >-
-          {%- if win_cpu_out.rc == 0 and win_cpu_out.stdout | trim is regex('^[0-9]+$') -%}
-            {{ win_cpu_out.stdout | trim | int }}
-          {%- else -%}
-            {{ ansible_processor_vcpus | default(8) | int }}
-          {%- endif -%}
+        resolved_username: "{{ whoami_out.stdout | trim if (whoami_out.rc == 0 and whoami_out.stdout | trim != '') else (id_out.stdout | trim if (id_out.rc == 0 and id_out.stdout | trim != '') else 'your_username') }}"
 
-    - name: Resolve Host Physical RAM in GB
+    - name: Patch inventory hosts file placeholder
+      replace:
+        path: "{{ elk_base_dir }}/inventory/hosts.wsl.3node.yml"
+        regexp: '"your_username"'
+        replace: '"{{ resolved_username }}"'
+      delegate_to: localhost
+      when: resolved_username != 'your_username'
+      failed_when: false
+
+    - name: Override default variables if placeholder is active
       set_fact:
-        host_ram_gb: >-
-          {%- if win_mem_out.rc == 0 and win_mem_out.stdout | trim is regex('^[0-9]+$') -%}
-            {{ (win_mem_out.stdout | trim | float / 1073741824) | round(0, 'common') | int }}
-          {%- else -%}
-            {{ (ansible_memtotal_mb | default(16384) | float / 1024) | round(0, 'common') | int }}
-          {%- endif -%}
+        ansible_user: "{{ resolved_username }}"
+        dsom_group: "{{ resolved_username }}"
+      when: ansible_user == 'your_username' or dsom_group == 'your_username'
 
-    - name: Calculate CPU and Memory for WSL performance tuning
-      set_fact:
-        wsl_mem_candidate: >-
-          {%- if host_ram_gb | int <= 16 -%}
-            10
-          {%- elif host_ram_gb | int <= 32 -%}
-            22
-          {%- elif host_ram_gb | int <= 64 -%}
-            48
-          {%- else -%}
-            96
-          {%- endif -%}
-
-    - name: Clamp WSL Memory to ensure it never exceeds physical Host RAM
-      set_fact:
-        wsl_memory_gb: "{{ [wsl_mem_candidate | int, (host_ram_gb | int - 2) | int] | min if host_ram_gb | int > 2 else 1 }}"
-
-- name: "Part B - Query Windows User Profile Path and convert to Unix Path"
+- name: "Part B - Kernel Tuning check for vm.max_map_count"
   block:
-    - name: Query Windows User Profile Path via PowerShell
-      shell: |
-        powershell.exe -NoProfile -Command "Write-Output $env:USERPROFILE"
-      register: win_userprofile_ps
-      changed_when: false
-      failed_when: false
-
-    - name: Query Windows User Profile Path via cmd.exe as fallback
-      shell: |
-        cmd.exe /c "echo %USERPROFILE%"
-      register: win_userprofile_cmd
-      changed_when: false
-      failed_when: false
-      when: win_userprofile_ps.rc != 0
-
-    - name: Set Raw Windows User Profile Fact
-      set_fact:
-        raw_userprofile: >-
-          {%- if win_userprofile_ps.rc == 0 -%}
-            {{ win_userprofile_ps.stdout | trim }}
-          {%- elif win_userprofile_cmd is defined and win_userprofile_cmd.rc == 0 -%}
-            {{ win_userprofile_cmd.stdout | trim }}
-          {%- else -%}
-            C:\Users\Default
-          {%- endif -%}
-
-    - name: Convert Windows User Profile Path to Unix Path using wslpath
-      shell: |
-        wslpath "{{ raw_userprofile }}"
-      register: wslpath_out
-      changed_when: false
-      failed_when: false
-
-    - name: Resolve active UserProfile .wslconfig path
-      set_fact:
-        active_wslconfig_path: >-
-          {%- if wslpath_out.rc == 0 -%}
-            {{ wslpath_out.stdout | trim }}/.wslconfig
-          {%- else -%}
-            /mnt/c/Users/Default/.wslconfig
-          {%- endif -%}
-
-- name: "Part C - Write and Display global WSL settings (.wslconfig)"
-  block:
-    - name: Write global WSL settings to the active user's %UserProfile%\.wslconfig
-      copy:
-        content: |
-          # WSL2 Performance Tuning Configuration (Tuned by Ansible)
-          # Sourced from: https://www.thetributary.ai/blog/optimizing-wsl2-claude-code-performance-guide/
-          [wsl2]
-          memory={{ wsl_memory_gb }}GB
-          processors={{ host_vcpus }}
-          swap=16GB
-          networkingMode=mirrored
-          dnsTunneling=true
-          autoProxy=true
-
-          [experimental]
-          autoMemoryReclaim=gradual
-          sparseVhd=true
-        dest: "{{ active_wslconfig_path }}"
-        mode: "0644"
-
-    - name: Display WSL Recommended Configuration
-      debug:
-        msg:
-          - "=========================================================="
-          - "    WSL2 RECOMMENDED PERFORMANCE CONFIGURATION (.wslconfig) "
-          - "=========================================================="
-          - "Path: {{ active_wslconfig_path }}"
-          - "----------------------------------------------------------"
-          - "[wsl2]"
-          - "memory={{ wsl_memory_gb }}GB"
-          - "processors={{ host_vcpus }}"
-          - "swap=16GB"
-          - "networkingMode=mirrored"
-          - "dnsTunneling=true"
-          - "autoProxy=true"
-          - ""
-          - "[experimental]"
-          - "autoMemoryReclaim=gradual"
-          - "sparseVhd=true"
-          - "=========================================================="
-
-- name: "Part D - Kernel Tuning check for vm.max_map_count"
-  block:
-    - name: Check current vm.max_map_count value
+    - name: Check current vm.max_map_count
       command: sysctl -n vm.max_map_count
       register: current_max_map_count
       changed_when: false
       failed_when: false
 
-    - name: Parse max_map_count as integer
+    - name: Parse max_map_count value
       set_fact:
         max_map_count_val: "{{ current_max_map_count.stdout | trim | int if (current_max_map_count.rc == 0 and current_max_map_count.stdout | trim is regex('^[0-9]+$')) else 0 }}"
 
-    - name: Perform vm.max_map_count configuration if not set or below required threshold (262144)
+    - name: Apply vm.max_map_count setting
       sysctl:
         name: vm.max_map_count
         value: "262144"
@@ -163,9 +59,79 @@
       become: true
       when: max_map_count_val | int < 262144
 
-- name: "Part E - Adopt /etc/wsl.conf optimizations inside WSL"
+- name: "Part C - CPU and Memory Calculation suitable for host system"
   block:
-    - name: Ensure /etc/wsl.conf has Tributary optimizations
+    - name: Calculate WSL processors and memory
+      set_fact:
+        wsl_processors: "{{ ansible_processor_vcpus | default(8) }}"
+        wsl_memory_gb: >-
+          {% set ram_mb = ansible_memtotal_mb | default(16384) | int %}
+          {% if ram_mb <= 16384 %}
+            10
+          {% elif ram_mb <= 32768 %}
+            22
+          {% elif ram_mb <= 65536 %}
+            48
+          {% else %}
+            96
+          {% endif %}
+
+    - name: Ensure persistence directory exists
+      file:
+        path: "/opt/dsom-persistence"
+        state: directory
+        mode: "0755"
+      become: true
+      failed_when: false
+
+    - name: Save tuned .wslconfig in persistence directory
+      copy:
+        content: |
+          # WSL2 Performance Tuning Configuration
+          [wsl2]
+          memory={{ wsl_memory_gb }}GB
+          processors={{ wsl_processors }}
+          swap=16GB
+          networkingMode=mirrored
+          dnsTunneling=true
+          autoProxy=true
+
+          [experimental]
+          autoMemoryReclaim=gradual
+          sparseVhd=true
+        dest: "/opt/dsom-persistence/wsl2_tuned.wslconfig"
+        mode: "0644"
+      failed_when: false
+
+    - name: Discover Windows user profiles
+      command: find /mnt/c/Users -mindepth 1 -maxdepth 1 -type d ! -name "Public" ! -name "Default" ! -name "Default User" ! -name "All Users"
+      register: windows_users
+      changed_when: false
+      failed_when: false
+
+    - name: Write recommended .wslconfig for discovered Windows users
+      copy:
+        content: |
+          # WSL2 Performance Tuning Configuration
+          [wsl2]
+          memory={{ wsl_memory_gb }}GB
+          processors={{ wsl_processors }}
+          swap=16GB
+          networkingMode=mirrored
+          dnsTunneling=true
+          autoProxy=true
+
+          [experimental]
+          autoMemoryReclaim=gradual
+          sparseVhd=true
+        dest: "{{ item }}/.wslconfig.recommended"
+        mode: "0644"
+      loop: "{{ windows_users.stdout_lines | default([]) }}"
+      ignore_errors: true
+
+- name: "Part D - Adopt /etc/wsl.conf optimizations inside WSL"
+  block:
+    - name: Configure /etc/wsl.conf
       blockinfile:
         path: /etc/wsl.conf
         create: yes
@@ -193,19 +159,19 @@
           useWindowsTimezone=true
       become: true
 
-- name: "Part F - Adopt fs.inotify.max_user_watches tuning"
+- name: "Part E - Adopt fs.inotify.max_user_watches tuning"
   block:
-    - name: Check current fs.inotify.max_user_watches value
+    - name: Check current fs.inotify.max_user_watches
       command: sysctl -n fs.inotify.max_user_watches
       register: current_inotify_watches
       changed_when: false
       failed_when: false
 
-    - name: Parse inotify_watches as integer
+    - name: Parse inotify_watches value
       set_fact:
         inotify_watches_val: "{{ current_inotify_watches.stdout | trim | int if (current_inotify_watches.rc == 0 and current_inotify_watches.stdout | trim is regex('^[0-9]+$')) else 0 }}"
 
-    - name: Configure fs.inotify.max_user_watches to 524288
+    - name: Apply fs.inotify.max_user_watches setting
       sysctl:
         name: fs.inotify.max_user_watches
         value: "524288"
@@ -214,7 +180,7 @@
       become: true
       when: inotify_watches_val | int < 524288
 
-- name: "Part G - Adopt file descriptor limits optimization"
+- name: "Part F - Adopt file descriptor limits optimization"
   block:
     - name: Configure file descriptor limits in /etc/security/limits.conf
       blockinfile:
@@ -223,23 +189,3 @@
           *  soft  nofile  65535
           *  hard  nofile  65535
       become: true
-
-- name: "Part H - Post-Play WSL Instruction"
-  debug:
-    msg:
-      - "=========================================================="
-      - "    POST-PLAY INSTRUCTION FOR OPERATOR"
-      - "=========================================================="
-      - "The WSL performance configuration (.wslconfig) and distribution"
-      - "settings (/etc/wsl.conf) have been successfully optimized."
-      - ""
-      - "The global settings were written directly to the active path:"
-      - "    {{ active_wslconfig_path }}"
-      - ""
-      - "To apply these changes, you MUST run the following command"
-      - "from your Windows command line (PowerShell or CMD):"
-      - "    wsl.exe --shutdown"
-      - ""
-      - "After shutting down, start your WSL distribution again so that"
-      - "the new CPU/Memory settings and updated /etc/wsl.conf take effect."
-      - "=========================================================="

@@ -22,6 +22,11 @@ This document compiles the master reference URLs, websites, and community resour
 - **URL**: [https://www.thetributary.ai/blog/optimizing-wsl2-claude-code-performance-guide/](https://www.thetributary.ai/blog/optimizing-wsl2-claude-code-performance-guide/)
 - **Description**: Comprehensive guide on maximizing performance in WSL2 environments. Contains hardware targets, kernel tuning configurations (like memory allocations, system limits, and inotify watches), and disk compaction techniques.
 
+### 3. WSL2 AI Performance & Security Tuning Guide
+- **URL**: [WSL2_AI_PERFORMANCE_TUNING.md](WSL2_AI_PERFORMANCE_TUNING.md)
+- **Script**: `scripts/wsl2_ai_tuning.py`
+- **Description**: Dedicated project guide and `uv` Python tuning/auditing script for Podman 5+, Claude Code, Gemini CLI, AlmaLinux 10, and Ubuntu 26.04 LTS.
+
 ---
 
 ## 🛠️ Optimizations Integrated
