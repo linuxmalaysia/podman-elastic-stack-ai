@@ -32,8 +32,10 @@ except ImportError:
 
 def get_host_hardware():
     """
-    Queries host Windows 11 physical memory (in GB) and logical CPUs.
-    Attempts PowerShell query via interop if in WSL2, falling back to psutil/os.
+    Determine the host's available physical memory and logical CPU count.
+    
+    Returns:
+        tuple[int, int]: Host memory in GiB and logical CPU count.
     """
     host_ram_gb = 16
     host_cpus = os.cpu_count() or 8
@@ -88,7 +90,14 @@ def get_host_hardware():
 
 def calculate_wsl_memory(host_ram_gb):
     """
-    Calculates optimal WSL2 memory allocation based on host Windows 11 RAM tiers.
+    Calculate a WSL2 memory allocation from the host's available RAM.
+    
+    Parameters:
+        host_ram_gb: Host physical memory in gigabytes.
+    
+    Returns:
+        A memory allocation in gigabytes, capped at 2 GB below host RAM and
+        constrained to at least 1 GB.
     """
     if host_ram_gb <= 16:
         wsl_mem = 10
@@ -108,7 +117,10 @@ def calculate_wsl_memory(host_ram_gb):
 
 def detect_distro():
     """
-    Detects the active Linux distribution (e.g., AlmaLinux 10, Ubuntu 26.04 LTS).
+    Identify the active Linux distribution family and display name.
+    
+    Returns:
+        tuple[str, str]: A normalized distribution family and its display name.
     """
     os_release = Path("/etc/os-release")
     if not os_release.exists():
@@ -134,7 +146,15 @@ def detect_distro():
 
 def generate_wslconfig(wsl_mem_gb, wsl_cpus, networking_mode="nat"):
     """
-    Generates optimized .wslconfig content.
+    Generate WSL2 configuration content for AI workload tuning.
+    
+    Parameters:
+    	wsl_mem_gb: Memory allocation in gigabytes.
+    	wsl_cpus: Number of processors allocated to WSL2.
+    	networking_mode: WSL2 networking mode.
+    
+    Returns:
+    	str: Generated `.wslconfig` content.
     """
     content = f"""# WSL2 AI Performance & Security Tuning (.wslconfig)
 # Generated automatically by scripts/wsl2_ai_tuning.py
@@ -184,7 +204,11 @@ useWindowsTimezone=true
 
 def check_security():
     """
-    Performs security audits on API keys and configuration permissions.
+    Audit API-key environment variables, Claude settings, and shell configuration file permissions.
+    
+    Returns:
+        list[str]: Security findings for API-key presence, potential plaintext Claude keys,
+            configuration read errors, and sensitive file permissions.
     """
     findings = []
     keys = ["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY"]
@@ -228,7 +252,13 @@ def check_security():
 
 def get_sysctl_val(param):
     """
-    Reads sysctl parameter value.
+    Read an integer-valued kernel parameter from sysctl.
+    
+    Parameters:
+        param: The sysctl parameter name to read.
+    
+    Returns:
+        The parameter value, or 0 if it cannot be read or parsed.
     """
     try:
         res = subprocess.run(
@@ -244,7 +274,16 @@ def get_sysctl_val(param):
 
 def apply_tuning(wsl_mem_gb, wsl_cpus, networking_mode, distro_family):
     """
-    Applies sysctl, /etc/wsl.conf, limits.conf, and .wslconfig files.
+    Apply WSL2 kernel, file-limit, distribution, and user-profile configuration.
+    
+    Parameters:
+        wsl_mem_gb: WSL memory allocation in gigabytes.
+        wsl_cpus: Number of CPUs allocated to WSL.
+        networking_mode: WSL networking mode used in the generated configuration.
+    
+    Notes:
+        Root privileges are required for system-level changes. Failures are reported
+        and processing continues where possible.
     """
     print("\n--- Applying System Tuning ---")
 
@@ -316,6 +355,10 @@ vm.max_map_count=262144
 
 
 def main():
+    """Run the WSL2 performance and security audit, optionally applying tuning changes.
+    
+    Command-line options select audit or apply mode, networking mode, and target distribution family. Audit mode is used when neither action is specified.
+    """
     parser = argparse.ArgumentParser(
         description="WSL2 AI Performance & Security Tuning Script"
     )
