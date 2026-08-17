@@ -184,11 +184,31 @@
                 elastic:
                   driver: bridge
             dest: "{{ elk_dir }}/podman-compose.yml"
-            mode: "0644"
+            mode: "0600"
           when: deployment_option != 'wsl2'
+
+        - name: Check if credentials file already exists
+          stat:
+            path: "{{ temp_credentials_file }}"
+          register: pre_creds_stat
+
+        - name: Read existing elastic password if file exists
+          shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
+          register: pre_es_password_grep
+          changed_when: false
+          failed_when: false
+          no_log: true
+          when: pre_creds_stat.stat.exists
+
+        - name: Generate or set initial elastic password fact
+          set_fact:
+            elastic_password: "{{ pre_es_password_grep.stdout | trim if (pre_creds_stat.stat.exists and pre_es_password_grep.stdout | trim | length > 0) else lookup('ansible.builtin.password', '/dev/null chars=ascii_letters,digits length=20') }}"
+          no_log: true
 
         - name: Create podman-compose.yml for Elasticsearch (WSL 3-Node Cluster)
           copy:
+            dest: "{{ elk_dir }}/podman-compose.yml"
+            mode: "0600"
             content: |
               version: '3.8'
               services:
@@ -229,7 +249,7 @@
                     - cluster.name=dsom-wsl-cluster
                     - cluster.initial_master_nodes=es-node-01,es-node-02,es-node-03
                     - discovery.seed_hosts=es-node-02,es-node-03
-                    - ELASTIC_PASSWORD=elastic
+                    - ELASTIC_PASSWORD={{ elastic_password }}
                     - xpack.security.enabled=true
                     - xpack.security.http.ssl.enabled=true
                     - xpack.security.http.ssl.key=certs/es-node-01/es-node-01.key
@@ -259,7 +279,7 @@
                     - cluster.name=dsom-wsl-cluster
                     - cluster.initial_master_nodes=es-node-01,es-node-02,es-node-03
                     - discovery.seed_hosts=es-node-01,es-node-03
-                    - ELASTIC_PASSWORD=elastic
+                    - ELASTIC_PASSWORD={{ elastic_password }}
                     - xpack.security.enabled=true
                     - xpack.security.http.ssl.enabled=true
                     - xpack.security.http.ssl.key=certs/es-node-02/es-node-02.key
@@ -289,7 +309,7 @@
                     - cluster.name=dsom-wsl-cluster
                     - cluster.initial_master_nodes=es-node-01,es-node-02,es-node-03
                     - discovery.seed_hosts=es-node-01,es-node-02
-                    - ELASTIC_PASSWORD=elastic
+                    - ELASTIC_PASSWORD={{ elastic_password }}
                     - xpack.security.enabled=true
                     - xpack.security.http.ssl.enabled=true
                     - xpack.security.http.ssl.key=certs/es-node-03/es-node-03.key
@@ -311,8 +331,7 @@
                 elastic:
                   name: {{ network_name }}
                   driver: bridge
-            dest: "{{ elk_dir }}/podman-compose.yml"
-            mode: "0644"
+          no_log: true
           when: deployment_option == 'wsl2'
 
         - name: Start Elasticsearch service
@@ -326,27 +345,10 @@
           pause:
             seconds: 60
 
-        - name: Set static password for WSL2 deployment option
-          set_fact:
-            elastic_password: "elastic"
-            password_reset_needed: false
-          when: deployment_option == 'wsl2'
-
-        - name: Initialize temporary credentials file (WSL2)
-          copy:
-            content: |
-              --- Step 6: Retrieve and Store Elasticsearch Password ---
-              {{ ansible_date_time.iso8601 | default('N/A') }}
-              Elastic password set to: elastic
-            dest: "{{ temp_credentials_file }}"
-            mode: "0600"
-          when: deployment_option == 'wsl2'
-
         - name: Check if credentials file exists
           stat:
             path: "{{ temp_credentials_file }}"
           register: creds_file_stat
-          when: deployment_option != 'wsl2'
 
         - name: Read existing elastic password if file exists
           shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
@@ -354,15 +356,12 @@
           changed_when: false
           failed_when: false
           no_log: true
-          when:
-            - deployment_option != 'wsl2'
-            - creds_file_stat.stat.exists
+          when: creds_file_stat.stat.exists
 
         - name: Set existing password fact
           set_fact:
-            existing_elastic_password: "{{ es_password_grep.stdout | trim if (creds_file_stat.stat.exists and es_password_grep.stdout is defined) else '' }}"
+            existing_elastic_password: "{{ es_password_grep.stdout | trim if (creds_file_stat.stat.exists and es_password_grep.stdout is defined) else (elastic_password | default('')) }}"
           no_log: true
-          when: deployment_option != 'wsl2'
 
         - name: Check if existing password works
           uri:
@@ -376,14 +375,12 @@
           failed_when: false
           no_log: true
           when:
-            - deployment_option != 'wsl2'
             - existing_elastic_password | length > 0
             - lookup('file', cert_dir ~ '/http_ca.crt', errors='ignore') is not none
 
         - name: Determine if password reset is needed
           set_fact:
             password_reset_needed: "{{ true if (existing_elastic_password | length == 0 or auth_check is skipped or (auth_check.status is defined and auth_check.status != 200)) else false }}"
-          when: deployment_option != 'wsl2'
 
         - name: Initialize temporary credentials file if reset needed
           copy:
@@ -392,25 +389,19 @@
               {{ ansible_date_time.iso8601 | default('N/A') }}
             dest: "{{ temp_credentials_file }}"
             mode: "0600"
-          when:
-            - deployment_option != 'wsl2'
-            - password_reset_needed
+          when: password_reset_needed
 
         - name: Reset elastic user password if needed
           command: podman exec {{ container_name }} /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -a -f -b
           register: password_output
           no_log: true
-          when:
-            - deployment_option != 'wsl2'
-            - password_reset_needed
+          when: password_reset_needed
 
         - name: Parse and set new elastic password fact
           set_fact:
             elastic_password: "{{ password_output.stdout | regex_search('New value: (.*)', '\\1') | first | trim }}"
           no_log: true
-          when:
-            - deployment_option != 'wsl2'
-            - password_reset_needed
+          when: password_reset_needed
 
         - name: Save new elastic password to file
           lineinfile:
@@ -418,17 +409,13 @@
             line: "Elastic password set to: {{ elastic_password }}"
             create: yes
           no_log: true
-          when:
-            - deployment_option != 'wsl2'
-            - password_reset_needed
+          when: password_reset_needed
 
         - name: Set elastic password fact from existing password
           set_fact:
             elastic_password: "{{ existing_elastic_password }}"
           no_log: true
-          when:
-            - deployment_option != 'wsl2'
-            - not password_reset_needed
+          when: not password_reset_needed
 
     - name: "Step 7 - Copy SSL Certificate"
       block:
