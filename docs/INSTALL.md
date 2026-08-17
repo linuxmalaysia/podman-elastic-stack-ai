@@ -288,7 +288,7 @@ The scripts are licensed under the GNU GENERAL PUBLIC LICENSE Version 3.
 
 The scripts for setting up Elasticsearch and Kibana are available in the following Git repository:
 
-* [https://github.com/HarisfazillahJamel/podman-elastic-stack.git](https://github.com/HarisfazillahJamel/podman-elastic-stack.git)
+* [https://github.com/linuxmalaysia/podman-elastic-stack-ai.git](https://github.com/linuxmalaysia/podman-elastic-stack-ai.git)
 
 You can clone this repository to your local machine using the following steps:
 
@@ -303,21 +303,15 @@ You can clone this repository to your local machine using the following steps:
 3.  **Clone the repository:** Use the following `git clone` command:
 
     ```bash
-    git clone https://github.com/HarisfazillahJamel/podman-elastic-stack.git
-    ```
-    
-    or for podman for AI testing
-
-    ```bash
-    git clone https://github.com/linuxmalaysia/podman-elastic-stack.git
+    git clone https://github.com/linuxmalaysia/podman-elastic-stack-ai.git
     ```
 
-    This will create a directory named `podman-elastic-stack` in your current directory and download the repository files into it.
+    This will create a directory named `podman-elastic-stack-ai` in your current directory and download the repository files into it.
 
 4.  **Navigate to the repository:** Change to the newly created directory:
 
     ```bash
-    cd podman-elastic-stack
+    cd podman-elastic-stack-ai
     ```
 
 You can then find the `setup_elasticsearch.sh` and `setup_kibana.sh` scripts within this directory.

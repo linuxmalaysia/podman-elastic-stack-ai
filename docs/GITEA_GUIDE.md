@@ -19,10 +19,10 @@ To obtain the Ansible playbooks, setup scripts, and configurations, clone the gi
 
 ```bash
 # Clone the repository
-git clone https://github.com/HarisfazillahJamel/podman-elastic-stack.git
+git clone https://github.com/linuxmalaysia/podman-elastic-stack-ai.git
 
 # Navigate into the project directory
-cd podman-elastic-stack
+cd podman-elastic-stack-ai
 ```
 
 For more details on cloning and initial repository setups, see the [Git Repository guide in INSTALL.md](INSTALL.md#git-repository).

@@ -15,6 +15,7 @@ This repository automates the setup, testing, and deployment of Elasticsearch 9.
 - [ANSIBLE_PLAYBOOK_MAP.md](docs/ANSIBLE_PLAYBOOK_MAP.md): Master Playbook and Related Documents Map mapping our stack playbooks to their core roles and respective guide chapters.
 - [SOP_KNOWLEDGE_FIRST_DISCOVERY.md](docs/SOP_KNOWLEDGE_FIRST_DISCOVERY.md): Local Knowledge-First Discovery and Context Preservation Protocol detailing frontmatter requirements and metadata search flows.
 - [WSL-3NODE-CLUSTER-GUIDE.md](docs/WSL-3NODE-CLUSTER-GUIDE.md): Step-by-step guide to run a fully functional 3-Node Elasticsearch Cluster + Kibana configuration on Windows Subsystem for Linux (WSL2) using Podman.
+- [USER_TESTING_FEEDBACK_REVIEW.md](docs/USER_TESTING_FEEDBACK_REVIEW.md): Review and technical analysis of user testing findings report on WSL2 notebook deployment.
 - [GITEA_GUIDE.md](docs/GITEA_GUIDE.md): Sovereign Gitea Deployment and Security Operations Guide.
 - [SEMAPHORE_GUIDE.md](docs/SEMAPHORE_GUIDE.md): Sovereign SemaphoreUI Deployment & Operations Guide.
 - [REFERENCE_TUNING.md](docs/REFERENCE_TUNING.md): Compilation of reference tuning URLs and WSL2/kernel optimization parameters.
