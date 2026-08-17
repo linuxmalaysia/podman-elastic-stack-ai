@@ -61,9 +61,16 @@
 
 - name: "Part C - CPU and Memory Calculation suitable for host system"
   block:
+    - name: Query Windows host hardware parameters via PowerShell if available
+      shell: |
+        powershell.exe -NoProfile -Command "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory"
+      register: win_mem_query
+      changed_when: false
+      failed_when: false
+
     - name: Calculate WSL processors and memory
       set_fact:
-        wsl_processors: "{{ ansible_processor_vcpus | default(8) }}"
+        wsl_processors: "{{ wsl_host_cpus | default(ansible_processor_vcpus | default(8)) }}"
         wsl_memory_gb: >-
           {% set ram_mb = ansible_memtotal_mb | default(16384) | int %}
           {% if ram_mb <= 16384 %}
@@ -82,7 +89,6 @@
         state: directory
         mode: "0755"
       become: true
-      failed_when: false
 
     - name: Save tuned .wslconfig in persistence directory
       copy:
@@ -92,7 +98,7 @@
           memory={{ wsl_memory_gb }}GB
           processors={{ wsl_processors }}
           swap=16GB
-          networkingMode=mirrored
+          networkingMode=nat
           dnsTunneling=true
           autoProxy=true
 
@@ -101,7 +107,7 @@
           sparseVhd=true
         dest: "/opt/dsom-persistence/wsl2_tuned.wslconfig"
         mode: "0644"
-      failed_when: false
+      become: true
 
     - name: Discover Windows user profiles
       command: find /mnt/c/Users -mindepth 1 -maxdepth 1 -type d ! -name "Public" ! -name "Default" ! -name "Default User" ! -name "All Users"
@@ -117,7 +123,7 @@
           memory={{ wsl_memory_gb }}GB
           processors={{ wsl_processors }}
           swap=16GB
-          networkingMode=mirrored
+          networkingMode=nat
           dnsTunneling=true
           autoProxy=true
 
@@ -127,6 +133,27 @@
         dest: "{{ item }}/.wslconfig.recommended"
         mode: "0644"
       loop: "{{ windows_users.stdout_lines | default([]) }}"
+      ignore_errors: true
+
+    - name: Write active .wslconfig only when explicit opt-in is enabled
+      copy:
+        content: |
+          # WSL2 Active Performance Tuning Configuration
+          [wsl2]
+          memory={{ wsl_memory_gb }}GB
+          processors={{ wsl_processors }}
+          swap=16GB
+          networkingMode=nat
+          dnsTunneling=true
+          autoProxy=true
+
+          [experimental]
+          autoMemoryReclaim=gradual
+          sparseVhd=true
+        dest: "{{ item }}/.wslconfig"
+        mode: "0644"
+      loop: "{{ windows_users.stdout_lines | default([]) }}"
+      when: wsl_install_active_config | default(false) | bool
       ignore_errors: true
 
 - name: "Part D - Adopt /etc/wsl.conf optimizations inside WSL"

@@ -20,6 +20,7 @@ calculations, .wslconfig and /etc/wsl.conf generation, kernel limits tuning
 import argparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -30,74 +31,78 @@ except ImportError:
     psutil = None
 
 
-def get_host_hardware():
+def is_wsl_environment():
     """
-    Determine the host's available physical memory and logical CPU count.
-    
-    Returns:
-        tuple[int, int]: Host memory in GiB and logical CPU count.
+    Checks if the script is running inside a valid WSL environment.
     """
-    host_ram_gb = 16
-    host_cpus = os.cpu_count() or 8
+    if Path("/proc/sys/fs/binfmt_misc/WSLInterop").exists() or Path("/run/WSL").exists():
+        return True
+    os_release = Path("/proc/version")
+    if os_release.exists() and "microsoft" in os_release.read_text().lower():
+        return True
+    return False
+
+
+def get_host_hardware(explicit_ram=None, explicit_cpus=None):
+    """
+    Queries host Windows 11 physical memory (in GB) and logical CPUs.
+    Uses explicit CLI parameters or PowerShell query via interop.
+    Does NOT fall back to /proc/meminfo or container limits as host physical RAM.
+    """
+    if explicit_ram and explicit_cpus:
+        return explicit_ram, explicit_cpus
+
+    host_ram_gb = explicit_ram
+    host_cpus = explicit_cpus
 
     # Attempt PowerShell query if running inside WSL with /mnt/c access
     powershell_bin = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
     if os.path.exists(powershell_bin):
         try:
-            mem_cmd = [
-                powershell_bin,
-                "-NoProfile",
-                "-Command",
-                "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory",
-            ]
-            res_mem = subprocess.run(
-                mem_cmd, capture_output=True, text=True, timeout=5
-            )
-            if res_mem.returncode == 0 and res_mem.stdout.strip().isdigit():
-                bytes_mem = int(res_mem.stdout.strip())
-                host_ram_gb = round(bytes_mem / (1024**3))
+            if not host_ram_gb:
+                mem_cmd = [
+                    powershell_bin,
+                    "-NoProfile",
+                    "-Command",
+                    "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory",
+                ]
+                res_mem = subprocess.run(
+                    mem_cmd, capture_output=True, text=True, timeout=5
+                )
+                if res_mem.returncode == 0 and res_mem.stdout.strip().isdigit():
+                    bytes_mem = int(res_mem.stdout.strip())
+                    host_ram_gb = round(bytes_mem / (1024**3))
 
-            cpu_cmd = [
-                powershell_bin,
-                "-NoProfile",
-                "-Command",
-                "(Get-CimInstance Win32_Processor).NumberOfLogicalProcessors",
-            ]
-            res_cpu = subprocess.run(
-                cpu_cmd, capture_output=True, text=True, timeout=5
-            )
-            if res_cpu.returncode == 0 and res_cpu.stdout.strip().isdigit():
-                host_cpus = int(res_cpu.stdout.strip())
-            return host_ram_gb, host_cpus
+            if not host_cpus:
+                cpu_cmd = [
+                    powershell_bin,
+                    "-NoProfile",
+                    "-Command",
+                    "(Get-CimInstance Win32_Processor).NumberOfLogicalProcessors",
+                ]
+                res_cpu = subprocess.run(
+                    cpu_cmd, capture_output=True, text=True, timeout=5
+                )
+                if res_cpu.returncode == 0 and res_cpu.stdout.strip().isdigit():
+                    host_cpus = int(res_cpu.stdout.strip())
         except Exception:
             pass
 
-    # Fallback to psutil or /proc/meminfo
-    if psutil:
-        total_bytes = psutil.virtual_memory().total
-        host_ram_gb = round(total_bytes / (1024**3))
-    elif os.path.exists("/proc/meminfo"):
-        with open("/proc/meminfo", "r") as f:
-            for line in f:
-                if line.startswith("MemTotal:"):
-                    parts = line.split()
-                    kb = int(parts[1])
-                    host_ram_gb = round(kb / (1024 * 1024))
-                    break
+    # If host physical metrics could not be queried via PowerShell and not provided explicitly
+    if not host_ram_gb or not host_cpus:
+        if not host_ram_gb:
+            print("  [!] Notice: Windows host RAM could not be queried via PowerShell interop.")
+            print("      Defaulting host physical RAM estimate to 16 GB (or pass --host-ram-gb).")
+            host_ram_gb = 16
+        if not host_cpus:
+            host_cpus = os.cpu_count() or 8
 
     return host_ram_gb, host_cpus
 
 
 def calculate_wsl_memory(host_ram_gb):
     """
-    Calculate a WSL2 memory allocation from the host's available RAM.
-    
-    Parameters:
-        host_ram_gb: Host physical memory in gigabytes.
-    
-    Returns:
-        A memory allocation in gigabytes, capped at 2 GB below host RAM and
-        constrained to at least 1 GB.
+    Calculates optimal WSL2 memory allocation based on host Windows 11 RAM tiers.
     """
     if host_ram_gb <= 16:
         wsl_mem = 10
@@ -117,10 +122,7 @@ def calculate_wsl_memory(host_ram_gb):
 
 def detect_distro():
     """
-    Identify the active Linux distribution family and display name.
-    
-    Returns:
-        tuple[str, str]: A normalized distribution family and its display name.
+    Detects the active Linux distribution (e.g., AlmaLinux 10, Ubuntu 26.04 LTS).
     """
     os_release = Path("/etc/os-release")
     if not os_release.exists():
@@ -146,15 +148,7 @@ def detect_distro():
 
 def generate_wslconfig(wsl_mem_gb, wsl_cpus, networking_mode="nat"):
     """
-    Generate WSL2 configuration content for AI workload tuning.
-    
-    Parameters:
-    	wsl_mem_gb: Memory allocation in gigabytes.
-    	wsl_cpus: Number of processors allocated to WSL2.
-    	networking_mode: WSL2 networking mode.
-    
-    Returns:
-    	str: Generated `.wslconfig` content.
+    Generates optimized .wslconfig content.
     """
     content = f"""# WSL2 AI Performance & Security Tuning (.wslconfig)
 # Generated automatically by scripts/wsl2_ai_tuning.py
@@ -204,10 +198,7 @@ useWindowsTimezone=true
 
 def check_security():
     """
-    Audit API-key environment variables, Claude settings, and shell configuration file permissions.
-    
-    Returns:
-    	list[str]: Findings about API-key presence, potential plaintext Claude keys, settings read errors, and shell configuration file permissions.
+    Performs security audits on API keys and configuration permissions.
     """
     findings = []
     keys = ["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY"]
@@ -251,13 +242,7 @@ def check_security():
 
 def get_sysctl_val(param):
     """
-    Read an integer-valued kernel parameter from sysctl.
-    
-    Parameters:
-        param: The sysctl parameter name to read.
-    
-    Returns:
-        The parameter value, or 0 if it cannot be read or parsed.
+    Reads sysctl parameter value.
     """
     try:
         res = subprocess.run(
@@ -271,20 +256,14 @@ def get_sysctl_val(param):
         return 0
 
 
-def apply_tuning(wsl_mem_gb, wsl_cpus, networking_mode, distro_family):
+def apply_tuning(wsl_mem_gb, wsl_cpus, networking_mode, distro_family, install_active_wslconfig=False):
     """
-    Apply WSL2 kernel, file-limit, distribution, and user-profile configuration.
-    
-    Parameters:
-        wsl_mem_gb: WSL memory allocation in gigabytes.
-        wsl_cpus: Number of CPUs allocated to WSL.
-        networking_mode: Networking mode for the generated WSL configuration.
-        distro_family: Distribution family associated with the WSL environment.
-    
-    Notes:
-        Root privileges are required for system-level changes. Individual failures are
-        reported while processing continues where possible.
+    Applies sysctl, /etc/wsl.conf, limits.conf, and .wslconfig files.
     """
+    if not is_wsl_environment():
+        print("\n  [!] ERROR: Not running inside a WSL environment. Aborting apply_tuning to protect host files.")
+        sys.exit(1)
+
     print("\n--- Applying System Tuning ---")
 
     # 1. Sysctl
@@ -317,10 +296,14 @@ vm.max_map_count=262144
         except Exception as e:
             print(f"  [-] Failed modifying limits.conf: {e}")
 
-    # 3. /etc/wsl.conf
+    # 3. /etc/wsl.conf (preserving existing file via backup if present)
     wsl_conf = Path("/etc/wsl.conf")
     if os.geteuid() == 0:
         try:
+            if wsl_conf.exists():
+                backup_path = Path("/etc/wsl.conf.bak")
+                shutil.copy(wsl_conf, backup_path)
+                print(f"  [+] Existing /etc/wsl.conf backed up to {backup_path}")
             wsl_conf.write_text(generate_wsl_conf())
             print("  [+] /etc/wsl.conf updated with systemd, GPU, and automount settings.")
         except Exception as e:
@@ -339,6 +322,9 @@ vm.max_map_count=262144
 
     # Write to Windows Users profiles if mounted
     users_dir = Path("/mnt/c/Users")
+    recommendation_created = False
+    active_installed = False
+
     if users_dir.exists():
         for user_folder in users_dir.iterdir():
             if (
@@ -346,19 +332,32 @@ vm.max_map_count=262144
                 and user_folder.name
                 not in ["Public", "Default", "Default User", "All Users"]
             ):
-                target = user_folder / ".wslconfig.recommended"
+                rec_target = user_folder / ".wslconfig.recommended"
                 try:
-                    target.write_text(wslconfig_text)
-                    print(f"  [+] Recommended .wslconfig generated: {target}")
+                    rec_target.write_text(wslconfig_text)
+                    print(f"  [+] Recommended .wslconfig generated: {rec_target}")
+                    recommendation_created = True
                 except Exception:
                     pass
 
+                if install_active_wslconfig:
+                    active_target = user_folder / ".wslconfig"
+                    try:
+                        if active_target.exists():
+                            shutil.copy(active_target, user_folder / ".wslconfig.bak")
+                            print(f"  [+] Backup of active .wslconfig saved: {user_folder / '.wslconfig.bak'}")
+                        active_target.write_text(wslconfig_text)
+                        print(f"  [+] Active .wslconfig explicitly installed: {active_target}")
+                        active_installed = True
+                    except Exception as e:
+                        print(f"  [-] Could not write active .wslconfig to {active_target}: {e}")
+
+    if recommendation_created and not active_installed:
+        print("\n  [!] Notice: Recommendation file .wslconfig.recommended created.")
+        print("      To make it active, copy it to %UserProfile%\\.wslconfig in Windows, or pass --install-active-wslconfig.")
+
 
 def main():
-    """Run the WSL2 performance and security audit, optionally applying tuning changes.
-    
-    Command-line options select audit or apply mode, networking mode, and target distribution family. Audit mode is used when neither action is specified.
-    """
     parser = argparse.ArgumentParser(
         description="WSL2 AI Performance & Security Tuning Script"
     )
@@ -384,6 +383,21 @@ def main():
         default="auto",
         help="Specify target distro family (default: auto-detect).",
     )
+    parser.add_argument(
+        "--host-ram-gb",
+        type=int,
+        help="Explicitly specify Windows host physical RAM in GB.",
+    )
+    parser.add_argument(
+        "--host-cpus",
+        type=int,
+        help="Explicitly specify Windows host logical CPU thread count.",
+    )
+    parser.add_argument(
+        "--install-active-wslconfig",
+        action="store_true",
+        help="Explicitly write .wslconfig as the active configuration in Windows User Profile (with backup).",
+    )
 
     args = parser.parse_args()
 
@@ -391,7 +405,7 @@ def main():
     if not args.check and not args.apply:
         args.check = True
 
-    host_ram_gb, host_cpus = get_host_hardware()
+    host_ram_gb, host_cpus = get_host_hardware(args.host_ram_gb, args.host_cpus)
     wsl_mem_gb = calculate_wsl_memory(host_ram_gb)
     detected_family, pretty_name = detect_distro()
     target_family = detected_family if args.distro == "auto" else args.distro
@@ -431,7 +445,7 @@ def main():
             print(finding)
 
     if args.apply:
-        apply_tuning(wsl_mem_gb, host_cpus, args.mode, target_family)
+        apply_tuning(wsl_mem_gb, host_cpus, args.mode, target_family, args.install_active_wslconfig)
         print("\n==========================================================")
         print("  TUNING COMPLETE.")
         print("  To activate .wslconfig and /etc/wsl.conf changes, run:")

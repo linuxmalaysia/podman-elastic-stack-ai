@@ -153,7 +153,7 @@ teardown() {
 
 @test "wsl_tuning.yml Part C computes wsl_processors from ansible_processor_vcpus with a default of 8" {
   grep -qF '"Part C - CPU and Memory Calculation suitable for host system"' "${WSL_TUNING_TASK}"
-  grep -qF 'wsl_processors: "{{ ansible_processor_vcpus | default(8) }}"' "${WSL_TUNING_TASK}"
+  grep -qF 'wsl_processors: "{{ wsl_host_cpus | default(ansible_processor_vcpus | default(8)) }}"' "${WSL_TUNING_TASK}"
 }
 
 @test "wsl_tuning.yml Part C's wsl_memory_gb tiers use the documented RAM thresholds and GB values" {
@@ -172,18 +172,17 @@ teardown() {
   grep -qF 'memory={{ wsl_memory_gb }}GB' "${WSL_TUNING_TASK}"
   grep -qF 'processors={{ wsl_processors }}' "${WSL_TUNING_TASK}"
   grep -qF 'swap=16GB' "${WSL_TUNING_TASK}"
-  grep -qF 'networkingMode=mirrored' "${WSL_TUNING_TASK}"
+  grep -qF 'networkingMode=nat' "${WSL_TUNING_TASK}"
   grep -qF 'dnsTunneling=true' "${WSL_TUNING_TASK}"
   grep -qF 'autoProxy=true' "${WSL_TUNING_TASK}"
   grep -qF 'autoMemoryReclaim=gradual' "${WSL_TUNING_TASK}"
   grep -qF 'sparseVhd=true' "${WSL_TUNING_TASK}"
 }
 
-@test "wsl_tuning.yml Part C persists the tuned .wslconfig under /opt/dsom-persistence without failing the play" {
+@test "wsl_tuning.yml Part C persists the tuned .wslconfig under /opt/dsom-persistence using become: true" {
   grep -qF 'path: "/opt/dsom-persistence"' "${WSL_TUNING_TASK}"
   grep -qF 'dest: "/opt/dsom-persistence/wsl2_tuned.wslconfig"' "${WSL_TUNING_TASK}"
-  # Best-effort persistence: must not abort the whole playbook if it fails.
-  grep -A6 -F 'dest: "/opt/dsom-persistence/wsl2_tuned.wslconfig"' "${WSL_TUNING_TASK}" | grep -qF 'failed_when: false'
+  grep -A6 -F 'dest: "/opt/dsom-persistence/wsl2_tuned.wslconfig"' "${WSL_TUNING_TASK}" | grep -qF 'become: true'
 }
 
 @test "wsl_tuning.yml Part C discovers Windows user profile directories, excluding shared/system profiles" {
