@@ -207,8 +207,7 @@ def check_security():
     Audit API-key environment variables, Claude settings, and shell configuration file permissions.
     
     Returns:
-        list[str]: Security findings for API-key presence, potential plaintext Claude keys,
-            configuration read errors, and sensitive file permissions.
+    	list[str]: Findings about API-key presence, potential plaintext Claude keys, settings read errors, and shell configuration file permissions.
     """
     findings = []
     keys = ["ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OPENAI_API_KEY"]
@@ -279,11 +278,12 @@ def apply_tuning(wsl_mem_gb, wsl_cpus, networking_mode, distro_family):
     Parameters:
         wsl_mem_gb: WSL memory allocation in gigabytes.
         wsl_cpus: Number of CPUs allocated to WSL.
-        networking_mode: WSL networking mode used in the generated configuration.
+        networking_mode: Networking mode for the generated WSL configuration.
+        distro_family: Distribution family associated with the WSL environment.
     
     Notes:
-        Root privileges are required for system-level changes. Failures are reported
-        and processing continues where possible.
+        Root privileges are required for system-level changes. Individual failures are
+        reported while processing continues where possible.
     """
     print("\n--- Applying System Tuning ---")
 
