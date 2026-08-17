@@ -1,9 +1,15 @@
 #!/bin/bash
 
 # --- Configuration ---
-USERNAME="testuser"
-#PASSWORD="SecurePassword!@#$" # Example password with special characters
-PASSWORD="aOko4p1c-cL10OkJtJ_s"
+USERNAME="${USERNAME:-testuser}"
+PASSWORD="${PASSWORD:-}"
+
+if [ -z "$PASSWORD" ]; then
+  echo "Error: PASSWORD environment variable is not set."
+  echo "Usage: PASSWORD='your_password' USERNAME='testuser' $0"
+  exit 1
+fi
+
 TEST_URL="https://httpbin.org/basic-auth/$USERNAME/$PASSWORD"
 
 # --- Encode Credentials ---
