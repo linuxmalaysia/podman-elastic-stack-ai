@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 # File: test-scripts/security_credentials.bats
-# Description: Verifies that hardcoded passwords have been removed from playbooks and test scripts.
+# setup determines the repository root directory from the Bats test file location.
 
 setup() {
   REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
