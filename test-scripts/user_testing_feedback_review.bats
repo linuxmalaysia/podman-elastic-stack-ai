@@ -128,8 +128,8 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   [ "${url_line}" -lt "${rec4_line}" ]
 }
 
-@test "USER_TESTING_FEEDBACK_REVIEW.md's conclusion summarizes that all nine issues were addressed" {
-  grep -qF -- 'All nine identified issues have been analyzed, addressed, and incorporated' "${DOC}"
+@test "USER_TESTING_FEEDBACK_REVIEW.md's conclusion summarizes that all nine issues were documented or mitigated" {
+  grep -qF -- 'All nine identified issues have been analyzed, documented or mitigated' "${DOC}"
 }
 
 @test "USER_TESTING_FEEDBACK_REVIEW.md is not wrapped in Jekyll {% raw %}/{% endraw %} tags" {
