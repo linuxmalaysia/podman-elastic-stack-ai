@@ -184,7 +184,7 @@
                 elastic:
                   driver: bridge
             dest: "{{ elk_dir }}/podman-compose.yml"
-            mode: "0644"
+            mode: "0600"
           when: deployment_option != 'wsl2'
 
         - name: Check if credentials file already exists
@@ -207,6 +207,8 @@
 
         - name: Create podman-compose.yml for Elasticsearch (WSL 3-Node Cluster)
           copy:
+            dest: "{{ elk_dir }}/podman-compose.yml"
+            mode: "0600"
             content: |
               version: '3.8'
               services:
@@ -329,8 +331,7 @@
                 elastic:
                   name: {{ network_name }}
                   driver: bridge
-            dest: "{{ elk_dir }}/podman-compose.yml"
-            mode: "0644"
+          no_log: true
           when: deployment_option == 'wsl2'
 
         - name: Start Elasticsearch service

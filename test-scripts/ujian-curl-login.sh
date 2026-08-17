@@ -10,7 +10,23 @@ if [ -z "$PASSWORD" ]; then
   exit 1
 fi
 
-TEST_URL="https://httpbin.org/basic-auth/$USERNAME/$PASSWORD"
+urlencode() {
+  local string="${1}"
+  local length="${#string}"
+  local i char
+  for (( i = 0; i < length; i++ )); do
+    char="${string:i:1}"
+    case "${char}" in
+      [a-zA-Z0-9.~_-]) printf "%s" "${char}" ;;
+      *) printf "%%%02X" "'${char}" ;;
+    esac
+  done
+}
+
+ENCODED_USER=$(urlencode "$USERNAME")
+ENCODED_PASS=$(urlencode "$PASSWORD")
+
+TEST_URL="https://httpbin.org/basic-auth/$ENCODED_USER/$ENCODED_PASS"
 
 # --- Encode Credentials ---
 CREDENTIALS="${USERNAME}:${PASSWORD}"
