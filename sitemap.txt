@@ -12,6 +12,7 @@ https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/WSL2_AI_PERFORMANCE
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/USER_TESTING_FEEDBACK_REVIEW/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/REFERENCE_TUNING/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/legal-notice/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/PODMAN_INSTALL_TUNING/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/PODMAN_ROOTLESS/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_FQCN/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_ADOPTION_REVIEW/

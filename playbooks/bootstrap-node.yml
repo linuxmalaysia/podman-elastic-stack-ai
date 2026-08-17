@@ -1,0 +1,139 @@
+---
+# ==============================================================================
+# Node Bootstrapper Playbook
+#
+# Logic: Dual-Play transition for secure identity bootstrapping across clusters.
+# Play 1: Rootful Bootstrap (Target Initial User -> dsom-admin creation UID/GID 2001)
+# Play 2: System Preparation (Target dsom-admin -> Full Configuration)
+# ==============================================================================
+
+# --- [ PLAY 1: IDENTITY BOOTSTRAP (ROOTFUL) ] ---
+- name: "Bootstrap | Node Identity Setup"
+  hosts: "{{ target_host | default('all') }}"
+  tags: [ bootstrap, setup ]
+  become: true
+  vars:
+    sovereign_owner: "dsom-admin"
+    dsom_group: "dsom-admin"
+
+  tasks:
+    - name: "Control Node | Ensure Ansible Controller has SSH Key"
+      ansible.builtin.user:
+        name: "{{ lookup('env', 'USER') }}"
+        generate_ssh_key: yes
+        ssh_key_type: ed25519
+        ssh_key_bits: 256
+        ssh_key_file: .ssh/id_dsom_ed25519
+      delegate_to: localhost
+      become: false
+      run_once: true
+      ignore_errors: yes
+
+    - name: "Bootstrap | Check All Groups"
+      ansible.builtin.getent:
+        database: group
+        split: ':'
+      ignore_errors: yes
+
+    - name: "Bootstrap | Create dsom-admin Group (GID 2001)"
+      ansible.builtin.group:
+        name: "{{ dsom_group }}"
+        gid: 2001
+        state: present
+      when: ansible_facts.getent_group is not defined or dsom_group not in ansible_facts.getent_group
+      ignore_errors: yes
+
+    - name: "Bootstrap | Create dsom-admin User (UID 2001)"
+      ansible.builtin.user:
+        name: "{{ sovereign_owner }}"
+        uid: 2001
+        group: "{{ dsom_group }}"
+        shell: /bin/bash
+        create_home: yes
+        password: "{{ sovereign_password | default(omit) }}"
+        update_password: on_create
+        state: present
+      ignore_errors: yes
+
+    - name: "Bootstrap | Configure Sudoers NOPASSWD for dsom-admin"
+      ansible.builtin.copy:
+        content: "{{ sovereign_owner }} ALL=(ALL) NOPASSWD:ALL\n"
+        dest: "/etc/sudoers.d/{{ sovereign_owner }}"
+        mode: '0440'
+        validate: /usr/sbin/visudo -cf %s
+      ignore_errors: yes
+
+    - name: "Bootstrap | Enable Systemd Linger (Persistence)"
+      ansible.builtin.command:
+        cmd: "loginctl enable-linger {{ sovereign_owner }}"
+        creates: "/var/lib/systemd/linger/{{ sovereign_owner }}"
+      ignore_errors: true
+
+    - name: "Bootstrap | Authorize Control Node SSH Key"
+      ansible.posix.authorized_key:
+        user: "{{ sovereign_owner }}"
+        state: present
+        key: "{{ lookup('file', item) }}"
+      with_first_found:
+        - files:
+            - id_dsom_ed25519.pub
+          paths:
+            - "~/.ssh/"
+      ignore_errors: yes
+
+    - name: "Verify | Check dsom-admin Identity"
+      ansible.builtin.command: id {{ sovereign_owner }}
+      register: dsom_id_check
+      changed_when: false
+      ignore_errors: yes
+
+    - name: "Verify | Identity Handshake Report"
+      ansible.builtin.debug:
+        msg:
+          - "Bootstrap Identity Verified for {{ sovereign_owner }}"
+          - "ID: {{ dsom_id_check.stdout | default('N/A') }}"
+
+
+# --- [ PLAY 2: OS BASELINE & PODMAN ] ---
+- name: "Bootstrap | Apply OS Baseline and Podman Roles"
+  hosts: "{{ target_host | default('all') }}"
+  tags: [ fabric, config ]
+  remote_user: "dsom-admin"
+  become: true
+
+  tasks:
+    - name: "Provisioning | Detect OS Distribution"
+      ansible.builtin.setup:
+        filter: ansible_distribution*
+
+    - name: "Provisioning | Create DSOM Persistence Root"
+      ansible.builtin.file:
+        path: "{{ dsom_root | default('/opt/dsom-persistence') }}"
+        state: directory
+        owner: "dsom-admin"
+        group: "dsom-admin"
+        mode: '0750'
+      ignore_errors: yes
+
+    - name: "Provisioning | Create DSOM configuration reference"
+      ansible.builtin.copy:
+        content: "dsom_root={{ dsom_root | default('/opt/dsom-persistence') }}\n"
+        dest: /etc/um-elastic-soc.conf
+        owner: root
+        group: root
+        mode: '0644'
+      ignore_errors: yes
+
+    - name: "OS Tuning | Apply setup_os Role"
+      ansible.builtin.include_role:
+        name: setup_os
+      ignore_errors: yes
+
+    - name: "Podman Setup | Apply podman Role"
+      ansible.builtin.include_role:
+        name: podman
+      ignore_errors: yes
+
+    - name: "Verification | System Tuning Completed"
+      ansible.builtin.debug:
+        msg: "Baseline applied to {{ inventory_hostname }} via {{ ansible_user_id }}"

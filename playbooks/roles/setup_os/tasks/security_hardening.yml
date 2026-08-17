@@ -1,0 +1,278 @@
+---
+# --- [ PHASE 4: INFRASTRUCTURE MANAGEMENT ] ---
+
+- name: "Management | Install Management Toolchain"
+  ansible.builtin.package:
+    name:
+      - "etckeeper"
+      - "chrony"
+      - "sysstat"
+      - "rsyslog"
+      - "{{ 'acct' if ansible_facts['os_family'] == 'Debian' else 'psacct' }}"
+      - "fail2ban"
+    state: present
+
+- name: "Management | Configure etckeeper Git Identity"
+  ansible.builtin.git_config:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    scope: global
+  loop:
+    - { name: 'user.email', value: 'dsom-admin@localhost' }
+    - { name: 'user.name', value: 'Podman Elastic Stack AI' }
+  become: true
+  failed_when: false
+
+- name: "Management | Set Timezone to Asia/Kuala_Lumpur"
+  community.general.timezone:
+    name: "Asia/Kuala_Lumpur"
+  failed_when: false
+
+- name: "Management | Configure Chrony (NTP Anchors)"
+  ansible.builtin.blockinfile:
+    path: /etc/chrony/chrony.conf
+    marker: "# {mark} ANSIBLE MANAGED NTP ANCHORS"
+    insertafter: '^pool '
+    block: |
+      server ntp1.sirim.my iburst prefer
+      server ntp2.sirim.my iburst
+      server time.unisza.edu.my iburst
+      server time1.google.com iburst
+      server time2.google.com iburst
+      server time3.google.com iburst
+      server time4.google.com iburst
+  notify: Restart Chrony
+  failed_when: false
+
+- name: "Management | Enable Sysstat Monitoring (Ubuntu)"
+  ansible.builtin.lineinfile:
+    path: /etc/default/sysstat
+    regexp: '^ENABLED='
+    line: 'ENABLED="true"'
+  when: ansible_facts['distribution'] | default('') == "Ubuntu"
+  notify: Restart Sysstat
+  failed_when: false
+
+- name: "Management | Configure Rsyslog High Precision Timestamps"
+  ansible.builtin.replace:
+    path: /etc/rsyslog.conf
+    regexp: '^(\$ActionFileDefaultTemplate)'
+    replace: '#$ActionFileDefaultTemplate'
+  notify: Restart Rsyslog
+  failed_when: false
+
+- name: "Management | Configure Fail2Ban (jail.local)"
+  ansible.builtin.copy:
+    src: /etc/fail2ban/jail.conf
+    dest: /etc/fail2ban/jail.local
+    remote_src: yes
+    force: no
+  notify: Restart Fail2Ban
+  failed_when: false
+
+# --- [ PHASE 4.1: AUTOMATED UPDATES ] ---
+
+- name: "Security | Install Automated Update Tools"
+  ansible.builtin.package:
+    name: "{{ 'unattended-upgrades' if ansible_facts['os_family'] == 'Debian' else 'dnf-automatic' }}"
+    state: present
+
+- name: "Security | Configure Automated Upgrades (Ubuntu)"
+  ansible.builtin.copy:
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Download-Upgradeable-Packages "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: '0644'
+  when: ansible_facts['distribution'] | default('') == "Ubuntu"
+  notify: Restart Unattended-Upgrades
+
+- name: "Security | Configure dnf-automatic (RHEL)"
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/automatic.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^upgrade_type =', line: 'upgrade_type = security' }
+    - { regexp: '^apply_updates =', line: 'apply_updates = yes' }
+  when: ansible_facts['os_family'] == "RedHat"
+
+- name: "Security | Enable Automated Update Services"
+  ansible.builtin.service:
+    name: "{{ 'unattended-upgrades' if ansible_facts['os_family'] == 'Debian' else 'dnf-automatic.timer' }}"
+    state: started
+    enabled: yes
+  failed_when: false
+
+# --- [ PHASE 4.2: SECURITY AUDIT & INTRUSION DETECTION ] ---
+
+- name: "Security | Install Audit Toolchain"
+  ansible.builtin.package:
+    name:
+      - "rkhunter"
+      - "lynis"
+      - "aide"
+    state: present
+  failed_when: false
+
+- name: "Security | Configure RKHunter (Standardized)"
+  ansible.builtin.copy:
+    content: |
+      # DSOM Sovereign RKHunter Baseline
+      UPDATE_MIRRORS=0
+      MIRRORS_MODE=0
+      ENABLE_TESTS=ALL
+      WEB_CMD=""
+    dest: /etc/rkhunter.conf.local
+    mode: '0644'
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: "Security | Enable RKHunter Daily Cron (Ubuntu)"
+  ansible.builtin.lineinfile:
+    path: /etc/default/rkhunter
+    regexp: '^CRON_DAILY_RUN='
+    line: 'CRON_DAILY_RUN="true"'
+  when: ansible_facts['distribution'] | default('') == "Ubuntu"
+
+- name: "Security | Deploy Sovereign Lynis Profile"
+  ansible.builtin.copy:
+    content: |
+      # DSOM Sovereign Lynis Profile
+      show_tool_tips=no
+    dest: /etc/lynis/custom.prf
+    mode: '0644'
+
+- name: "Security | Schedule Lynis Daily Audit"
+  ansible.builtin.cron:
+    name: "Lynis Daily Audit"
+    minute: "32"
+    hour: "3"
+    user: root
+    job: "/usr/sbin/lynis audit system --profile /etc/lynis/custom.prf --cronjob"
+  failed_when: false
+
+# --- [ PHASE 4.3: EXTENDED HARDENING ] ---
+
+- name: "Hardening | Install Auditd"
+  ansible.builtin.package:
+    name: "auditd"
+    state: present
+  failed_when: false
+
+- name: "Security | Install APT Hardening Tools (Debian)"
+  ansible.builtin.apt:
+    name:
+      - apt-listchanges
+      - apt-show-versions
+    state: present
+  when: ansible_facts['os_family'] == "Debian"
+  failed_when: false
+
+- name: "Security | Configure Auditd Baseline Rules"
+  ansible.builtin.copy:
+    content: |
+      -w /etc/passwd -p wa -k identity
+      -w /etc/group -p wa -k identity
+      -w /etc/shadow -p wa -k identity
+      -w /etc/sudoers -p wa -k actions
+    dest: /etc/audit/rules.d/dsom-baseline.rules
+    mode: '0640'
+  notify: Reload Auditd Rules
+  failed_when: false
+
+- name: "Hardening | Deploy Legal Banners"
+  ansible.builtin.copy:
+    content: |
+      *************************************************************************
+      *                         DSOM SOVEREIGN FABRIC                         *
+      *                 UNAUTHORIZED ACCESS IS PROHIBITED                     *
+      *************************************************************************
+    dest: "{{ item }}"
+    mode: '0644'
+  loop:
+    - /etc/issue
+    - /etc/issue.net
+
+- name: "Hardening | Lockdown SSH Configuration"
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: present
+    validate: '/usr/sbin/sshd -t -f %s'
+  loop:
+    - { regexp: '^#?AllowTcpForwarding', line: 'AllowTcpForwarding no' }
+    - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
+    - { regexp: '^#?MaxSessions', line: 'MaxSessions 2' }
+    - { regexp: '^#?LogLevel', line: 'LogLevel VERBOSE' }
+    - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax 2' }
+    - { regexp: '^#?TCPKeepAlive', line: 'TCPKeepAlive no' }
+    - { regexp: '^#?X11Forwarding', line: 'X11Forwarding no' }
+    - { regexp: '^#?AllowAgentForwarding', line: 'AllowAgentForwarding no' }
+  notify: restart ssh
+  failed_when: false
+
+- name: "Hardening | Check Compiler Existence"
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - /usr/bin/as
+    - /usr/bin/gcc
+    - /usr/bin/g++
+    - /usr/bin/make
+  register: compiler_stats
+
+- name: "Hardening | Restrict Compiler Access (Root-Only)"
+  ansible.builtin.file:
+    path: "{{ item.item }}"
+    mode: '0700'
+    owner: root
+    group: root
+  loop: "{{ compiler_stats.results | default([]) }}"
+  when: item.stat.exists | default(false)
+  failed_when: false
+
+- name: "Hardening | Identity Protection (UMASK & Hashing)"
+  ansible.builtin.lineinfile:
+    path: /etc/login.defs
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^UMASK', line: 'UMASK 027' }
+    - { regexp: '^SHA_CRYPT_MIN_ROUNDS', line: 'SHA_CRYPT_MIN_ROUNDS 50000' }
+    - { regexp: '^SHA_CRYPT_MAX_ROUNDS', line: 'SHA_CRYPT_MAX_ROUNDS 50000' }
+
+- name: "Hardening | Disable Core Dumps (limits.conf)"
+  ansible.builtin.lineinfile:
+    path: /etc/security/limits.conf
+    regexp: '^\*.*hard.*core'
+    line: '* hard core 0'
+    state: present
+
+- name: "Hardening | Blacklist Uncommon Protocols & USB Storage"
+  ansible.builtin.copy:
+    content: |
+      install dccp /bin/true
+      install sctp /bin/true
+      install rds /bin/true
+      install tipc /bin/true
+      install usb-storage /bin/true
+    dest: /etc/modprobe.d/dsom-hardened.conf
+    mode: '0644'
+
+# --- [ PHASE 4.4: NETWORK FIREWALL ] ---
+
+- name: "Security | Install Firewall (UFW/Firewalld)"
+  ansible.builtin.package:
+    name: "{{ 'ufw' if ansible_facts['os_family'] == 'Debian' else 'firewalld' }}"
+    state: present
+
+- name: "Security | Enable Firewalld Service (RHEL)"
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: yes
+  when: ansible_facts['os_family'] == "RedHat"
+  failed_when: false

@@ -1,0 +1,87 @@
+---
+# ==============================================================================
+# Ansible Role: podman
+# Installs and configures Podman 5+, slirp4netns, uidmap, podman-docker,
+# configures systemd lingering for dsom-admin, applies sysctl kernel tuning,
+# and enables Docker API socket emulation (podman.socket).
+# ==============================================================================
+
+- name: "Podman | Install prerequisites (Debian/Ubuntu)"
+  ansible.builtin.apt:
+    name:
+      - podman
+      - slirp4netns
+      - uidmap
+      - crun
+      - dbus-user-session
+      - podman-docker
+    state: present
+    update_cache: yes
+  become: yes
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: "Podman | Install prerequisites (RedHat/AlmaLinux)"
+  ansible.builtin.dnf:
+    name:
+      - podman
+      - slirp4netns
+      - shadow-utils
+      - podman-docker
+    state: present
+  become: yes
+  when: ansible_facts['os_family'] == "RedHat"
+
+- name: "Podman | Enable systemd linger for sovereign owner"
+  ansible.builtin.command:
+    cmd: "loginctl enable-linger {{ sovereign_owner | default('dsom-admin') }}"
+  become: yes
+  register: linger_out
+  changed_when: false
+  failed_when: false
+
+- name: "Podman | Apply Kernel High-Throughput Tuning"
+  ansible.posix.sysctl:
+    name: "{{ item.key }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  become: yes
+  loop:
+    - { key: 'fs.file-max', value: '1048576' }
+    - { key: 'net.core.somaxconn', value: '65535' }
+    - { key: 'vm.max_map_count', value: '1048576' }
+  failed_when: false
+
+- name: "Podman | Allow unprivileged user namespaces (Ubuntu 24.04+)"
+  ansible.posix.sysctl:
+    name: kernel.apparmor_restrict_unprivileged_userns
+    value: '0'
+    state: present
+    reload: yes
+  become: yes
+  when: ansible_facts['distribution'] | default('') == "Ubuntu"
+  failed_when: false
+
+- name: "Podman | Enable Docker API Socket Emulation"
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: started
+    enabled: yes
+  become: yes
+  failed_when: false
+
+- name: "Podman | Ensure Docker Socket Symlink exists"
+  ansible.builtin.file:
+    src: /run/podman/podman.sock
+    dest: /var/run/docker.sock
+    state: link
+  become: yes
+  failed_when: false
+
+- name: "Podman | Quiet Docker Emulation Message"
+  ansible.builtin.file:
+    path: /etc/containers/nodocker
+    state: touch
+    mode: '0644'
+  become: yes
+  failed_when: false
