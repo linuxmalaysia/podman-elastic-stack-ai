@@ -2,8 +2,8 @@
 # ==============================================================================
 # Ansible Role: podman
 # Installs and configures Podman 5+, slirp4netns, uidmap, podman-docker,
-# configures systemd lingering for dsom-admin, applies sysctl kernel tuning,
-# and enables Docker API socket emulation (podman.socket).
+# configures systemd lingering for dsom-admin, and enables Docker API socket
+# emulation (podman.socket).
 # ==============================================================================
 
 - name: "Podman | Install prerequisites (Debian/Ubuntu)"
@@ -44,18 +44,6 @@
   register: linger_out
   changed_when: false
 
-- name: "Podman | Apply Kernel High-Throughput Tuning"
-  ansible.posix.sysctl:
-    name: "{{ item.key }}"
-    value: "{{ item.value }}"
-    state: present
-    reload: yes
-  become: true
-  loop:
-    - { key: 'fs.file-max', value: '1048576' }
-    - { key: 'net.core.somaxconn', value: '65535' }
-    - { key: 'vm.max_map_count', value: '1048576' }
-
 - name: "Podman | Allow unprivileged user namespaces (Ubuntu 24.04+)"
   ansible.posix.sysctl:
     name: kernel.apparmor_restrict_unprivileged_userns
@@ -75,7 +63,9 @@
     state: started
     enabled: yes
   become: false
-  failed_when: false
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/2001"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/2001/bus"
 
 - name: "Podman | Ensure Docker Socket Symlink exists"
   ansible.builtin.file:

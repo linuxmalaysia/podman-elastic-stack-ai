@@ -32,21 +32,51 @@ Modern container orchestration demands rootless execution to minimize host attac
 
 ## 2. OS Package Installation
 
-### A. Debian / Ubuntu 24.04+ LTS
+### A. Debian 12+ (Bookworm)
 
-On Debian/Ubuntu family distributions, install `podman`, `slirp4netns`, `uidmap`, `crun`, `dbus-user-session`, and `podman-docker`:
+On Debian family distributions, install `podman`, `slirp4netns`, `uidmap`, `crun`, `dbus-user-session`, and `podman-docker`:
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y podman slirp4netns uidmap crun dbus-user-session podman-docker
+
+# Verify Podman major version is 5 or higher
+PODMAN_MAJOR=$(podman --version | grep -oE '[0-9]+' | head -1)
+if [ "${PODMAN_MAJOR:-0}" -lt 5 ]; then
+    echo "Error: Podman major version ${PODMAN_MAJOR} is below 5. Upgrade required." >&2
+    exit 1
+fi
 ```
 
-### B. RHEL / AlmaLinux / Rocky Linux / Oracle Linux 9+
+### B. Ubuntu 24.04+ LTS (Noble Numbat)
+
+On Ubuntu LTS releases, install `podman`, `slirp4netns`, `uidmap`, `crun`, `dbus-user-session`, and `podman-docker`:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y podman slirp4netns uidmap crun dbus-user-session podman-docker
+
+# Verify Podman major version is 5 or higher
+PODMAN_MAJOR=$(podman --version | grep -oE '[0-9]+' | head -1)
+if [ "${PODMAN_MAJOR:-0}" -lt 5 ]; then
+    echo "Error: Podman major version ${PODMAN_MAJOR} is below 5. Upgrade required." >&2
+    exit 1
+fi
+```
+
+### C. RHEL / AlmaLinux / Rocky Linux / Oracle Linux 9+
 
 On RedHat family distributions, install `podman`, `slirp4netns`, `shadow-utils`, and `podman-docker`:
 
 ```bash
 sudo dnf install -y podman slirp4netns shadow-utils podman-docker
+
+# Verify Podman major version is 5 or higher
+PODMAN_MAJOR=$(podman --version | grep -oE '[0-9]+' | head -1)
+if [ "${PODMAN_MAJOR:-0}" -lt 5 ]; then
+    echo "Error: Podman major version ${PODMAN_MAJOR} is below 5. Upgrade required." >&2
+    exit 1
+fi
 ```
 
 ---
@@ -78,18 +108,23 @@ sudo loginctl enable-linger dsom-admin
 
 ### Enabling the Docker API Socket (`podman.socket`)
 
-Many containerized applications and management UI tools interact directly with the Docker daemon API socket at `/var/run/docker.sock`. Under rootless Podman, user-level API sockets are served at `/run/user/2001/podman/podman.sock`.
+Many containerized applications and management UI tools interact directly with the Docker daemon API socket at `/var/run/docker.sock`. Under rootless Podman, user-level API sockets are served at `/run/user/2001/podman/podman.sock` for the `dsom-admin` service account (UID 2001).
 
-To enable system-wide or user-level socket emulation:
+To enable the socket in the `dsom-admin` user context:
 
 ```bash
-# User-level D-Bus socket for dsom-admin (rootless UID 2001):
-systemctl --user enable --now podman.socket
+# Enable and start user-scoped Podman API socket for dsom-admin (UID 2001)
+sudo -u dsom-admin XDG_RUNTIME_DIR=/run/user/2001 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/2001/bus systemctl --user enable --now podman.socket
 
-# System-wide Docker socket symlink pointing to dsom-admin rootless socket:
-sudo ln -sf /run/user/2001/podman/podman.sock /var/run/docker.sock
+# Export DOCKER_HOST environment variable for client compatibility
+export DOCKER_HOST="unix:///run/user/2001/podman/podman.sock"
 
-# Suppress "Emulate Docker CLI" warnings:
+# Verify Docker daemon is absent/disabled before creating system-wide socket symlink
+if ! systemctl is-active --quiet docker 2>/dev/null; then
+    sudo ln -sf /run/user/2001/podman/podman.sock /var/run/docker.sock
+fi
+
+# Suppress "Emulate Docker CLI" warnings
 sudo touch /etc/containers/nodocker
 ```
 

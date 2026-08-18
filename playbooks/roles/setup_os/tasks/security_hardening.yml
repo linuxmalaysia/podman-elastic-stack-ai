@@ -274,12 +274,37 @@
 
 # --- [ PHASE 4.4: NETWORK FIREWALL ] ---
 
-- name: "Security | Configure Firewalld Rules (RHEL)"
-  ansible.builtin.shell: |
-    firewall-cmd --permanent --add-service=ssh
-    firewall-cmd --permanent --add-port=9200/tcp
-    firewall-cmd --permanent --add-port=5601/tcp
-    firewall-cmd --permanent --add-port=8220/tcp
-    firewall-cmd --reload
+- name: "Security | Install Firewalld Package (RedHat)"
+  ansible.builtin.dnf:
+    name: firewalld
+    state: present
+  when: ansible_facts['os_family'] == "RedHat"
+
+- name: "Security | Enable Firewalld Service (RedHat)"
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: yes
+  when: ansible_facts['os_family'] == "RedHat"
+
+- name: "Security | Configure Firewalld Services (RedHat)"
+  ansible.posix.firewalld:
+    service: ssh
+    permanent: true
+    state: enabled
+    immediate: true
+  when: ansible_facts['os_family'] == "RedHat"
+  failed_when: false
+
+- name: "Security | Configure Firewalld Ports (RedHat)"
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop:
+    - "9200/tcp"
+    - "5601/tcp"
+    - "8220/tcp"
   when: ansible_facts['os_family'] == "RedHat"
   failed_when: false

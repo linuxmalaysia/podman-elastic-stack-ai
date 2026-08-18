@@ -86,7 +86,7 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "<loc>${BASE_URL}/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/</loc>" "${SITEMAP_XML}"
 }
 
-@test "sitemap.xml includes a new <url> entry for PODMAN_INSTALL_TUNING with changefreq/priority metadata" {
+@test "sitemap.xml includes a new <url> entry for PODMAN_INSTALL_TUNING" {
   grep -qF "<loc>${BASE_URL}/docs/PODMAN_INSTALL_TUNING/</loc>" "${SITEMAP_XML}"
 }
 

@@ -24,7 +24,9 @@
   environment:
     DEBIAN_FRONTEND: noninteractive
     NEEDRESTART_MODE: a
-  when: ansible_facts['os_family'] == "Debian"
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - "'os-upgrade' in ansible_run_tags"
   tags: ["os-upgrade"]
 
 - name: "Foundation | Autoremove unused packages (Debian/Ubuntu)"
@@ -33,7 +35,9 @@
   environment:
     DEBIAN_FRONTEND: noninteractive
     NEEDRESTART_MODE: a
-  when: ansible_facts['os_family'] == "Debian"
+  when:
+    - ansible_facts['os_family'] == "Debian"
+    - "'os-upgrade' in ansible_run_tags"
   tags: ["os-upgrade"]
 
 - name: "Foundation | Update OS package cache and upgrade (RHEL/Alma/Rocky)"
@@ -41,7 +45,9 @@
     name: "*"
     state: latest
     update_cache: yes
-  when: ansible_facts['os_family'] == "RedHat"
+  when:
+    - ansible_facts['os_family'] == "RedHat"
+    - "'os-upgrade' in ansible_run_tags"
   tags: ["os-upgrade"]
 
 # --- [ PHASE 2: TOOLCHAIN ] ---
