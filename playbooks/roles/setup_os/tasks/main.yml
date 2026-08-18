@@ -9,16 +9,23 @@
 
 # --- [ PHASE 1: SYSTEM UPDATES ] ---
 
-- name: "Foundation | Update OS package cache and upgrade (Debian/Ubuntu)"
+- name: "Foundation | Update OS package cache (Debian/Ubuntu)"
   ansible.builtin.apt:
     update_cache: yes
-    upgrade: dist
     cache_valid_time: 3600
   environment:
     DEBIAN_FRONTEND: noninteractive
     NEEDRESTART_MODE: a
   when: ansible_facts['os_family'] == "Debian"
-  tags: ["foundation-update", "os-update"]
+
+- name: "Foundation | Full OS upgrade (Debian/Ubuntu)"
+  ansible.builtin.apt:
+    upgrade: dist
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    NEEDRESTART_MODE: a
+  when: ansible_facts['os_family'] == "Debian"
+  tags: ["os-upgrade"]
 
 - name: "Foundation | Autoremove unused packages (Debian/Ubuntu)"
   ansible.builtin.apt:
@@ -27,7 +34,7 @@
     DEBIAN_FRONTEND: noninteractive
     NEEDRESTART_MODE: a
   when: ansible_facts['os_family'] == "Debian"
-  tags: ["foundation-update", "os-update"]
+  tags: ["os-upgrade"]
 
 - name: "Foundation | Update OS package cache and upgrade (RHEL/Alma/Rocky)"
   ansible.builtin.dnf:
@@ -35,7 +42,7 @@
     state: latest
     update_cache: yes
   when: ansible_facts['os_family'] == "RedHat"
-  tags: ["foundation-update", "os-update"]
+  tags: ["os-upgrade"]
 
 # --- [ PHASE 2: TOOLCHAIN ] ---
 
@@ -44,31 +51,24 @@
     name:
       - git
       - tree
-      - "{{ 'netcat-openbsd' if ansible_facts['os_family'] == 'Debian' else 'nc' }}"
+      - "{{ 'netcat-openbsd' if ansible_facts['os_family'] == 'Debian' else 'nmap-ncat' }}"
       - acl
       - curl
       - htop
       - vim
       - rsync
       - tcpdump
-      - sshpass
     state: present
 
 # --- [ PHASE 3: KERNEL HARDENING ] ---
 
-- name: "Foundation | Ensure /etc/sysctl.conf exists"
-  ansible.builtin.file:
-    path: /etc/sysctl.conf
-    state: touch
-    modification_time: preserve
-    access_time: preserve
-
-- name: "Foundation | Inject DSOM Optimised tuning directly into /etc/sysctl.conf"
+- name: "Foundation | Inject DSOM Optimised tuning drop-in"
   ansible.builtin.blockinfile:
-    path: /etc/sysctl.conf
+    path: /etc/sysctl.d/99-dsom-tuning.conf
     block: "{{ lookup('template', 'sysctl.conf.j2') }}"
     marker: "# {mark} ANSIBLE MANAGED BLOCK (DSOM SOVEREIGN TUNING)"
-    create: yes
+    create: true
+    mode: '0644'
   notify: reload sysctl
 
 - name: "Foundation | Disable Transparent Huge Pages (THP)"
@@ -79,6 +79,7 @@
     if [ -f /sys/kernel/mm/transparent_hugepage/defrag ]; then
       echo never > /sys/kernel/mm/transparent_hugepage/defrag
     fi
+  changed_when: false
   failed_when: false
 
 - name: "Foundation | Apply Security and Infrastructure Hardening"

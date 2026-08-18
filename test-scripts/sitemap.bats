@@ -38,6 +38,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "${BASE_URL}/docs/GITEA_GUIDE/" "${SITEMAP_TXT}"
 }
 
+@test "sitemap.txt includes the new PODMAN_INSTALL_TUNING URL under docs/" {
+  grep -qF "${BASE_URL}/docs/PODMAN_INSTALL_TUNING/" "${SITEMAP_TXT}"
+}
+
 @test "sitemap.txt includes the new SEMAPHORE_GUIDE URL under docs/" {
   grep -qF "${BASE_URL}/docs/SEMAPHORE_GUIDE/" "${SITEMAP_TXT}"
 }
@@ -80,6 +84,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "<loc>${BASE_URL}/docs/ANSIBLE_ADOPTION_REVIEW/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/ANSIBLE_PLAYBOOK_MAP/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/</loc>" "${SITEMAP_XML}"
+}
+
+@test "sitemap.xml includes a new <url> entry for PODMAN_INSTALL_TUNING with changefreq/priority metadata" {
+  grep -qF "<loc>${BASE_URL}/docs/PODMAN_INSTALL_TUNING/</loc>" "${SITEMAP_XML}"
 }
 
 @test "sitemap.xml includes a new <url> entry for GITEA_GUIDE with changefreq/priority metadata" {

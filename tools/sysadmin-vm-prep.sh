@@ -26,7 +26,7 @@ echo -e "${CYAN}    Target: $TARGET_HOST${NC}"
 echo -e "${CYAN}==================================================${NC}"
 
 # Interactive Credential Collection
-read -p "👤 Enter Initial SSH Username (e.g., admin, root, user): " REMOTE_USER
+read -r -p "👤 Enter Initial SSH Username (e.g., admin, root, user): " REMOTE_USER
 if [ -z "$REMOTE_USER" ]; then
     echo -e "${RED}❌ Error: Remote user is required.${NC}"
     exit 1
@@ -35,8 +35,8 @@ fi
 # Probe for existing configuration (if dsom-admin access exists)
 EXISTING_ROOT=""
 echo -e "${YELLOW}🔍 Probing for existing configuration...${NC}"
-if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=30 "dsom-admin@$TARGET_HOST" "[ -f /etc/um-elastic-soc.conf ]" 2>/dev/null; then
-    PROBED_ROOT=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=no "dsom-admin@$TARGET_HOST" "grep '^dsom_root=' /etc/um-elastic-soc.conf | cut -d= -f2" 2>/dev/null)
+if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts -o ConnectTimeout=30 "dsom-admin@$TARGET_HOST" "[ -f /etc/um-elastic-soc.conf ]" 2>/dev/null; then
+    PROBED_ROOT=$(ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts "dsom-admin@$TARGET_HOST" "grep '^dsom_root=' /etc/um-elastic-soc.conf | cut -d= -f2" 2>/dev/null)
     if [[ "$PROBED_ROOT" =~ ^/.* ]]; then
         EXISTING_ROOT="$PROBED_ROOT"
         echo -e "${GREEN}[OK] Found existing config: $EXISTING_ROOT${NC}"
@@ -44,14 +44,14 @@ if ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o ConnectTimeout=30 "dsom-a
 fi
 
 DEFAULT_ROOT="${EXISTING_ROOT:-/opt/dsom-persistence}"
-read -p "📂 Enter Persistence Root Path [$DEFAULT_ROOT]: " USER_INPUT_ROOT
+read -r -p "📂 Enter Persistence Root Path [$DEFAULT_ROOT]: " USER_INPUT_ROOT
 DSOM_ROOT=${USER_INPUT_ROOT:-$DEFAULT_ROOT}
 
 # New dsom-admin password with local hashing
 echo -e "\n${CYAN}Set Password for 'dsom-admin' (for manual/emergency access)${NC}"
-read -s -p "🔑 New Password: " SOVEREIGN_PASS
+read -r -s -p "🔑 New Password: " SOVEREIGN_PASS
 echo ""
-read -s -p "🔑 Confirm Password: " SOVEREIGN_PASS_CONFIRM
+read -r -s -p "🔑 Confirm Password: " SOVEREIGN_PASS_CONFIRM
 echo ""
 
 if [ "$SOVEREIGN_PASS" != "$SOVEREIGN_PASS_CONFIRM" ]; then
@@ -63,8 +63,21 @@ SOVEREIGN_HASHED_PASS=""
 if [ -n "$SOVEREIGN_PASS" ]; then
     echo -ne "${YELLOW}[VAULT] Generating SHA-512 hash locally...${NC}"
     SOVEREIGN_HASHED_PASS=$(echo "$SOVEREIGN_PASS" | openssl passwd -6 -stdin)
+    if [ -z "$SOVEREIGN_HASHED_PASS" ]; then
+        echo -e "${RED}\n❌ Error: Failed to generate password hash.${NC}"
+        exit 1
+    fi
     echo -e "${GREEN} Done.${NC}"
 fi
+
+# Write password hash securely to temporary vars file
+TMP_VARS_FILE=$(mktemp /tmp/dsom_bootstrap_vars_XXXXXX.yml)
+chmod 0600 "$TMP_VARS_FILE"
+trap 'rm -f "$TMP_VARS_FILE"' EXIT
+
+cat > "$TMP_VARS_FILE" <<EOF
+sovereign_password: "${SOVEREIGN_HASHED_PASS}"
+EOF
 
 # Set Local Ansible Connection if target is localhost
 if [ "$TARGET_HOST" == "127.0.0.1" ] || [ "$TARGET_HOST" == "localhost" ]; then
@@ -85,11 +98,11 @@ ansible-playbook -i "$TARGET_HOST," \
     $LOCAL_FLAG \
     -u "$REMOTE_USER" \
     --tags bootstrap \
+    -e "@$TMP_VARS_FILE" \
     -e "target_host=$TARGET_HOST" \
     -e "ansible_user=$REMOTE_USER" \
-    -e "sovereign_password='$SOVEREIGN_HASHED_PASS'" \
     -e "dsom_root=$DSOM_ROOT" \
-    -e "ansible_ssh_extra_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PreferredAuthentications=password -o ControlMaster=no'" \
+    -e "ansible_ssh_extra_args='-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts -o PreferredAuthentications=password -o ControlMaster=no'" \
     -k -K -v
 
 if [ $? -ne 0 ]; then
@@ -97,17 +110,22 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Step 1.5: Sync SSH Key Names for default SSH clients
-echo -e "\n${YELLOW}Step 1.5: Syncing SSH Keys...${NC}"
+# Step 1.5: Configure SSH Client Entry
+echo -e "\n${YELLOW}Step 1.5: Configuring SSH Client Host Entry...${NC}"
+mkdir -p ~/.ssh && chmod 0700 ~/.ssh
+SSH_CONFIG=~/.ssh/config
 if [ -f ~/.ssh/id_dsom_ed25519 ]; then
-    if [ ! -f ~/.ssh/id_ed25519 ]; then
-        echo -e "${CYAN}Copying id_dsom_ed25519 to standard id_ed25519 for default client compatibility...${NC}"
-        cp ~/.ssh/id_dsom_ed25519 ~/.ssh/id_ed25519
-        cp ~/.ssh/id_dsom_ed25519.pub ~/.ssh/id_ed25519.pub
-        chmod 600 ~/.ssh/id_ed25519
-        chmod 644 ~/.ssh/id_ed25519.pub
-    else
-        echo -e "${GREEN}Default id_ed25519 already exists. Skipping copy.${NC}"
+    if ! grep -q "Host $TARGET_HOST" "$SSH_CONFIG" 2>/dev/null; then
+        cat >> "$SSH_CONFIG" <<EOF
+
+Host $TARGET_HOST
+    HostName $TARGET_HOST
+    User dsom-admin
+    IdentityFile ~/.ssh/id_dsom_ed25519
+    StrictHostKeyChecking accept-new
+EOF
+        chmod 0600 "$SSH_CONFIG"
+        echo -e "${GREEN}[OK] Added Host entry for $TARGET_HOST to ~/.ssh/config${NC}"
     fi
 fi
 
@@ -123,13 +141,13 @@ ansible-playbook -i "$TARGET_HOST," \
     --tags fabric \
     -e "target_host=$TARGET_HOST" \
     -e "dsom_root=$DSOM_ROOT" \
-    -e "ansible_ssh_extra_args='-o StrictHostKeyChecking=no -o PreferredAuthentications=publickey,password'" \
+    -e "ansible_ssh_extra_args='-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts -o PreferredAuthentications=publickey,password'" \
     -v
 
 if [ $? -eq 0 ]; then
     echo -e "\n${GREEN}[SUCCESS] Node $TARGET_HOST is now compliant.${NC}"
     echo -e "${CYAN}Verification Dashboard (as dsom-admin):${NC}"
-    ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes dsom-admin@$TARGET_HOST "printf \"  - OS: %s\n  - User: %s\n  - Root: $DSOM_ROOT\n  - NTP (Chrony): %s\n  - Lynis Score: %s\n\" \"\$(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d \\\")\" \"\$(id dsom-admin)\" \"\$(chronyc tracking | grep 'System time' | xargs || echo 'NOT_SYNCED')\" \"\$(grep '^lynis_score=' /etc/um-elastic-soc.conf | cut -d= -f2 | grep . || echo 'N/A')\"" 2>/dev/null
+    ssh -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=~/.ssh/known_hosts -o BatchMode=yes "dsom-admin@$TARGET_HOST" "printf '  - OS: %s\n  - User: %s\n  - Root: %s\n  - NTP (Chrony): %s\n  - Lynis Score: %s\n' \"\$(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2 | tr -d \\\")\" \"\$(id dsom-admin)\" \"$DSOM_ROOT\" \"\$(chronyc tracking | grep 'System time' | xargs || echo 'NOT_SYNCED')\" \"\$(grep '^lynis_score=' /etc/um-elastic-soc.conf | cut -d= -f2 | grep . || echo 'N/A')\"" 2>/dev/null
 else
     echo -e "\n${RED}[ERROR] Phase 2 (Fabric) failed for $TARGET_HOST.${NC}"
     exit 1

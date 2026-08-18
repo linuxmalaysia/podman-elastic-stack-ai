@@ -25,14 +25,15 @@ Modern container orchestration demands rootless execution to minimize host attac
 | **Runtime** | Podman 5.0+ | Installed via native distribution repositories (`apt` / `dnf`) |
 | **Service Identity** | Service Account (`dsom-admin`) | Dedicated non-root account (UID 2001, GID 2001) |
 | **Session Persistence** | Systemd Lingering | `loginctl enable-linger dsom-admin` |
-| **Docker Emulation** | `podman-docker` & `podman.socket` | Provides drop-in `/var/run/docker.sock` compatibility |
-| **Kernel Hardening** | Dynamic `sysctl` | `vm.max_map_count=262144+`, `fs.file-max=1048576+`, `net.core.somaxconn=65535` |
+| **Docker Emulation** | `podman-docker` & `podman.socket` | Provides drop-in `/run/user/2001/podman/podman.sock` compatibility |
+| **Kernel Hardening** | Dynamic `sysctl` | `vm.max_map_count=1048576`, `fs.file-max=1048576+`, `net.core.somaxconn=65535` |
 
 ---
 
 ## 2. OS Package Installation
 
 ### A. Debian / Ubuntu 24.04+ LTS
+
 On Debian/Ubuntu family distributions, install `podman`, `slirp4netns`, `uidmap`, `crun`, `dbus-user-session`, and `podman-docker`:
 
 ```bash
@@ -41,6 +42,7 @@ sudo apt-get install -y podman slirp4netns uidmap crun dbus-user-session podman-
 ```
 
 ### B. RHEL / AlmaLinux / Rocky Linux / Oracle Linux 9+
+
 On RedHat family distributions, install `podman`, `slirp4netns`, `shadow-utils`, and `podman-docker`:
 
 ```bash
@@ -71,20 +73,21 @@ sudo loginctl enable-linger dsom-admin
 ## 4. Understanding `podman-docker` & Socket Emulation
 
 ### What is `podman-docker`?
+
 `podman-docker` is a lightweight wrapper package that installs a symlink or script named `/usr/bin/docker` which redirects standard `docker` CLI commands directly to `podman`. This allows legacy scripts, Docker-based CI/CD pipelines, and third-party tools (such as Testcontainers or Docker Compose) to transparently execute on top of Podman without altering command syntax.
 
 ### Enabling the Docker API Socket (`podman.socket`)
-Many containerized applications and management UI tools interact directly with the Docker daemon API socket at `/var/run/docker.sock`. Under rootless Podman, user-level API sockets are served at `/run/user/<UID>/podman/podman.sock`.
+
+Many containerized applications and management UI tools interact directly with the Docker daemon API socket at `/var/run/docker.sock`. Under rootless Podman, user-level API sockets are served at `/run/user/2001/podman/podman.sock`.
 
 To enable system-wide or user-level socket emulation:
 
 ```bash
-# User-level D-Bus socket (rootless):
+# User-level D-Bus socket for dsom-admin (rootless UID 2001):
 systemctl --user enable --now podman.socket
 
-# System-wide Docker socket symlink (requires elevated permissions):
-sudo systemctl enable --now podman.socket
-sudo ln -sf /run/podman/podman.sock /var/run/docker.sock
+# System-wide Docker socket symlink pointing to dsom-admin rootless socket:
+sudo ln -sf /run/user/2001/podman/podman.sock /var/run/docker.sock
 
 # Suppress "Emulate Docker CLI" warnings:
 sudo touch /etc/containers/nodocker
@@ -96,11 +99,11 @@ sudo touch /etc/containers/nodocker
 
 Elasticsearch, Logstash, and high-throughput SIEM components require elevated memory-map and socket connection limits.
 
-### Hardened `sysctl` Settings (`/etc/sysctl.d/99-dsom-performance.conf`)
+### Hardened `sysctl` Settings (`/etc/sysctl.d/99-dsom-tuning.conf`)
 
 ```ini
 # Elasticsearch memory mapping requirement
-vm.max_map_count = 262144
+vm.max_map_count = 1048576
 
 # Dynamic file handle and process limits
 fs.file-max = 1048576
@@ -118,8 +121,9 @@ net.ipv4.tcp_max_syn_backlog = 32768
 ```
 
 Apply settings live:
+
 ```bash
-sudo sysctl -p /etc/sysctl.d/99-dsom-performance.conf
+sudo sysctl -p /etc/sysctl.d/99-dsom-tuning.conf
 ```
 
 ---
@@ -127,13 +131,16 @@ sudo sysctl -p /etc/sysctl.d/99-dsom-performance.conf
 ## 6. Non-Root & Unprivileged Host Fallbacks
 
 When deploying in environments where root privileges (`sudo`) are unavailable (such as restricted HPC clusters or unprivileged VM shells):
-1. **Kernel Tuning Graceful Fallback**: The Ansible playbooks check for `ansible_user_id != 'root'` and available `sudo` access before executing privileged `sysctl` or system package management tasks. If unprivileged, tasks record a status warning and continue execution.
+
+1. **Kernel Tuning Graceful Fallback**: The Ansible playbooks check for administrative privileges before executing privileged `sysctl` or system package management tasks. If unprivileged, tasks record a status warning and continue execution.
 2. **User-Space Quadlets**: All systemd Quadlet container definitions (`.container`, `.kube`) are stored in `~/.config/containers/systemd/` and managed using unprivileged D-Bus commands (`systemctl --user daemon-reload`).
 3. **Environment Variable Exports**:
-   ```bash
-   export XDG_RUNTIME_DIR="/run/user/$(id -u)"
-   export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
-   ```
+
+```bash
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+```
 
 ---
+
 *Podman Elastic Stack AI | Podman 5+ Installation & Tuning Guide v1.0*

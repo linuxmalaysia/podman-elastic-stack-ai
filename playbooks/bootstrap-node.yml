@@ -10,7 +10,7 @@
 # --- [ PLAY 1: IDENTITY BOOTSTRAP (ROOTFUL) ] ---
 - name: "Bootstrap | Node Identity Setup"
   hosts: "{{ target_host | default('all') }}"
-  tags: [ bootstrap, setup ]
+  tags: [bootstrap, setup]
   become: true
   vars:
     sovereign_owner: "dsom-admin"
@@ -19,21 +19,19 @@
   tasks:
     - name: "Control Node | Ensure Ansible Controller has SSH Key"
       ansible.builtin.user:
-        name: "{{ lookup('env', 'USER') }}"
-        generate_ssh_key: yes
+        name: "{{ lookup('env', 'USER') | default(ansible_user_id | default('root'), true) }}"
+        generate_ssh_key: true
         ssh_key_type: ed25519
-        ssh_key_bits: 256
         ssh_key_file: .ssh/id_dsom_ed25519
       delegate_to: localhost
       become: false
       run_once: true
-      ignore_errors: yes
 
     - name: "Bootstrap | Check All Groups"
       ansible.builtin.getent:
         database: group
         split: ':'
-      ignore_errors: yes
+      failed_when: false
 
     - name: "Bootstrap | Create dsom-admin Group (GID 2001)"
       ansible.builtin.group:
@@ -41,7 +39,6 @@
         gid: 2001
         state: present
       when: ansible_facts.getent_group is not defined or dsom_group not in ansible_facts.getent_group
-      ignore_errors: yes
 
     - name: "Bootstrap | Create dsom-admin User (UID 2001)"
       ansible.builtin.user:
@@ -49,11 +46,10 @@
         uid: 2001
         group: "{{ dsom_group }}"
         shell: /bin/bash
-        create_home: yes
-        password: "{{ sovereign_password | default(omit) }}"
+        create_home: true
+        password: "{{ sovereign_password if (sovereign_password is defined and sovereign_password | length > 0) else omit }}"
         update_password: on_create
         state: present
-      ignore_errors: yes
 
     - name: "Bootstrap | Configure Sudoers NOPASSWD for dsom-admin"
       ansible.builtin.copy:
@@ -61,13 +57,12 @@
         dest: "/etc/sudoers.d/{{ sovereign_owner }}"
         mode: '0440'
         validate: /usr/sbin/visudo -cf %s
-      ignore_errors: yes
 
     - name: "Bootstrap | Enable Systemd Linger (Persistence)"
       ansible.builtin.command:
         cmd: "loginctl enable-linger {{ sovereign_owner }}"
         creates: "/var/lib/systemd/linger/{{ sovereign_owner }}"
-      ignore_errors: true
+      failed_when: false
 
     - name: "Bootstrap | Authorize Control Node SSH Key"
       ansible.posix.authorized_key:
@@ -79,13 +74,12 @@
             - id_dsom_ed25519.pub
           paths:
             - "~/.ssh/"
-      ignore_errors: yes
+      failed_when: false
 
     - name: "Verify | Check dsom-admin Identity"
       ansible.builtin.command: id {{ sovereign_owner }}
       register: dsom_id_check
       changed_when: false
-      ignore_errors: yes
 
     - name: "Verify | Identity Handshake Report"
       ansible.builtin.debug:
@@ -97,15 +91,11 @@
 # --- [ PLAY 2: OS BASELINE & PODMAN ] ---
 - name: "Bootstrap | Apply OS Baseline and Podman Roles"
   hosts: "{{ target_host | default('all') }}"
-  tags: [ fabric, config ]
+  tags: [fabric, config]
   remote_user: "dsom-admin"
   become: true
 
   tasks:
-    - name: "Provisioning | Detect OS Distribution"
-      ansible.builtin.setup:
-        filter: ansible_distribution*
-
     - name: "Provisioning | Create DSOM Persistence Root"
       ansible.builtin.file:
         path: "{{ dsom_root | default('/opt/dsom-persistence') }}"
@@ -113,7 +103,6 @@
         owner: "dsom-admin"
         group: "dsom-admin"
         mode: '0750'
-      ignore_errors: yes
 
     - name: "Provisioning | Create DSOM configuration reference"
       ansible.builtin.copy:
@@ -122,17 +111,14 @@
         owner: root
         group: root
         mode: '0644'
-      ignore_errors: yes
 
     - name: "OS Tuning | Apply setup_os Role"
       ansible.builtin.include_role:
         name: setup_os
-      ignore_errors: yes
 
     - name: "Podman Setup | Apply podman Role"
       ansible.builtin.include_role:
         name: podman
-      ignore_errors: yes
 
     - name: "Verification | System Tuning Completed"
       ansible.builtin.debug:

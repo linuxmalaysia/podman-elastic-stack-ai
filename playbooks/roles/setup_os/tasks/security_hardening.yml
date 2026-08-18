@@ -1,6 +1,13 @@
 ---
 # --- [ PHASE 4: INFRASTRUCTURE MANAGEMENT ] ---
 
+- name: "Management | Enable EPEL Repository (RedHat)"
+  ansible.builtin.dnf:
+    name: epel-release
+    state: present
+  when: ansible_facts['os_family'] == "RedHat"
+  failed_when: false
+
 - name: "Management | Install Management Toolchain"
   ansible.builtin.package:
     name:
@@ -11,6 +18,7 @@
       - "{{ 'acct' if ansible_facts['os_family'] == 'Debian' else 'psacct' }}"
       - "fail2ban"
     state: present
+  failed_when: false
 
 - name: "Management | Configure etckeeper Git Identity"
   ansible.builtin.git_config:
@@ -25,12 +33,12 @@
 
 - name: "Management | Set Timezone to Asia/Kuala_Lumpur"
   community.general.timezone:
-    name: "Asia/Kuala_Lumpur"
+    name: "{{ system_timezone | default('UTC') }}"
   failed_when: false
 
 - name: "Management | Configure Chrony (NTP Anchors)"
   ansible.builtin.blockinfile:
-    path: /etc/chrony/chrony.conf
+    path: "{{ '/etc/chrony.conf' if ansible_facts['os_family'] == 'RedHat' else '/etc/chrony/chrony.conf' }}"
     marker: "# {mark} ANSIBLE MANAGED NTP ANCHORS"
     insertafter: '^pool '
     block: |
@@ -63,10 +71,11 @@
 
 - name: "Management | Configure Fail2Ban (jail.local)"
   ansible.builtin.copy:
-    src: /etc/fail2ban/jail.conf
+    content: |
+      [sshd]
+      enabled = true
     dest: /etc/fail2ban/jail.local
-    remote_src: yes
-    force: no
+    mode: '0644'
   notify: Restart Fail2Ban
   failed_when: false
 
@@ -76,6 +85,7 @@
   ansible.builtin.package:
     name: "{{ 'unattended-upgrades' if ansible_facts['os_family'] == 'Debian' else 'dnf-automatic' }}"
     state: present
+  failed_when: false
 
 - name: "Security | Configure Automated Upgrades (Ubuntu)"
   ansible.builtin.copy:
@@ -143,6 +153,7 @@
       show_tool_tips=no
     dest: /etc/lynis/custom.prf
     mode: '0644'
+  failed_when: false
 
 - name: "Security | Schedule Lynis Daily Audit"
   ansible.builtin.cron:
@@ -203,9 +214,8 @@
     state: present
     validate: '/usr/sbin/sshd -t -f %s'
   loop:
-    - { regexp: '^#?AllowTcpForwarding', line: 'AllowTcpForwarding no' }
     - { regexp: '^#?MaxAuthTries', line: 'MaxAuthTries 3' }
-    - { regexp: '^#?MaxSessions', line: 'MaxSessions 2' }
+    - { regexp: '^#?MaxSessions', line: 'MaxSessions 10' }
     - { regexp: '^#?LogLevel', line: 'LogLevel VERBOSE' }
     - { regexp: '^#?ClientAliveCountMax', line: 'ClientAliveCountMax 2' }
     - { regexp: '^#?TCPKeepAlive', line: 'TCPKeepAlive no' }
@@ -264,15 +274,12 @@
 
 # --- [ PHASE 4.4: NETWORK FIREWALL ] ---
 
-- name: "Security | Install Firewall (UFW/Firewalld)"
-  ansible.builtin.package:
-    name: "{{ 'ufw' if ansible_facts['os_family'] == 'Debian' else 'firewalld' }}"
-    state: present
-
-- name: "Security | Enable Firewalld Service (RHEL)"
-  ansible.builtin.service:
-    name: firewalld
-    state: started
-    enabled: yes
+- name: "Security | Configure Firewalld Rules (RHEL)"
+  ansible.builtin.shell: |
+    firewall-cmd --permanent --add-service=ssh
+    firewall-cmd --permanent --add-port=9200/tcp
+    firewall-cmd --permanent --add-port=5601/tcp
+    firewall-cmd --permanent --add-port=8220/tcp
+    firewall-cmd --reload
   when: ansible_facts['os_family'] == "RedHat"
   failed_when: false
