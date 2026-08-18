@@ -71,6 +71,7 @@ nav:
   - Installation Guide: INSTALL.md
   - Playbook Structure & Telemetry: PLAYBOOKS.md
   - Local Development & Feedback Guide: LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md
+  - Podman 5+ Installation, Tuning & Security Guide: PODMAN_INSTALL_TUNING.md
   - Rootless Podman 5+ & Quadlet Guide: PODMAN_ROOTLESS.md
   - Modern Ansible & FQCN Guide: ANSIBLE_FQCN.md
   - Ansible Adoption Review: ANSIBLE_ADOPTION_REVIEW.md

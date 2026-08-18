@@ -9,6 +9,7 @@ This repository automates the setup, testing, and deployment of Elasticsearch 9.
 - [PLAYBOOKS.md](docs/PLAYBOOKS.md): Structural details of the Ansible roles, playbooks, variables, connection plugin selection, and the telemetry logging system.
 - [LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md](docs/LOCAL_DEVELOPMENT_FEEDBACK_GUIDE.md): Local execution guide, multi-distro test matrix using Podman, and bidirectional feedback bridge configuration.
 - [DOCS_MATRIX_TELEMETRY.md](docs/DOCS_MATRIX_TELEMETRY.md): Architectural layout of developer mode metrics, resource auditing, block/rescue logs, and the telemetry format (`/tmp/jules_telemetry.json`).
+- [PODMAN_INSTALL_TUNING.md](docs/PODMAN_INSTALL_TUNING.md): Podman 5+ installation, performance tuning, security hardening, rootless execution, podman-docker CLI integration, and D-Bus socket emulation.
 - [PODMAN_ROOTLESS.md](docs/PODMAN_ROOTLESS.md): Rootless Podman 5+ and systemd Quadlet orchestration guide detailing unprivileged deployments, namespace remapping (keep-id), and lingering.
 - [ANSIBLE_FQCN.md](docs/ANSIBLE_FQCN.md): Modern Ansible best practices guide detailing Fully Qualified Collection Names (FQCN), privilege separation, and user systemd managers.
 - [ANSIBLE_ADOPTION_REVIEW.md](docs/ANSIBLE_ADOPTION_REVIEW.md): Ansible Configuration Review and Adoption Assessment guide covering SSH pipelining, YAML callback, and limited environment boundaries.

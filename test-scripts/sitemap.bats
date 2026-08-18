@@ -38,6 +38,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "${BASE_URL}/docs/GITEA_GUIDE/" "${SITEMAP_TXT}"
 }
 
+@test "sitemap.txt includes the new PODMAN_INSTALL_TUNING URL under docs/" {
+  grep -qF "${BASE_URL}/docs/PODMAN_INSTALL_TUNING/" "${SITEMAP_TXT}"
+}
+
 @test "sitemap.txt includes the new SEMAPHORE_GUIDE URL under docs/" {
   grep -qF "${BASE_URL}/docs/SEMAPHORE_GUIDE/" "${SITEMAP_TXT}"
 }
@@ -61,10 +65,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   done
 }
 
-@test "sitemap.txt has exactly twenty URLs (homepage + 17 relocated/new docs + HISTORY + CHANGELOG)" {
+@test "sitemap.txt has expected count of URLs" {
   local count
   count="$(grep -cF "${BASE_URL}" "${SITEMAP_TXT}")"
-  [ "${count}" -eq 20 ]
+  [ "${count}" -eq 21 ]
 }
 
 @test "sitemap.xml lists the relocated guide URLs under the docs/ path segment" {
@@ -80,6 +84,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   grep -qF "<loc>${BASE_URL}/docs/ANSIBLE_ADOPTION_REVIEW/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/ANSIBLE_PLAYBOOK_MAP/</loc>" "${SITEMAP_XML}"
   grep -qF "<loc>${BASE_URL}/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/</loc>" "${SITEMAP_XML}"
+}
+
+@test "sitemap.xml includes a new <url> entry for PODMAN_INSTALL_TUNING" {
+  grep -qF "<loc>${BASE_URL}/docs/PODMAN_INSTALL_TUNING/</loc>" "${SITEMAP_XML}"
 }
 
 @test "sitemap.xml includes a new <url> entry for GITEA_GUIDE with changefreq/priority metadata" {
@@ -143,10 +151,10 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   echo "${url_block}" | grep -qF '<priority>0.80</priority>'
 }
 
-@test "sitemap.xml contains exactly twenty <url> entries matching sitemap.txt" {
+@test "sitemap.xml contains expected count of <url> entries matching sitemap.txt" {
   local count
   count="$(grep -cF '<url>' "${SITEMAP_XML}")"
-  [ "${count}" -eq 20 ]
+  [ "${count}" -eq 21 ]
 }
 
 # Regression tests for the new REFERENCE_TUNING.md and legal-notice.md

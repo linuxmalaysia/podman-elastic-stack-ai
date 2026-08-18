@@ -1,0 +1,83 @@
+---
+# ==============================================================================
+# Ansible Role: podman
+# Installs and configures Podman 5+, slirp4netns, uidmap, podman-docker,
+# configures systemd lingering for dsom-admin, and enables Docker API socket
+# emulation (podman.socket).
+# ==============================================================================
+
+- name: "Podman | Install prerequisites (Debian/Ubuntu)"
+  ansible.builtin.apt:
+    name:
+      - podman
+      - slirp4netns
+      - uidmap
+      - crun
+      - dbus-user-session
+      - podman-docker
+    state: present
+    update_cache: yes
+  become: true
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: "Podman | Install prerequisites (RedHat/AlmaLinux)"
+  ansible.builtin.dnf:
+    name:
+      - podman
+      - slirp4netns
+      - shadow-utils
+      - podman-docker
+    state: present
+  become: true
+  when: ansible_facts['os_family'] == "RedHat"
+
+- name: "Podman | Verify Podman Version is 5 or higher"
+  ansible.builtin.shell: "podman --version | grep -oE '[0-9]+' | head -1"
+  register: podman_major_version
+  changed_when: false
+  failed_when: podman_major_version.stdout | default('0') | int < 5
+
+- name: "Podman | Enable systemd linger for sovereign owner"
+  ansible.builtin.command:
+    cmd: "loginctl enable-linger {{ sovereign_owner | default('dsom-admin') }}"
+  become: true
+  register: linger_out
+  changed_when: false
+
+- name: "Podman | Allow unprivileged user namespaces (Ubuntu 24.04+)"
+  ansible.posix.sysctl:
+    name: kernel.apparmor_restrict_unprivileged_userns
+    value: '0'
+    state: present
+    reload: yes
+  become: true
+  when:
+    - ansible_facts['distribution'] | default('') == "Ubuntu"
+    - ansible_facts['distribution_version'] | default('0') is version('24.04', '>=')
+    - enable_apparmor_userns_opt_in | default(false) | bool
+
+- name: "Podman | Enable Docker API Socket Emulation"
+  ansible.builtin.systemd:
+    name: podman.socket
+    scope: user
+    state: started
+    enabled: yes
+  become: false
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/2001"
+    DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/2001/bus"
+
+- name: "Podman | Ensure Docker Socket Symlink exists"
+  ansible.builtin.file:
+    src: "/run/user/2001/podman/podman.sock"
+    dest: /var/run/docker.sock
+    state: link
+  become: true
+  failed_when: false
+
+- name: "Podman | Quiet Docker Emulation Message"
+  ansible.builtin.file:
+    path: /etc/containers/nodocker
+    state: touch
+    mode: '0644'
+  become: true

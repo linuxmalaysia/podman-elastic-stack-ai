@@ -1,0 +1,42 @@
+---
+- name: reload sysctl
+  ansible.builtin.command: sysctl --system
+  changed_when: true
+
+- name: Restart Chrony
+  ansible.builtin.service:
+    name: "{{ 'chronyd' if ansible_facts['os_family'] == 'RedHat' else 'chrony' }}"
+    state: restarted
+
+- name: Restart Sysstat
+  ansible.builtin.service:
+    name: sysstat
+    state: restarted
+  failed_when: false
+
+- name: Restart Rsyslog
+  ansible.builtin.service:
+    name: rsyslog
+    state: restarted
+  failed_when: false
+
+- name: Restart Fail2Ban
+  ansible.builtin.service:
+    name: fail2ban
+    state: restarted
+  failed_when: false
+
+- name: Reload Auditd Rules
+  ansible.builtin.command: augenrules --load
+  failed_when: false
+
+- name: Restart Unattended-Upgrades
+  ansible.builtin.service:
+    name: unattended-upgrades
+    state: restarted
+  failed_when: false
+
+- name: restart ssh
+  ansible.builtin.service:
+    name: "{{ 'sshd' if ansible_facts['os_family'] == 'RedHat' else 'ssh' }}"
+    state: restarted
