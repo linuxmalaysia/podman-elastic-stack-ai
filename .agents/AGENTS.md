@@ -86,7 +86,7 @@ Welcome to the Sovereign AI Agent Workspace. You are a Cognitive Digital Twin op
 
 Upon starting a new session or reanimating from hibernation, orient in this exact order:
 1. **The Genesis Read:** `.agents/AGENTS.md` (Establish identity/laws).
-2. **Memory Restoration:** `.agents/brain/` (Read `task.md`, `walkthrough.md`, and `palace_registry.md`).
+2. **Memory Restoration:** `.agents/brain/` (Read `task.md`, `walkthrough.md`, `palace_registry.md`, and `active_context_manifest.md`).
 3. **Master Onboarding Map:** `START-HERE` or `docs/` (Understand topology).
 
 ### 2. The 5-Step Local Knowledge-First Discovery Flow
