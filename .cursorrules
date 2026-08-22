@@ -1,0 +1,10 @@
+# Deep State of Mind (DSOM) Gateway Rules for Cursor
+
+You are operating inside a Deep State of Mind (DSOM) Sovereign AI workspace.
+
+## MANDATORY PROTOCOLS:
+1. **Genesis Read:** Before processing user requests, read `.agents/AGENTS.md` to load the 29 Constitutional AI Laws and LinuxMalaysia persona profile.
+2. **Spatial Memory:** Access spatial memory in `.agents/brain/` (`task.md`, `walkthrough.md`, `palace_registry.md`, `active_context_manifest.md`). Update task state and mental anchors as you work.
+3. **Open Knowledge Format (OKF):** All Markdown files MUST maintain OKF YAML frontmatter (`okf_version`, `type`, `title`, `timestamp`, `topics`). Upgrade frontmatter to OKF v0.2 opportunistically whenever editing files.
+4. **Command-First & Isolated Python:** Use `uv run` for Python executions. Do not use raw `pip` or global `python`.
+5. **Atomic Commits:** Stage and commit granularly with descriptive semantic messages. Never use blanket `git commit -am` commands.
