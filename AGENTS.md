@@ -1,11 +1,18 @@
 ---
-okf_version: 0.1
+okf_version: 0.2
 type: documentation
 title: "The Agent Registry & DSOM Gateway"
 timestamp: "2026-08-22T12:00:00Z"
 topics: ["dsom", "documentation"]
 description: "Sovereign entry point instructing AI Agents to look up rules and memory under .agents/."
 resource: "file:///AGENTS.md"
+sources:
+  - url: "https://linuxmalaysia.github.io/deep-state-of-mind-for-my-ai/START-HERE/"
+    description: "DSOM Project Benefits & Entry Points"
+generated: false
+verified: true
+status: "active"
+stale_after: "2027-08-22T12:00:00Z"
 ---
 # AI Agent Registry & Sovereign Gateway
 

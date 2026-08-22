@@ -1,11 +1,18 @@
 ---
-okf_version: 0.1
+okf_version: 0.2
 type: context_manifest
 title: "Active Context Manifest"
 timestamp: "2026-08-22T12:00:00Z"
 topics: ["dsom", "context", "brain"]
 description: "Manifest listing active files currently in scope for session work."
 resource: "file:///.agents/brain/active_context_manifest.md"
+sources:
+  - url: "https://linuxmalaysia.github.io/deep-state-of-mind-for-my-ai/START-HERE/"
+    description: "DSOM Project Benefits & Entry Points"
+generated: false
+verified: true
+status: "active"
+stale_after: "2027-08-22T12:00:00Z"
 ---
 # Active Context Manifest
 
@@ -19,3 +26,7 @@ The following files are actively loaded into session scope:
 - `.cursorrules`
 - `CLAUDE.md`
 - `.github/copilot-instructions.md`
+
+---
+*Deep State of Mind (DSOM) For My AI Protocol | Harisfazillah Jamel (LinuxMalaysia) | 2026-08-22*
+*Standard: UK English | DBP-standard Bahasa Melayu Malaysia (Piawai) | GNU General Public License v3.0*
