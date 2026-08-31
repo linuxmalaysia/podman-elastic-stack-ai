@@ -33,7 +33,7 @@
 
         - name: Ensure stale temporary container is removed
           command: "podman rm -f {{ temp_kibana_container }}"
-          ignore_errors: true
+          failed_when: false
 
         - name: Start temporary Kibana container to extract configuration
           command: podman run --name "{{ temp_kibana_container }}" --network "{{ network_name }}" -d "{{ kibana_image }}" sleep infinity
@@ -60,7 +60,7 @@
       always:
         - name: Stop and remove temporary container
           command: "podman rm -f {{ temp_kibana_container }}"
-          ignore_errors: true
+          failed_when: false
           when: temp_kibana_container is defined
 
     - name: Step 6 - Start Kibana container using podman-compose with volume and custom config
@@ -113,7 +113,7 @@
     - name: Step 8 - Get Elasticsearch Container IP Address
       block:
         - name: Inspect Elasticsearch container IP on external network
-          shell: "podman inspect {{ container_name }} | grep \"{{ network_name }}\" -A 10 | grep \"IPAddress\" | sed -e 's/.*: \"//' -e 's/\",//' -e 's/ //g'"
+          shell: "set -o pipefail && podman inspect {{ container_name }} | grep \"{{ network_name }}\" -A 10 | grep \"IPAddress\" | sed -e 's/.*: \"//' -e 's/\",//' -e 's/ //g'"
           register: es_ip_out
           changed_when: false
 
@@ -138,6 +138,7 @@
             path: "{{ temp_credentials_file }}"
             regexp: "^Kibana enrollment token:"
             line: "Kibana enrollment token: {{ kibana_enrollment_token }}"
+            mode: "0600"
             create: yes
           no_log: true
 

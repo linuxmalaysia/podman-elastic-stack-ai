@@ -60,7 +60,7 @@
       when: not creds_stat.stat.exists
 
     - name: Read password from credentials file
-      shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
+      shell: "set -o pipefail && grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
       register: es_password_grep
       changed_when: false
       no_log: true

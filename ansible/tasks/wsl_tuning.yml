@@ -133,7 +133,7 @@
         dest: "{{ item }}/.wslconfig.recommended"
         mode: "0644"
       loop: "{{ windows_users.stdout_lines | default([]) }}"
-      ignore_errors: true
+      failed_when: false
 
     - name: Write active .wslconfig only when explicit opt-in is enabled
       copy:
@@ -154,7 +154,7 @@
         mode: "0644"
       loop: "{{ windows_users.stdout_lines | default([]) }}"
       when: wsl_install_active_config | default(false) | bool
-      ignore_errors: true
+      failed_when: false
 
 - name: "Part D - Adopt /etc/wsl.conf optimizations inside WSL"
   block:
