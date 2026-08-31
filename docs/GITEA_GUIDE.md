@@ -143,6 +143,11 @@ cat <<EOF > gitea.env
 POSTGRES_USER=gitea
 POSTGRES_PASSWORD=dSoM_G1t3a_H@rd3n3d_99X
 POSTGRES_DB=gitea
+POSTGRES_MAX_CONNECTIONS=100
+POSTGRES_SHARED_BUFFERS=256MB
+POSTGRES_WORK_MEM=16MB
+POSTGRES_MAINTENANCE_WORK_MEM=64MB
+POSTGRES_EFFECTIVE_CACHE_SIZE=768MB
 GITEA__database__DB_TYPE=postgres
 GITEA__database__HOST=127.0.0.1:5432
 GITEA__database__NAME=gitea
@@ -238,6 +243,16 @@ To manage the standalone stack via user-level systemd:
              value: "dSoM_G1t3a_H@rd3n3d_99X"
            - name: POSTGRES_DB
              value: gitea
+           - name: POSTGRES_MAX_CONNECTIONS
+             value: "100"
+           - name: POSTGRES_SHARED_BUFFERS
+             value: "256MB"
+           - name: POSTGRES_WORK_MEM
+             value: "16MB"
+           - name: POSTGRES_MAINTENANCE_WORK_MEM
+             value: "64MB"
+           - name: POSTGRES_EFFECTIVE_CACHE_SIZE
+             value: "768MB"
          volumeMounts:
            - mountPath: /var/lib/postgresql/data
              name: gitea-db-data

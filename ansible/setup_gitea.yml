@@ -201,6 +201,11 @@
             --env POSTGRES_USER={{ gitea_db_user }}
             --env POSTGRES_PASSWORD={{ final_gitea_password }}
             --env POSTGRES_DB={{ gitea_db_name }}
+            --env POSTGRES_MAX_CONNECTIONS=100
+            --env POSTGRES_SHARED_BUFFERS=256MB
+            --env POSTGRES_WORK_MEM=16MB
+            --env POSTGRES_MAINTENANCE_WORK_MEM=64MB
+            --env POSTGRES_EFFECTIVE_CACHE_SIZE=768MB
             --volume gitea_db_data:/var/lib/postgresql/data:Z
             docker.io/library/postgres:15-alpine
           when: gitea_db_check.rc != 0

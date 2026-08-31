@@ -139,6 +139,7 @@ _section_between() {
   grep -qF -- 'docker.io/library/postgres:15-alpine' "${GUIDE}"
   grep -qF -- 'POSTGRES_USER=gitea' "${GUIDE}"
   grep -qF -- 'POSTGRES_DB=gitea' "${GUIDE}"
+  grep -qF -- 'POSTGRES_MAX_CONNECTIONS=100' "${GUIDE}"
 }
 
 @test "GITEA_GUIDE.md documents manual Gitea deployment with correct pinned image and env vars" {
