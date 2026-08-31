@@ -171,12 +171,12 @@ teardown() {
   grep -qF -- '--env GITEA__database__PASSWD={{ final_gitea_password }}' "${PLAYBOOK}"
 }
 
-@test "ansible/setup_gitea.yml Postgres container defines performance and memory tuning parameters" {
-  grep -qF -- '--env POSTGRES_MAX_CONNECTIONS=100' "${PLAYBOOK}"
-  grep -qF -- '--env POSTGRES_SHARED_BUFFERS=256MB' "${PLAYBOOK}"
-  grep -qF -- '--env POSTGRES_WORK_MEM=16MB' "${PLAYBOOK}"
-  grep -qF -- '--env POSTGRES_MAINTENANCE_WORK_MEM=64MB' "${PLAYBOOK}"
-  grep -qF -- '--env POSTGRES_EFFECTIVE_CACHE_SIZE=768MB' "${PLAYBOOK}"
+@test "ansible/setup_gitea.yml Postgres container defines performance and memory tuning parameters via -c arguments" {
+  grep -qF -- '-c max_connections=100' "${PLAYBOOK}"
+  grep -qF -- '-c shared_buffers=256MB' "${PLAYBOOK}"
+  grep -qF -- '-c work_mem=16MB' "${PLAYBOOK}"
+  grep -qF -- '-c maintenance_work_mem=64MB' "${PLAYBOOK}"
+  grep -qF -- '-c effective_cache_size=768MB' "${PLAYBOOK}"
 }
 
 @test "ansible/setup_gitea.yml Gitea container points its database host at the pod-local Postgres" {

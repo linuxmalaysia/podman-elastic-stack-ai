@@ -143,11 +143,6 @@ cat <<EOF > gitea.env
 POSTGRES_USER=gitea
 POSTGRES_PASSWORD=dSoM_G1t3a_H@rd3n3d_99X
 POSTGRES_DB=gitea
-POSTGRES_MAX_CONNECTIONS=100
-POSTGRES_SHARED_BUFFERS=256MB
-POSTGRES_WORK_MEM=16MB
-POSTGRES_MAINTENANCE_WORK_MEM=64MB
-POSTGRES_EFFECTIVE_CACHE_SIZE=768MB
 GITEA__database__DB_TYPE=postgres
 GITEA__database__HOST=127.0.0.1:5432
 GITEA__database__NAME=gitea
@@ -176,7 +171,12 @@ podman run --detach \
     --restart always \
     --env-file gitea.env \
     --volume gitea_db_data:/var/lib/postgresql/data:Z \
-    docker.io/library/postgres:15-alpine
+    docker.io/library/postgres:15-alpine \
+    -c max_connections=100 \
+    -c shared_buffers=256MB \
+    -c work_mem=16MB \
+    -c maintenance_work_mem=64MB \
+    -c effective_cache_size=768MB
 ```
 
 ### Step E: Deploy Gitea HTTPS Application Container
@@ -236,6 +236,17 @@ To manage the standalone stack via user-level systemd:
      containers:
        - name: gitea-db
          image: docker.io/library/postgres:15-alpine
+         args:
+           - -c
+           - max_connections=100
+           - -c
+           - shared_buffers=256MB
+           - -c
+           - work_mem=16MB
+           - -c
+           - maintenance_work_mem=64MB
+           - -c
+           - effective_cache_size=768MB
          env:
            - name: POSTGRES_USER
              value: gitea
@@ -243,16 +254,6 @@ To manage the standalone stack via user-level systemd:
              value: "dSoM_G1t3a_H@rd3n3d_99X"
            - name: POSTGRES_DB
              value: gitea
-           - name: POSTGRES_MAX_CONNECTIONS
-             value: "100"
-           - name: POSTGRES_SHARED_BUFFERS
-             value: "256MB"
-           - name: POSTGRES_WORK_MEM
-             value: "16MB"
-           - name: POSTGRES_MAINTENANCE_WORK_MEM
-             value: "64MB"
-           - name: POSTGRES_EFFECTIVE_CACHE_SIZE
-             value: "768MB"
          volumeMounts:
            - mountPath: /var/lib/postgresql/data
              name: gitea-db-data
