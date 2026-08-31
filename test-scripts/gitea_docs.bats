@@ -58,9 +58,9 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   grep -qF -- 'podman-compose --version' "${GUIDE}"
 }
 
-@test "GITEA_GUIDE.md documents HTTPS TLS certificate generation and permissions" {
+@test "GITEA_GUIDE.md documents HTTPS TLS certificate generation and restrictive key permissions" {
   grep -qF -- 'openssl genrsa -out ~/.config/gitea/certs/gitea.key 2048' "${GUIDE}"
-  grep -qF -- 'chmod 0644 ~/.config/gitea/certs/gitea.key' "${GUIDE}"
+  grep -qF -- 'chmod 0600 ~/.config/gitea/certs/gitea.key' "${GUIDE}"
   grep -qF -- 'chmod 0644 ~/.config/gitea/certs/gitea.crt' "${GUIDE}"
 }
 
