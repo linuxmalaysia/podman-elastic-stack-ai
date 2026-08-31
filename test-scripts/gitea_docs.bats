@@ -9,6 +9,17 @@ REPO_ROOT="$(cd "$(dirname "$BATS_TEST_FILENAME")/.." && pwd)"
 GUIDE="${REPO_ROOT}/docs/GITEA_GUIDE.md"
 GITIGNORE="${REPO_ROOT}/.gitignore"
 
+_section_between() {
+  local start_heading="$1"
+  local end_heading="$2"
+
+  awk -v start="${start_heading}" -v end="${end_heading}" '
+    $0 == start { capture=1 }
+    capture && $0 == end { exit }
+    capture { print }
+  ' "${GUIDE}"
+}
+
 @test "GITEA_GUIDE.md exists and is readable" {
   [ -f "${GUIDE}" ]
   [ -r "${GUIDE}" ]
@@ -23,6 +34,24 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   echo "${frontmatter}" | grep -Fxq 'type: documentation'
   echo "${frontmatter}" | grep -Fxq 'resource: "file:///docs/GITEA_GUIDE.md"'
   echo "${frontmatter}" | grep -q '^topics: \['
+}
+
+@test "GITEA_GUIDE.md frontmatter includes complete provenance and freshness metadata" {
+  frontmatter="$(awk 'NR == 1 && $0 == "---" {capture=1; next} capture && $0 == "---" {exit} capture {print}' "${GUIDE}")"
+
+  required_metadata=(
+    'title: "Sovereign Gitea Deployment & Security Operations Guide"'
+    'generated: false'
+    'verified: true'
+    'status: "active"'
+  )
+  for entry in "${required_metadata[@]}"; do
+    echo "${frontmatter}" | grep -Fxq -- "${entry}"
+  done
+
+  echo "${frontmatter}" | grep -Eq '^timestamp: "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z"$'
+  echo "${frontmatter}" | grep -Eq '^stale_after: "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z"$'
+  echo "${frontmatter}" | grep -Fxq '  - url: "https://github.com/linuxmalaysia/podman-elastic-stack-ai"'
 }
 
 @test "GITEA_GUIDE.md has the expected title" {
@@ -49,6 +78,14 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   done
 }
 
+@test "GITEA_GUIDE.md contains each numbered top-level section exactly once" {
+  local section_number
+  for section_number in {1..8}; do
+    count="$(grep -cE "^## ${section_number}\\. " "${GUIDE}")"
+    [ "${count}" -eq 1 ]
+  done
+}
+
 @test "GITEA_GUIDE.md documents enabling user linger for rootless containers" {
   grep -qF -- 'sudo loginctl enable-linger $(whoami)' "${GUIDE}"
 }
@@ -62,6 +99,18 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   grep -qF -- 'openssl genrsa -out ~/.config/gitea/certs/gitea.key 2048' "${GUIDE}"
   grep -qF -- 'chmod 0600 ~/.config/gitea/certs/gitea.key' "${GUIDE}"
   grep -qF -- 'chmod 0644 ~/.config/gitea/certs/gitea.crt' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md certificate matches the documented host and includes local SAN fallbacks" {
+  grep -qF -- '-subj "/C=MY/ST=Kuala Lumpur/L=Kuala Lumpur/O=Sovereign/OU=IT/CN=10.17.250.28"' "${GUIDE}"
+  grep -qF -- '-addext "subjectAltName = DNS:10.17.250.28, IP:10.17.250.28, DNS:localhost, IP:127.0.0.1"' "${GUIDE}"
+  grep -qF -- 'sudo update-ca-certificates' "${GUIDE}"
+  grep -qF -- 'sudo update-ca-trust' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md never weakens the private key to world-readable permissions" {
+  run grep -E -- 'chmod[[:space:]]+0?644[[:space:]]+.*gitea\.key' "${GUIDE}"
+  [ "${status}" -ne 0 ]
 }
 
 @test "GITEA_GUIDE.md documents the Ansible playbook execution commands" {
@@ -99,10 +148,83 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   grep -qF -- 'GITEA__security__INSTALL_LOCK=true' "${GUIDE}"
 }
 
+@test "GITEA_GUIDE.md gitea.env block is complete and uses one shared database password" {
+  env_block="$(awk '
+    /^cat <<EOF > gitea\.env$/ {capture=1; next}
+    capture && /^EOF$/ {exit}
+    capture {print}
+  ' "${GUIDE}")"
+
+  required_entries=(
+    'POSTGRES_USER=gitea'
+    'POSTGRES_DB=gitea'
+    'GITEA__database__DB_TYPE=postgres'
+    'GITEA__database__HOST=127.0.0.1:5432'
+    'GITEA__database__NAME=gitea'
+    'GITEA__database__USER=gitea'
+    'GITEA__server__PROTOCOL=https'
+    'GITEA__server__DOMAIN=10.17.250.28'
+    'GITEA__server__ROOT_URL=https://10.17.250.28:3000/'
+    'GITEA__server__HTTP_PORT=3000'
+    'GITEA__server__SSH_PORT=2222'
+    'GITEA__server__CERT_FILE=/etc/gitea/certs/gitea.crt'
+    'GITEA__server__KEY_FILE=/etc/gitea/certs/gitea.key'
+    'GITEA__security__INSTALL_LOCK=true'
+  )
+  for entry in "${required_entries[@]}"; do
+    echo "${env_block}" | grep -Fxq -- "${entry}"
+  done
+
+  postgres_password="$(echo "${env_block}" | sed -n 's/^POSTGRES_PASSWORD=//p')"
+  gitea_password="$(echo "${env_block}" | sed -n 's/^GITEA__database__PASSWD=//p')"
+  [ -n "${postgres_password}" ]
+  [ "${postgres_password}" = "${gitea_password}" ]
+  grep -qF -- 'chmod 0600 gitea.env' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md manual containers consume the protected env file and read-only certificates" {
+  manual_section="$(_section_between \
+    '## 3. How-To 1: Pure Command-Line & Quadlet Deployment (Standalone Manual)' \
+    '## 4. How-To 2: Automated Ansible Playbook Deployment (Recommended)')"
+
+  [ "$(echo "${manual_section}" | grep -cF -- '--env-file gitea.env')" -eq 2 ]
+  echo "${manual_section}" | grep -qF -- '--volume gitea_db_data:/var/lib/postgresql/data:Z'
+  echo "${manual_section}" | grep -qF -- '--volume gitea_app_data:/data:Z'
+  echo "${manual_section}" | grep -qF -- '--volume ~/.config/gitea/certs:/etc/gitea/certs:ro'
+}
+
 @test "GITEA_GUIDE.md documents systemd generation and Quadlet enablement commands" {
   grep -qF -- 'podman generate systemd --name gitea-stack --files --new' "${GUIDE}"
   grep -qF -- 'systemctl --user enable --now pod-gitea-stack.service' "${GUIDE}"
   grep -qF -- 'Description=Gitea GitOps Service (Podman Kube Quadlet)' "${GUIDE}"
+}
+
+@test "GITEA_GUIDE.md Kube Quadlet references a complete two-container workload" {
+  manual_section="$(_section_between \
+    '## 3. How-To 1: Pure Command-Line & Quadlet Deployment (Standalone Manual)' \
+    '## 4. How-To 2: Automated Ansible Playbook Deployment (Recommended)')"
+
+  quadlet_entries=(
+    '   Yaml=gitea-stack.yaml'
+    '   PublishPort=3000:3000'
+    '   PublishPort=2222:22'
+    '   apiVersion: v1'
+    '   kind: Pod'
+    '       - name: gitea-db'
+    '         image: docker.io/library/postgres:15-alpine'
+    '       - name: gitea-app'
+    '         image: docker.io/gitea/gitea:1.26.1'
+    '             hostPort: 3000'
+    '             hostPort: 2222'
+    '           claimName: gitea_db_data'
+    '           claimName: gitea_app_data'
+    '           path: /home/dsom-admin/.config/gitea/certs'
+  )
+  for entry in "${quadlet_entries[@]}"; do
+    echo "${manual_section}" | grep -Fxq -- "${entry}"
+  done
+
+  [ "$(echo "${manual_section}" | grep -cF '             readOnly: true')" -eq 2 ]
 }
 
 @test "GITEA_GUIDE.md documents Ansible Vault as a secret-management method" {
@@ -155,6 +277,52 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   grep -qF -- 'hardcoded secrets inside Git repositories must be strictly avoided' "${GUIDE}"
 }
 
+@test "GITEA_GUIDE.md never recommends insecure TLS or credentials embedded in remotes" {
+  run grep -E -- 'curl.*[[:space:]](-k|--insecure)([[:space:]]|$)' "${GUIDE}"
+  [ "${status}" -ne 0 ]
+
+  run grep -F -- 'http.sslVerify=false' "${GUIDE}"
+  [ "${status}" -ne 0 ]
+
+  run grep -E -- 'https://[^/@[:space:]"`]+:[^/@[:space:]"`]+@' "${GUIDE}"
+  [ "${status}" -ne 0 ]
+
+  run grep -F -- '--password dsom-admin-secure' "${GUIDE}"
+  [ "${status}" -ne 0 ]
+}
+
+@test "GITEA_GUIDE.md API workflow verifies TLS, reuses the token, and removes payload files" {
+  api_section="$(_section_between \
+    '## 5. Post-Installation Account, Token & Repository Setup (CLI & API)' \
+    '## 6. Git Remote & Client Access (HTTPS & SSH)')"
+
+  [ "$(echo "${api_section}" | grep -cF -- '--cacert ~/.config/gitea/certs/gitea.crt')" -eq 4 ]
+  [ "$(echo "${api_section}" | grep -cF -- 'https://10.17.250.28:3000/api/v1/')" -eq 4 ]
+  [ "$(echo "${api_section}" | grep -cF -- '-H "Authorization: token ${GITEA_TOKEN}"')" -eq 3 ]
+  echo "${api_section}" | grep -qF -- 'read -sp "Enter Gitea Admin Password: " GITEA_ADMIN_PASS'
+  echo "${api_section}" | grep -qF -- '--password "${GITEA_ADMIN_PASS}"'
+
+  token_extraction="GITEA_TOKEN=\$(grep -o '\"sha1\":\"[^\"]*' token_resp.json | cut -d'\"' -f4)"
+  echo "${api_section}" | grep -qF -- "${token_extraction}"
+  echo "${api_section}" | grep -qF -- 'rm -f token_resp.json'
+  echo "${api_section}" | grep -qF -- 'rm -f ssh-key-payload.json'
+  echo "${api_section}" | grep -qF -- 'ssh-keyscan -p 2222 10.17.250.28 >> ~/.ssh/known_hosts'
+}
+
+@test "GITEA_GUIDE.md client remotes use the canonical host and preserve TLS verification" {
+  client_section="$(_section_between \
+    '## 6. Git Remote & Client Access (HTTPS & SSH)' \
+    '## 7. Securing and Protecting Passwords in Git (Best Practices)')"
+
+  echo "${client_section}" | grep -qF -- 'git config --global http.sslCAInfo /path/to/sovereign-gitea-ca.crt'
+  echo "${client_section}" | grep -qF -- 'git remote add sovereign "https://10.17.250.28:3000/songketmailsdnbhd-group/um-elastic-soc.git"'
+  echo "${client_section}" | grep -qF -- 'git push sovereign main'
+  echo "${client_section}" | grep -qF -- 'git remote add gitea ssh://git@10.17.250.28:2222/songketmailsdnbhd-group/um-elastic-soc.git'
+
+  run grep -F -- 'localhost' <<< "${client_section}"
+  [ "${status}" -ne 0 ]
+}
+
 @test "GITEA_GUIDE.md is properly wrapped in Jekyll {% raw %}/{% endraw %} tags after OKF frontmatter" {
   marker2_line="$(grep -n '^---$' "${GUIDE}" | sed -n '2p' | cut -d: -f1)"
   raw_line="$(grep -nF '{% raw %}' "${GUIDE}" | head -1 | cut -d: -f1)"
@@ -168,8 +336,14 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
   [ -n "${marker2_line}" ]
   [ -n "${raw_line}" ]
   [ -n "${endraw_line}" ]
-  [ "${raw_line}" -gt "${marker2_line}" ]
+  [ "${raw_line}" -eq "$((marker2_line + 1))" ]
   [ "${endraw_line}" -gt "${raw_line}" ]
+  [ "$(tail -n 1 "${GUIDE}")" = '{% endraw %}' ]
+
+  liquid_line="$(grep -nF -- "{{ lookup('ansible.builtin.env', 'GITEA_DB_PASSWORD')" "${GUIDE}" | head -1 | cut -d: -f1)"
+  [ -n "${liquid_line}" ]
+  [ "${liquid_line}" -gt "${raw_line}" ]
+  [ "${liquid_line}" -lt "${endraw_line}" ]
 }
 
 @test "GITEA_GUIDE.md's title immediately follows the opening {% raw %} tag" {
@@ -209,3 +383,12 @@ GITIGNORE="${REPO_ROOT}/.gitignore"
 @test "GITEA_GUIDE.md links to the main Playbooks Guide for Ansible playbook details" {
   grep -qF -- 'please refer to the [Playbooks Guide](PLAYBOOKS.md)' "${GUIDE}" || grep -qF -- 'refer to the [Playbooks Guide](PLAYBOOKS.md)' "${GUIDE}"
 }
+
+@test "GITEA_GUIDE.md relative documentation links resolve to existing files" {
+  [ -f "${REPO_ROOT}/docs/INSTALL.md" ]
+  [ -f "${REPO_ROOT}/docs/PLAYBOOKS.md" ]
+  grep -qE -- '^#+[[:space:]]+Git Repository[[:space:]]*$' "${REPO_ROOT}/docs/INSTALL.md"
+}
+
+# Deep State of Mind (DSOM) For My AI Protocol | LinuxMalaysia | 2026-08-31
+# Standard: UK English | GNU General Public License v3.0
