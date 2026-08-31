@@ -1,0 +1,19 @@
+# Configuration for ansible-lint
+warn_list:
+  - command-instead-of-module
+  - key-order
+  - jinja
+  - name
+  - var-naming
+  - yaml
+  - package-latest
+  - risky-file-permissions
+  - risky-shell-pipe
+  - ignore-errors
+  - no-changed-when
+  - no-handler
+  - fqcn
+  - run-once
+
+exclude_paths:
+  - playbooks/matrix_test.yml
