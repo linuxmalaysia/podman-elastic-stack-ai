@@ -34,8 +34,8 @@ class QuadletKubeValidator:
             kube_sec = config["Kube"]
             if "Yaml" not in kube_sec:
                 errors.append("Missing Yaml key in [Kube] section")
-            elif not kube_sec.get("Yaml", "").strip():
-                errors.append("Yaml key in [Kube] section cannot be empty")
+            elif not isinstance(kube_sec.get("Yaml"), str) or not kube_sec.get("Yaml", "").strip():
+                errors.append("Yaml key in [Kube] section must be a non-empty string")
 
         return {"valid": len(errors) == 0, "errors": errors}
 
@@ -61,8 +61,12 @@ class KubernetesPodValidator:
             errors.append("kind must be 'Pod'")
 
         metadata = data.get("metadata")
-        if not isinstance(metadata, dict) or "name" not in metadata or not metadata.get("name"):
-            errors.append("metadata must contain a non-empty 'name'")
+        if not isinstance(metadata, dict):
+            errors.append("metadata must be a dictionary")
+        else:
+            name_val = metadata.get("name")
+            if not isinstance(name_val, str) or not name_val.strip():
+                errors.append("metadata.name must be a non-empty string containing non-whitespace characters")
 
         spec = data.get("spec")
         if not isinstance(spec, dict):
@@ -76,10 +80,12 @@ class KubernetesPodValidator:
                     if not isinstance(c, dict):
                         errors.append(f"spec.containers[{idx}] must be a dictionary")
                         continue
-                    if "name" not in c or not c.get("name"):
-                        errors.append(f"Container at index {idx} missing or empty 'name'")
-                    if "image" not in c or not c.get("image"):
-                        errors.append(f"Container at index {idx} missing or empty 'image'")
+                    c_name = c.get("name")
+                    if not isinstance(c_name, str) or not c_name.strip():
+                        errors.append(f"Container at index {idx} 'name' must be a non-empty string containing non-whitespace characters")
+                    c_image = c.get("image")
+                    if not isinstance(c_image, str) or not c_image.strip():
+                        errors.append(f"Container at index {idx} 'image' must be a non-empty string containing non-whitespace characters")
 
         return {"valid": len(errors) == 0, "errors": errors}
 
@@ -123,7 +129,7 @@ class TestContainerManifestSchemas(unittest.TestCase):
         )
         result = QuadletKubeValidator.validate_kube_content(empty_yaml_kube)
         self.assertFalse(result["valid"])
-        self.assertIn("Yaml key in [Kube] section cannot be empty", result["errors"])
+        self.assertIn("Yaml key in [Kube] section must be a non-empty string", result["errors"])
 
     def test_sample_pod_yaml_validation(self):
         valid_yaml = (
@@ -166,8 +172,27 @@ class TestContainerManifestSchemas(unittest.TestCase):
         )
         result = KubernetesPodValidator.validate_pod_content(misplaced_yaml)
         self.assertFalse(result["valid"])
-        self.assertIn("metadata must contain a non-empty 'name'", result["errors"])
+        self.assertIn("metadata must be a dictionary", result["errors"])
         self.assertIn("spec section must be a dictionary", result["errors"])
+
+    def test_invalid_pod_non_string_or_whitespace_fields(self):
+        # Test boolean, numeric, empty, and whitespace-only values for metadata.name and container name/image
+        cases = [
+            ("metadata.name boolean", "apiVersion: v1\nkind: Pod\nmetadata:\n  name: true\nspec:\n  containers:\n    - name: app\n      image: alpine\n", "metadata.name must be a non-empty string"),
+            ("metadata.name numeric", "apiVersion: v1\nkind: Pod\nmetadata:\n  name: 12345\nspec:\n  containers:\n    - name: app\n      image: alpine\n", "metadata.name must be a non-empty string"),
+            ("metadata.name whitespace", "apiVersion: v1\nkind: Pod\nmetadata:\n  name: '   '\nspec:\n  containers:\n    - name: app\n      image: alpine\n", "metadata.name must be a non-empty string"),
+            ("container.name boolean", "apiVersion: v1\nkind: Pod\nmetadata:\n  name: pod\nspec:\n  containers:\n    - name: true\n      image: alpine\n", "Container at index 0 'name' must be a non-empty string"),
+            ("container.name numeric", "apiVersion: v1\nkind: Pod\nmetadata:\n  name: pod\nspec:\n  containers:\n    - name: 999\n      image: alpine\n", "Container at index 0 'name' must be a non-empty string"),
+            ("container.name whitespace", "apiVersion: v1\nkind: Pod\nmetadata:\n  name: pod\nspec:\n  containers:\n    - name: '  '\n      image: alpine\n", "Container at index 0 'name' must be a non-empty string"),
+            ("container.image boolean", "apiVersion: v1\nkind: Pod\nmetadata:\n  name: pod\nspec:\n  containers:\n    - name: app\n      image: false\n", "Container at index 0 'image' must be a non-empty string"),
+            ("container.image numeric", "apiVersion: v1\nkind: Pod\nmetadata:\n  name: pod\nspec:\n  containers:\n    - name: app\n      image: 888\n", "Container at index 0 'image' must be a non-empty string"),
+            ("container.image whitespace", "apiVersion: v1\nkind: Pod\nmetadata:\n  name: pod\nspec:\n  containers:\n    - name: app\n      image: '  '\n", "Container at index 0 'image' must be a non-empty string"),
+        ]
+
+        for label, yaml_str, expected_err_part in cases:
+            res = KubernetesPodValidator.validate_pod_content(yaml_str)
+            self.assertFalse(res["valid"], f"Expected failure for {label}")
+            self.assertTrue(any(expected_err_part in err for err in res["errors"]), f"Expected '{expected_err_part}' in {res['errors']} for {label}")
 
 
 if __name__ == "__main__":
