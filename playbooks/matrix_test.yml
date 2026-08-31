@@ -63,7 +63,7 @@
           vars:
             raw_mem_string: "{{ (u24_stats_post.stdout | default('{}', true) | from_json).mem_usage | default('0B', true) }}"
             raw_mem_split: "{{ raw_mem_string.split(' ')[0] }}"
-            raw_mem_unit: "{{ raw_mem_split | regex_replace('[0-9\.]', '') | upper }}"
+            raw_mem_unit: "{{ raw_mem_split | regex_replace('[0-9.]', '') | upper }}"
 
       rescue:
         - name: "Capture Ubuntu 24.04 Failure Details"
@@ -143,7 +143,7 @@
           vars:
             raw_mem_string: "{{ (u26_stats_post.stdout | default('{}', true) | from_json).mem_usage | default('0B', true) }}"
             raw_mem_split: "{{ raw_mem_string.split(' ')[0] }}"
-            raw_mem_unit: "{{ raw_mem_split | regex_replace('[0-9\.]', '') | upper }}"
+            raw_mem_unit: "{{ raw_mem_split | regex_replace('[0-9.]', '') | upper }}"
 
       rescue:
         - name: "Capture Ubuntu 26.04 Failure Details"
@@ -223,7 +223,7 @@
           vars:
             raw_mem_string: "{{ (alma_stats_post.stdout | default('{}', true) | from_json).mem_usage | default('0B', true) }}"
             raw_mem_split: "{{ raw_mem_string.split(' ')[0] }}"
-            raw_mem_unit: "{{ raw_mem_split | regex_replace('[0-9\.]', '') | upper }}"
+            raw_mem_unit: "{{ raw_mem_split | regex_replace('[0-9.]', '') | upper }}"
 
       rescue:
         - name: "Capture AlmaLinux 9 Failure Details"
@@ -303,7 +303,7 @@
           vars:
             raw_mem_string: "{{ (debian_stats_post.stdout | default('{}', true) | from_json).mem_usage | default('0B', true) }}"
             raw_mem_split: "{{ raw_mem_string.split(' ')[0] }}"
-            raw_mem_unit: "{{ raw_mem_split | regex_replace('[0-9\.]', '') | upper }}"
+            raw_mem_unit: "{{ raw_mem_split | regex_replace('[0-9.]', '') | upper }}"
 
       rescue:
         - name: "Capture Debian 12 Failure Details"

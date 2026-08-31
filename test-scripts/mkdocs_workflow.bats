@@ -85,3 +85,12 @@ OLD_WORKFLOW="${REPO_ROOT}/.github/workflows/jekyll-gh-pages.yml"
 @test "deploy job still depends on the build job" {
   grep -qF 'needs: build' "${WORKFLOW}"
 }
+
+@test "docs-ci.yml exists and configures gitleaks and ansible-lint jobs" {
+  local docs_ci="${REPO_ROOT}/.github/workflows/docs-ci.yml"
+  [ -f "${docs_ci}" ]
+  grep -qE 'uses:\s*gitleaks/gitleaks-action@' "${docs_ci}"
+  grep -qE 'uses:\s*ansible/ansible-lint@' "${docs_ci}"
+  grep -qF 'args: "ansible/ playbooks/"' "${docs_ci}"
+  grep -qF 'persist-credentials: false' "${docs_ci}"
+}

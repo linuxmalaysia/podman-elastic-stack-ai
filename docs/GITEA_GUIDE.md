@@ -171,7 +171,12 @@ podman run --detach \
     --restart always \
     --env-file gitea.env \
     --volume gitea_db_data:/var/lib/postgresql/data:Z \
-    docker.io/library/postgres:15-alpine
+    docker.io/library/postgres:15-alpine \
+    -c max_connections=100 \
+    -c shared_buffers=256MB \
+    -c work_mem=16MB \
+    -c maintenance_work_mem=64MB \
+    -c effective_cache_size=768MB
 ```
 
 ### Step E: Deploy Gitea HTTPS Application Container
@@ -231,6 +236,17 @@ To manage the standalone stack via user-level systemd:
      containers:
        - name: gitea-db
          image: docker.io/library/postgres:15-alpine
+         args:
+           - -c
+           - max_connections=100
+           - -c
+           - shared_buffers=256MB
+           - -c
+           - work_mem=16MB
+           - -c
+           - maintenance_work_mem=64MB
+           - -c
+           - effective_cache_size=768MB
          env:
            - name: POSTGRES_USER
              value: gitea

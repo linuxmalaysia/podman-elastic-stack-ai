@@ -193,7 +193,7 @@
           register: pre_creds_stat
 
         - name: Read existing elastic password if file exists
-          shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
+          shell: "set -o pipefail && grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
           register: pre_es_password_grep
           changed_when: false
           failed_when: false
@@ -351,7 +351,7 @@
           register: creds_file_stat
 
         - name: Read existing elastic password if file exists
-          shell: "grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
+          shell: "set -o pipefail && grep \"Elastic password set to:\" \"{{ temp_credentials_file }}\" | sed 's/.*Elastic password set to: //' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
           register: es_password_grep
           changed_when: false
           failed_when: false
@@ -408,6 +408,7 @@
             path: "{{ temp_credentials_file }}"
             line: "Elastic password set to: {{ elastic_password }}"
             create: yes
+            mode: "0600"
           no_log: true
           when: password_reset_needed
 
@@ -466,7 +467,7 @@
           no_log: true
 
         - name: Parse enrollment token
-          shell: echo "{{ token_output.stdout }}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+          shell: "set -o pipefail && echo \"{{ token_output.stdout }}\" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'"
           register: parsed_token
           changed_when: false
           no_log: true
@@ -476,6 +477,7 @@
             path: "{{ temp_credentials_file }}"
             line: "Kibana enrollment token: {{ parsed_token.stdout | trim }}"
             create: yes
+            mode: "0600"
           no_log: true
 
         - name: Output final success message

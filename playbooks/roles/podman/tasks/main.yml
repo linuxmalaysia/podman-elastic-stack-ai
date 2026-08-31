@@ -32,7 +32,7 @@
   when: ansible_facts['os_family'] == "RedHat"
 
 - name: "Podman | Verify Podman Version is 5 or higher"
-  ansible.builtin.shell: "podman --version | grep -oE '[0-9]+' | head -1"
+  ansible.builtin.shell: "set -o pipefail && podman --version | grep -oE '[0-9]+' | head -1"
   register: podman_major_version
   changed_when: false
   failed_when: podman_major_version.stdout | default('0') | int < 5
