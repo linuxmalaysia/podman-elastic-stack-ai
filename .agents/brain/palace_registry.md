@@ -2,7 +2,7 @@
 okf_version: 0.2
 type: palace_index
 title: "Sovereign Markdown Palace Spatial Index"
-timestamp: "2026-08-22T12:00:00Z"
+timestamp: "2026-09-05T00:00:00Z"
 topics: ["dsom", "palace", "brain"]
 description: "Spatial index mapping repository documentation and code rooms."
 resource: "file:///.agents/brain/palace_registry.md"
@@ -12,7 +12,7 @@ sources:
 generated: false
 verified: true
 status: "active"
-stale_after: "2027-08-22T12:00:00Z"
+stale_after: "2027-09-05T00:00:00Z"
 ---
 # Sovereign Markdown Palace Registry
 
@@ -21,11 +21,12 @@ stale_after: "2027-08-22T12:00:00Z"
 | `AGENTS.md` | Root Agent Gateway | Public / Entry |
 | `.agents/AGENTS.md` | Full Sovereign AI Constitution | Core Governance |
 | `.agents/brain/` | Spatial Memory (task, walkthrough, registry, context) | Session State |
-| `docs/` | Diátaxis Documentation Palace | Knowledge Base |
+| `docs/` | Diátaxis Documentation Palace & Operational Playbooks | Knowledge Base |
+| `docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md` | Universal Operational Replication & Prompt Playbook | Knowledge Base |
 | `ansible/` | Playbooks and Infrastructure Tasks | Execution Engine |
 | `scripts/` | Automation & Maintenance Scripts | Operational Tools |
 | `test-scripts/` | BATS Test Suites | Verification Gate |
 
 ---
-*Deep State of Mind (DSOM) For My AI Protocol | Harisfazillah Jamel (LinuxMalaysia) | 2026-08-22*
+*Deep State of Mind (DSOM) For My AI Protocol | Harisfazillah Jamel (LinuxMalaysia) | 2026-09-05*
 *Standard: UK English | DBP-standard Bahasa Melayu Malaysia (Piawai) | GNU General Public License v3.0*

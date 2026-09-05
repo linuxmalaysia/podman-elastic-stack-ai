@@ -82,6 +82,7 @@ nav:
   - WSL 3-Node Cluster Guide: WSL-3NODE-CLUSTER-GUIDE.md
   - WSL2 AI Performance & Security Tuning: WSL2_AI_PERFORMANCE_TUNING.md
   - User Testing Feedback Review: USER_TESTING_FEEDBACK_REVIEW.md
+  - Universal Operational Replication & Prompt Playbook: UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md
   - Upgrade Plan to Elastic 9.x: ELASTIC_9_UPGRADE_PLAN.md
   - Reference Tuning Resources: REFERENCE_TUNING.md
   - Developer Matrix Telemetry: DOCS_MATRIX_TELEMETRY.md
