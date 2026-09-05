@@ -18,4 +18,5 @@ https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_FQCN/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_ADOPTION_REVIEW/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ANSIBLE_PLAYBOOK_MAP/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/SOP_KNOWLEDGE_FIRST_DISCOVERY/
+https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK/
 https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ELASTIC_9_UPGRADE_PLAN/

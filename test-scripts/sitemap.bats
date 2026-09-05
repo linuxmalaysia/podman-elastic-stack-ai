@@ -65,10 +65,14 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   done
 }
 
+@test "sitemap.txt includes the new UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK URL under docs/" {
+  grep -qF "${BASE_URL}/docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK/" "${SITEMAP_TXT}"
+}
+
 @test "sitemap.txt has expected count of URLs" {
   local count
   count="$(grep -cF "${BASE_URL}" "${SITEMAP_TXT}")"
-  [ "${count}" -eq 21 ]
+  [ "${count}" -eq 22 ]
 }
 
 @test "sitemap.xml lists the relocated guide URLs under the docs/ path segment" {
@@ -151,10 +155,25 @@ BASE_URL="https://linuxmalaysia.github.io/podman-elastic-stack-ai"
   echo "${url_block}" | grep -qF '<priority>0.80</priority>'
 }
 
+@test "sitemap.xml includes a new <url> entry for UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK with weekly/0.80 metadata" {
+  grep -qF "<loc>${BASE_URL}/docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK/</loc>" "${SITEMAP_XML}"
+  local url_block
+  url_block="$(awk '
+    /<url>/ { block=""; inside=1 }
+    inside { block = block "\n" $0 }
+    /<\/url>/ {
+      if (block ~ "docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK/") { print block; exit }
+      inside=0
+    }
+  ' "${SITEMAP_XML}")"
+  echo "${url_block}" | grep -qF '<changefreq>weekly</changefreq>'
+  echo "${url_block}" | grep -qF '<priority>0.80</priority>'
+}
+
 @test "sitemap.xml contains expected count of <url> entries matching sitemap.txt" {
   local count
   count="$(grep -cF '<url>' "${SITEMAP_XML}")"
-  [ "${count}" -eq 21 ]
+  [ "${count}" -eq 22 ]
 }
 
 # Regression tests for the new REFERENCE_TUNING.md and legal-notice.md
