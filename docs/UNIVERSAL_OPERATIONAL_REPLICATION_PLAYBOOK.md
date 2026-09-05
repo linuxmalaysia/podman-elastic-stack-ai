@@ -3,7 +3,7 @@ okf_version: "0.2"
 type: "operations"
 title: "Universal Operational Replication & Prompt Playbook: Elastic Stack SOC Infrastructure Upgrade & Automation Fabric"
 author: "Antigravity Cognitive Digital Twin & Lead SOC Architect"
-date: "2026-09-05"
+timestamp: "2026-09-05T00:00:00Z"
 classification: "Universal Engineering Standard / Operational Playbook"
 topics:
   - elasticsearch
@@ -20,7 +20,9 @@ topics:
 {% raw %}
 
 # Universal Operational Replication & Prompt Playbook
+
 ## Automated Rolling Upgrade & Infrastructure Management for Elastic Stack SOC Environments
+
 *(Elasticsearch Core, Kibana, Fleet Server, Logstash Ingestion, Apache Kafka, SemaphoreUI & ARA Records Ansible)*
 
 ***
@@ -30,6 +32,7 @@ topics:
 This document provides an exhaustive, vendor-neutral, and project-agnostic operational blueprint, prompt system, and code manual. It enables any autonomous AI agent or human engineering team to replicate the complete, zero-downtime rolling upgrade and operational auditing performed on an enterprise Elastic Security Operations Centre (SOC) fabric.
 
 ### Target Technology Stack
+
 - **Data & Analytics Tier:** Multi-node Elasticsearch Core Cluster (Dedicated Ingest/Data + Master-eligible nodes).
 - **Visualization & Investigation Tier:** Kibana Visualisation Server.
 - **Endpoint Protection & Telemetry Plane:** Elastic Fleet Server & Managed Elastic Agents.
@@ -37,6 +40,7 @@ This document provides an exhaustive, vendor-neutral, and project-agnostic opera
 - **GitOps Orchestration & Audit Plane:** Linux Jumphost running Ansible, SemaphoreUI (Task Orchestration), and ARA Records Ansible (Run Telemetry Database).
 
 ### Sanitization & Variable Adoption Matrix
+
 When adopting this document for your own environment, substitute the example placeholders below with your project-specific parameters:
 
 | Category | Generic Placeholder | Example Production Value | Description |
@@ -139,7 +143,7 @@ Requirements:
 1. Native Logstash (`logstash-syslog-01`): Check persistent queue (`queue.type: persisted`), stop service, upgrade package to 9.5.3, verify `sniffing => false` in pipeline configs, restart, and wait for ingestion ports.
 2. Containerized Logstash/Kafka (`ingest-01`, `ingest-02`): Update Podman Quadlet / Docker definitions to 9.5.3 images, reload systemd units, and execute rolling container restarts.
 3. Kafka Partition Scaling Task: Author a remediation task that inspects the Kafka topic `soc-events`. If partition count is less than Logstash consumer worker count (e.g., 16), execute `kafka-topics.sh --alter --topic soc-events --partitions 16` to unlock multi-threaded parallel consumption and drain backlog.
-4. Logstash TLS Configuration: Ensure Elasticsearch output blocks specify `ssl_verification_mode => "none"` or mount valid internal root CAs to prevent pipeline stalls during certificate rotation.
+4. Logstash TLS Configuration: Ensure Elasticsearch output blocks specify trusted internal CAs (`ssl_certificate_authorities => ["/etc/logstash/certs/ca.crt"]`) and enforce certificate validation (`ssl_verification_mode => "full"`) to prevent pipeline stalls during certificate rotation.
 ```
 
 ### 2.5 Prompt: Fleet Server & Agent Policy Integration Upgrade
@@ -178,6 +182,7 @@ Requirements:
 This section incorporates the core agent skills utilized during the operational lifecycle.
 
 ### 3.1 Skill: `upgrade-elastic-stack`
+
 - **Purpose**: Defines master-aware node ordering and the intra-node shard migration protocol.
 - **Target Sequencing**:
   1. Phase 1: Pre-Flight Audit & Snapshot
@@ -189,6 +194,7 @@ This section incorporates the core agent skills utilized during the operational 
   7. Phase 5: Post-Flight Cluster Validation
 
 ### 3.2 Skill: `ara-semaphore-orchestration`
+
 - **Purpose**: Governs rootless container automation, privilege escalation isolation, and automated telemetry.
 - **Key Concepts**:
   - **Netavark Bridge Gateway**: In Podman 5 rootless environments, container runners reach host-bound services via gateway IP `<CONTAINER_BRIDGE_GATEWAY_IP>` (port 8000).
@@ -197,6 +203,7 @@ This section incorporates the core agent skills utilized during the operational 
   - **Gorilla WebSocket Channel Protection**: Max 256 messages. Use the Executive Summary Pattern.
 
 ### 3.3 Skill: `audit-ingestion-health`
+
 - **Purpose**: Probes Kafka broker queues, Logstash JVM heap, and consumer group offset lags.
 - **Key Concepts**:
   - **Partition Concurrency Rule**: Kafka topic partition count must equal downstream Logstash worker thread count. A single partition throttles ingestion.
@@ -225,6 +232,7 @@ The following production-grade playbooks provide complete drop-in implementation
   vars:
     es_api: "https://<ES_PRIMARY_IP>:9200"
     snapshot_repository: "soc-backup-repo"
+    ca_cert_path: "/etc/ssl/certs/ca-certificates.crt"
 
   tasks:
     - name: "Pre-Flight: Check Elasticsearch Cluster Health"
@@ -234,7 +242,7 @@ The following production-grade playbooks provide complete drop-in implementation
         user: "{{ elasticsearch.superuser }}"
         password: "{{ elasticsearch.password }}"
         force_basic_auth: yes
-        validate_certs: no
+        ca_path: "{{ ca_cert_path }}"
         return_content: yes
       register: es_health
       check_mode: false
@@ -255,7 +263,7 @@ The following production-grade playbooks provide complete drop-in implementation
         user: "{{ elasticsearch.superuser }}"
         password: "{{ elasticsearch.password }}"
         force_basic_auth: yes
-        validate_certs: no
+        ca_path: "{{ ca_cert_path }}"
       register: cat_nodes
       check_mode: false
 
@@ -273,7 +281,7 @@ The following production-grade playbooks provide complete drop-in implementation
         user: "{{ elasticsearch.superuser }}"
         password: "{{ elasticsearch.password }}"
         force_basic_auth: yes
-        validate_certs: no
+        ca_path: "{{ ca_cert_path }}"
         timeout: 1800
         body_format: json
         body:
@@ -309,127 +317,136 @@ The following production-grade playbooks provide complete drop-in implementation
   vars:
     target_es_version: "9.5.3"
     es_api: "https://<ES_PRIMARY_IP>:9200"
+    ca_cert_path: "/etc/ssl/certs/ca-certificates.crt"
 
   tasks:
-    - name: "Disable Shard Allocation (Primaries Only)"
-      ansible.builtin.uri:
-        url: "{{ es_api }}/_cluster/settings?master_timeout=10m"
-        method: PUT
-        user: "{{ elasticsearch.superuser }}"
-        password: "{{ elasticsearch.password }}"
-        validate_certs: no
-        force_basic_auth: yes
-        body_format: json
-        body:
-          persistent:
-            cluster.routing.allocation.enable: "primaries"
-        status_code: 200
+    - name: "Execute Data Node Upgrade with Fail-Safe Cleanup"
+      block:
+        - name: "Disable Shard Allocation (Primaries Only)"
+          ansible.builtin.uri:
+            url: "{{ es_api }}/_cluster/settings?master_timeout=10m"
+            method: PUT
+            user: "{{ elasticsearch.superuser }}"
+            password: "{{ elasticsearch.password }}"
+            ca_path: "{{ ca_cert_path }}"
+            force_basic_auth: yes
+            body_format: json
+            body:
+              persistent:
+                cluster.routing.allocation.enable: "primaries"
+            status_code: 200
 
-    - name: "Perform Synced Flush"
-      ansible.builtin.uri:
-        url: "{{ es_api }}/_flush"
-        method: POST
-        user: "{{ elasticsearch.superuser }}"
-        password: "{{ elasticsearch.password }}"
-        validate_certs: no
-        force_basic_auth: yes
-        status_code: 200
-      ignore_errors: yes
+        - name: "Perform Synced Flush"
+          ansible.builtin.uri:
+            url: "{{ es_api }}/_flush"
+            method: POST
+            user: "{{ elasticsearch.superuser }}"
+            password: "{{ elasticsearch.password }}"
+            ca_path: "{{ ca_cert_path }}"
+            force_basic_auth: yes
+            status_code: 200
 
-    - name: "Enable Machine Learning Upgrade Mode"
-      ansible.builtin.uri:
-        url: "{{ es_api }}/_ml/set_upgrade_mode?enabled=true&timeout=10m"
-        method: POST
-        user: "{{ elasticsearch.superuser }}"
-        password: "{{ elasticsearch.password }}"
-        validate_certs: no
-        force_basic_auth: yes
-        status_code: 200
-      ignore_errors: yes
+        - name: "Enable Machine Learning Upgrade Mode"
+          ansible.builtin.uri:
+            url: "{{ es_api }}/_ml/set_upgrade_mode?enabled=true&timeout=10m"
+            method: POST
+            user: "{{ elasticsearch.superuser }}"
+            password: "{{ elasticsearch.password }}"
+            ca_path: "{{ ca_cert_path }}"
+            force_basic_auth: yes
+            status_code: 200
 
-    - name: "Stop Elasticsearch Service on {{ inventory_hostname }}"
-      ansible.builtin.systemd:
-        name: elasticsearch
-        state: stopped
+        - name: "Stop Elasticsearch Service on {{ inventory_hostname }}"
+          ansible.builtin.systemd:
+            name: elasticsearch
+            state: stopped
 
-    - name: "Wait for Port 9200 to Close"
-      ansible.builtin.wait_for:
-        port: 9200
-        state: stopped
-        timeout: 60
+        - name: "Wait for Port 9200 to Close"
+          ansible.builtin.wait_for:
+            port: 9200
+            state: stopped
+            timeout: 60
 
-    - name: "Upgrade Elasticsearch Package to {{ target_es_version }}"
-      ansible.builtin.apt:
-        name: "elasticsearch=1:{{ target_es_version }}*"
-        state: present
-        update_cache: yes
+        - name: "Upgrade Elasticsearch Package to {{ target_es_version }}"
+          ansible.builtin.apt:
+            name: "elasticsearch=1:{{ target_es_version }}*"
+            state: present
+            update_cache: yes
 
-    - name: "Start Elasticsearch Service on {{ inventory_hostname }}"
-      ansible.builtin.systemd:
-        name: elasticsearch
-        state: started
+        - name: "Start Elasticsearch Service on {{ inventory_hostname }}"
+          ansible.builtin.systemd:
+            name: elasticsearch
+            state: started
 
-    - name: "Wait for Port 9200 to Open"
-      ansible.builtin.wait_for:
-        port: 9200
-        state: started
-        timeout: 180
+        - name: "Wait for Port 9200 to Open"
+          ansible.builtin.wait_for:
+            port: 9200
+            state: started
+            timeout: 180
 
-    - name: "Wait for Node to Rejoin Cluster"
-      ansible.builtin.uri:
-        url: "{{ es_api }}/_cat/nodes?format=json&h=name,version"
-        method: GET
-        user: "{{ elasticsearch.superuser }}"
-        password: "{{ elasticsearch.password }}"
-        validate_certs: no
-        force_basic_auth: yes
-      register: cat_nodes_check
-      until: "cat_nodes_check.json | selectattr('name', 'equalto', inventory_hostname) | list | length > 0"
-      retries: 30
-      delay: 5
+        - name: "Wait for Node to Rejoin Cluster"
+          ansible.builtin.uri:
+            url: "{{ es_api }}/_cat/nodes?format=json&h=name,version"
+            method: GET
+            user: "{{ elasticsearch.superuser }}"
+            password: "{{ elasticsearch.password }}"
+            ca_path: "{{ ca_cert_path }}"
+            force_basic_auth: yes
+          register: cat_nodes_check
+          until: "cat_nodes_check.json | selectattr('name', 'equalto', inventory_hostname) | list | length > 0"
+          retries: 30
+          delay: 5
 
-    - name: "Re-enable Full Shard Allocation"
-      ansible.builtin.uri:
-        url: "{{ es_api }}/_cluster/settings?master_timeout=10m"
-        method: PUT
-        user: "{{ elasticsearch.superuser }}"
-        password: "{{ elasticsearch.password }}"
-        validate_certs: no
-        force_basic_auth: yes
-        body_format: json
-        body:
-          persistent:
-            cluster.routing.allocation.enable: null
-        status_code: 200
+      rescue:
+        - name: "Report Upgrade Failure"
+          ansible.builtin.fail:
+            msg: "Node upgrade failed on {{ inventory_hostname }}. Restoring cluster settings."
 
-    - name: "Disable Machine Learning Upgrade Mode"
-      ansible.builtin.uri:
-        url: "{{ es_api }}/_ml/set_upgrade_mode?enabled=false&timeout=10m"
-        method: POST
-        user: "{{ elasticsearch.superuser }}"
-        password: "{{ elasticsearch.password }}"
-        validate_certs: no
-        force_basic_auth: yes
-        status_code: 200
-      ignore_errors: yes
+      always:
+        - name: "Re-enable Full Shard Allocation"
+          ansible.builtin.uri:
+            url: "{{ es_api }}/_cluster/settings?master_timeout=10m"
+            method: PUT
+            user: "{{ elasticsearch.superuser }}"
+            password: "{{ elasticsearch.password }}"
+            ca_path: "{{ ca_cert_path }}"
+            force_basic_auth: yes
+            body_format: json
+            body:
+              persistent:
+                cluster.routing.allocation.enable: null
+            status_code: 200
+          ignore_errors: yes
 
-    - name: "Wait for Cluster Health Convergence (0 Unassigned Shards)"
-      ansible.builtin.uri:
-        url: "{{ es_api }}/_cluster/health"
-        method: GET
-        user: "{{ elasticsearch.superuser }}"
-        password: "{{ elasticsearch.password }}"
-        validate_certs: no
-        force_basic_auth: yes
-      register: health_convergence
-      until: "health_convergence.json.unassigned_shards == 0"
-      retries: 60
-      delay: 10
+        - name: "Disable Machine Learning Upgrade Mode"
+          ansible.builtin.uri:
+            url: "{{ es_api }}/_ml/set_upgrade_mode?enabled=false&timeout=10m"
+            method: POST
+            user: "{{ elasticsearch.superuser }}"
+            password: "{{ elasticsearch.password }}"
+            ca_path: "{{ ca_cert_path }}"
+            force_basic_auth: yes
+            status_code: 200
+          ignore_errors: yes
+
+        - name: "Wait for Cluster Health Convergence (0 Unassigned Shards)"
+          ansible.builtin.uri:
+            url: "{{ es_api }}/_cluster/health"
+            method: GET
+            user: "{{ elasticsearch.superuser }}"
+            password: "{{ elasticsearch.password }}"
+            ca_path: "{{ ca_cert_path }}"
+            force_basic_auth: yes
+          register: health_convergence
+          until: "health_convergence.json.unassigned_shards == 0"
+          retries: 60
+          delay: 10
+          ignore_errors: yes
 
 # ------------------------------------------------------------------------------
-# STEP 2B: Master-Eligible Nodes (Replica Masters then Active Master Last)
+# STEP 2B: Master-Eligible Nodes (Replica Masters first, Active Master LAST)
 # ------------------------------------------------------------------------------
-- name: Step 2B - Upgrade Master-Eligible Nodes
+- name: Step 2B - Discover Active Master & Upgrade Master-Eligible Nodes
   hosts: es_master_nodes
   serial: 1
   become: yes
@@ -438,9 +455,29 @@ The following production-grade playbooks provide complete drop-in implementation
   vars:
     target_es_version: "9.5.3"
     es_api: "https://<ES_PRIMARY_IP>:9200"
+    ca_cert_path: "/etc/ssl/certs/ca-certificates.crt"
 
   tasks:
-    # Same intra-node protocol executed one node at a time across masters
+    - name: "Query Active Elected Master Node"
+      ansible.builtin.uri:
+        url: "{{ es_api }}/_cat/master?format=json"
+        method: GET
+        user: "{{ elasticsearch.superuser }}"
+        password: "{{ elasticsearch.password }}"
+        ca_path: "{{ ca_cert_path }}"
+        force_basic_auth: yes
+      register: active_master_resp
+      run_once: true
+
+    - name: "Set Active Master Fact"
+      ansible.builtin.set_fact:
+        active_master_node: "{{ active_master_resp.json[0].node }}"
+      run_once: true
+
+    - name: "Skip Upgrade on Active Master during Replica Pass"
+      ansible.builtin.meta: end_host
+      when: "inventory_hostname == active_master_node and ansible_play_hosts | length > 1"
+
     - name: "Execute Intra-Node Upgrade Protocol on Master {{ inventory_hostname }}"
       ansible.builtin.include_tasks: tasks/upgrade-single-es-node.yml
 ```
@@ -464,6 +501,7 @@ The following production-grade playbooks provide complete drop-in implementation
     target_kibana_version: "9.5.3"
     es_api: "https://<ES_PRIMARY_IP>:9200"
     kibana_api: "https://<KIBANA_IP>:5601"
+    ca_cert_path: "/etc/ssl/certs/ca-certificates.crt"
 
   tasks:
     - name: "Pre-Flight: Assert All ES Nodes Run Version 9.5.3"
@@ -472,8 +510,8 @@ The following production-grade playbooks provide complete drop-in implementation
         method: GET
         user: "{{ elasticsearch.superuser }}"
         password: "{{ elasticsearch.password }}"
+        ca_path: "{{ ca_cert_path }}"
         force_basic_auth: yes
-        validate_certs: no
       register: es_versions
       failed_when: "(es_versions.json | map(attribute='version') | unique | list) != [target_kibana_version]"
 
@@ -505,8 +543,8 @@ The following production-grade playbooks provide complete drop-in implementation
         method: GET
         user: "{{ elasticsearch.superuser }}"
         password: "{{ elasticsearch.password }}"
+        ca_path: "{{ ca_cert_path }}"
         force_basic_auth: yes
-        validate_certs: no
       register: kibana_status
       until: "kibana_status.status == 200 and (kibana_status.json.status.overall.level | default('')) == 'available'"
       retries: 30
@@ -524,6 +562,7 @@ The following production-grade playbooks provide complete drop-in implementation
 # ==============================================================================
 - name: Remediation - Scale Kafka Partitions to 16
   hosts: ingest_nodes
+  serial: 1
   gather_facts: false
   become: false
 
@@ -534,23 +573,29 @@ The following production-grade playbooks provide complete drop-in implementation
       register: kafka_describe_pre
       changed_when: false
 
+    - name: "Extract Current Partition Count"
+      ansible.builtin.set_fact:
+        current_partitions: "{{ (kafka_describe_pre.stdout | regex_search('PartitionCount:\\s*(\\d+)', '\\1') | first | default(0)) | int }}"
+
     - name: "Scale soc-events Topic to 16 Partitions"
       ansible.builtin.command:
         cmd: "sudo -u soc-admin podman exec ingestion-stack-kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --alter --topic soc-events --partitions 16"
       register: kafka_alter
-      changed_when: "'Adding partitions succeeded' in kafka_alter.stdout or kafka_alter.rc == 0"
-      when: "'PartitionCount: 16' not in kafka_describe_pre.stdout"
+      changed_when: true
+      when: "current_partitions < 16"
 
     - name: "Restart Ingestion Stack Quadlet Service"
       ansible.builtin.shell: >-
         sudo -u soc-admin XDG_RUNTIME_DIR=/run/user/2001 systemctl --user restart ingestion-stack.service
       changed_when: true
+      when: "current_partitions < 16"
 
-    - name: "Wait for Logstash Beats Ingestion Port 5044"
+    - name: "Verify Ingestion Service Health Post-Restart"
       ansible.builtin.wait_for:
         port: 5044
         state: started
         timeout: 120
+      when: "current_partitions < 16"
 ```
 
 ### Playbook 5: Fleet Integration Packages Auto-Upgrade (`upgrade-fleet-integrations.yml`)
@@ -569,6 +614,7 @@ The following production-grade playbooks provide complete drop-in implementation
     - ../vault/soc_credentials.yml
   vars:
     kibana_api: "https://<KIBANA_IP>:5601"
+    ca_cert_path: "/etc/ssl/certs/ca-certificates.crt"
     default_headers:
       kbn-xsrf: "true"
       Content-Type: "application/json"
@@ -580,8 +626,8 @@ The following production-grade playbooks provide complete drop-in implementation
         method: GET
         user: "{{ elasticsearch.superuser }}"
         password: "{{ elasticsearch.password }}"
+        ca_path: "{{ ca_cert_path }}"
         force_basic_auth: yes
-        validate_certs: no
         headers: "{{ default_headers }}"
       register: installed_packages_resp
 
@@ -592,6 +638,19 @@ The following production-grade playbooks provide complete drop-in implementation
     - name: "Display Packages Subject to Upgrade"
       ansible.builtin.debug:
         msg: "Found {{ installed_packages | length }} installed packages to evaluate for EPR updates."
+
+    - name: "Install Integration Package Updates"
+      ansible.builtin.uri:
+        url: "{{ kibana_api }}/api/fleet/epm/packages/{{ item.name }}-{{ item.version }}"
+        method: POST
+        user: "{{ elasticsearch.superuser }}"
+        password: "{{ elasticsearch.password }}"
+        ca_path: "{{ ca_cert_path }}"
+        force_basic_auth: yes
+        headers: "{{ default_headers }}"
+        status_code: [200, 409]
+      loop: "{{ installed_packages }}"
+      when: "item.version != item.installed_version | default('')"
 ```
 
 ### Playbook 6: Zero-Data-Loss SemaphoreUI Backup (`backup-semaphore-podman.yml`)
@@ -601,7 +660,7 @@ The following production-grade playbooks provide complete drop-in implementation
 # ==============================================================================
 # Playbook: backup-semaphore-podman.yml
 # Target: control-jumphost
-# Purpose: Logical MySQL dump, podman unshare physical volume tarball, and snapshots
+# Purpose: Logical MySQL dump, container pause/stop, volume backup, and verification
 # ==============================================================================
 - name: Zero-Data-Loss Backup of SemaphoreUI and Podman Containers
   hosts: control-jumphost
@@ -609,7 +668,6 @@ The following production-grade playbooks provide complete drop-in implementation
   vars:
     backup_base_dir: "/home/soc-admin/backups/semaphore"
     backup_dir: "{{ backup_base_dir }}/backup-{{ ansible_date_time.iso8601_basic_short }}"
-    semaphore_db_password: "{{ vault_semaphore_db_password }}"
     podman_volume_path: "/home/soc-admin/.local/share/containers/storage/volumes/semaphore_db_data/_data"
 
   tasks:
@@ -619,10 +677,10 @@ The following production-grade playbooks provide complete drop-in implementation
         state: directory
         mode: '0750'
 
-    - name: Dump Semaphore MySQL Database from Container
+    - name: Dump Semaphore MySQL Database via Stdin Credentials
       ansible.builtin.shell: >
-        podman exec semaphore-stack-semaphore-db
-        mysqldump --no-tablespaces -u semaphore -p{{ semaphore_db_password }} semaphore
+        podman exec -i semaphore-stack-semaphore-db
+        sh -c 'exec mysqldump --defaults-extra-file=/var/lib/mysql/my.cnf --no-tablespaces semaphore'
         > {{ backup_dir }}/semaphore_database.sql
       no_log: true
 
@@ -632,9 +690,17 @@ The following production-grade playbooks provide complete drop-in implementation
       register: db_stat
       failed_when: not db_stat.stat.exists or db_stat.stat.size < 5000
 
+    - name: Stop Database Container for Quiesced Snapshot
+      ansible.builtin.command:
+        cmd: "podman stop semaphore-stack-semaphore-db"
+
     - name: Archive Podman Persistent MySQL Volume via Podman Unshare
       ansible.builtin.shell: >
         podman unshare tar -czf {{ backup_dir }}/semaphore_db_volume.tar.gz -C {{ podman_volume_path }} .
+
+    - name: Restart Database Container Post-Archive
+      ansible.builtin.command:
+        cmd: "podman start semaphore-stack-semaphore-db"
 
     - name: Verify Physical Volume Archive
       ansible.builtin.stat:
@@ -657,6 +723,7 @@ The following production-grade playbooks provide complete drop-in implementation
   gather_facts: true
   vars:
     ara_http_port: 8000
+    ara_version: "1.8.0"
     ara_data_dir: "/home/soc-admin/.local/share/containers/ara/data"
     semaphore_extra_python: "/home/soc-admin/.local/share/containers/semaphoreui/extra_python"
     quadlet_dir: "/home/soc-admin/.config/containers/systemd"
@@ -676,13 +743,30 @@ The following production-grade playbooks provide complete drop-in implementation
         - "{{ semaphore_extra_python }}"
         - "{{ quadlet_dir }}"
 
-    - name: Install ARA into Shared Container Package Directory
+    - name: Install Pinned ARA Package into Shared Container Directory
       ansible.builtin.command:
-        cmd: "/home/soc-admin/.local/bin/uv pip install --target {{ semaphore_extra_python }} ara"
+        cmd: "/home/soc-admin/.local/bin/uv pip install --target {{ semaphore_extra_python }} ara=={{ ara_version }}"
       environment:
         UV_LINK_MODE: copy
 
-    - name: Configure Rootless Quadlet Service Definition
+    - name: Configure Rootless Quadlet Pod Definition (ara-stack.yaml)
+      ansible.builtin.copy:
+        dest: "{{ quadlet_dir }}/ara-stack.yaml"
+        mode: '0644'
+        content: |
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: ara-stack
+          spec:
+            containers:
+              - name: ara-server
+                image: quay.io/recordsansible/ara:latest
+                ports:
+                  - containerPort: 8000
+                    hostPort: 8000
+
+    - name: Configure Rootless Quadlet Service Definition (ara-stack.kube)
       ansible.builtin.copy:
         dest: "{{ quadlet_dir }}/ara-stack.kube"
         mode: '0644'
@@ -697,6 +781,12 @@ The following production-grade playbooks provide complete drop-in implementation
 
           [Install]
           WantedBy=default.target
+
+    - name: Validate ARA Quadlet Manifest Presence
+      ansible.builtin.stat:
+        path: "{{ quadlet_dir }}/ara-stack.yaml"
+      register: ara_yaml_stat
+      failed_when: not ara_yaml_stat.stat.exists
 
     - name: Reload User Systemd Daemon
       ansible.builtin.systemd:
@@ -728,6 +818,7 @@ The following production-grade playbooks provide complete drop-in implementation
   vars:
     es_api: "https://<ES_PRIMARY_IP>:9200"
     kibana_api: "https://<KIBANA_IP>:5601"
+    ca_cert_path: "/etc/ssl/certs/ca-certificates.crt"
 
   tasks:
     - name: "Post-Flight: Query Final Cluster Health"
@@ -736,8 +827,8 @@ The following production-grade playbooks provide complete drop-in implementation
         method: GET
         user: "{{ elasticsearch.superuser }}"
         password: "{{ elasticsearch.password }}"
+        ca_path: "{{ ca_cert_path }}"
         force_basic_auth: yes
-        validate_certs: no
       register: final_health
       until: "final_health.json.status == 'green'"
       retries: 60
@@ -749,8 +840,8 @@ The following production-grade playbooks provide complete drop-in implementation
         method: GET
         user: "{{ elasticsearch.superuser }}"
         password: "{{ elasticsearch.password }}"
+        ca_path: "{{ ca_cert_path }}"
         force_basic_auth: yes
-        validate_certs: no
       register: final_nodes
 
     - name: "Post-Flight: Assert Version Unity on 9.5.3"
@@ -768,29 +859,35 @@ The following production-grade playbooks provide complete drop-in implementation
 When automating the Elastic Stack via Ansible and SemaphoreUI, human engineers and AI agents must strictly uphold these architectural invariants:
 
 ### 1. Invariant: Master-Aware Rolling Sequence
+
 - **Rule:** NEVER upgrade master-eligible nodes simultaneously or before dedicated data nodes.
 - **Root Cause:** Upgrading the active master while replica masters are still on the older version or while data nodes are restarting can cause split-brain scenarios or quorum degradation.
 - **Enforcement:** Always query `GET /_cat/master` dynamically and sort the upgrade queue: (1) Data/Ingest nodes, (2) Non-elected Master nodes, (3) Active Elected Master strictly last.
 
 ### 2. Invariant: Dual-Timestamp Ingestion & Kafka Backlog Drainage
+
 - **Rule:** During Kafka backlog drainage, NEVER audit live ingestion using `@timestamp >= now-15m`.
 - **Root Cause:** Telemetry logs carry the event generation timestamp (`@timestamp`). When Kafka consumer backlog is draining, `@timestamp` reflects the historical event time currently being processed (which may be hours old), leading to false alarms that ingestion has stopped.
 - **Enforcement:** Always verify active cluster ingestion using `event.ingested >= now-5m` or calculate delta document counts (`_count`) over a 10-second window.
 
 ### 3. Invariant: SemaphoreUI Gorilla WebSocket Buffer Protection
+
 - **Rule:** NEVER output large arrays or raw diagnostic dumps (>100 lines) directly to Ansible stdout in playbooks executed via SemaphoreUI.
 - **Root Cause:** SemaphoreUI streams logs to web browsers via a Go Gorilla WebSocket server with a 256-message channel buffer. A high-volume burst of stdout messages instantly saturates the buffer, triggering `Connection send channel is full, connection closing`. The browser connection drops and permanently freezes on `Running`, despite backend Ansible success.
 - **Enforcement:** Format playbook output into concise executive summaries (<30 lines) and archive full debug dumps to local `/tmp/*.log` files.
 
 ### 4. Invariant: Ansible Extra-Vars Precedence & Localhost Privilege Isolation
+
 - **Rule:** Local container runner playbooks (`hosts: localhost`) must NEVER use an Environment containing `"ansible_become": true`.
 - **Root Cause:** In Ansible variable precedence, `--extra-vars` (level 22) overrides playbook-level `become: false` (level 12). If Semaphore injects `ansible_become: true` via extra-vars, Ansible forces `sudo`. Because rootless container runners lack `sudo`, the task immediately crashes with `/bin/sh: sudo: not found`.
 - **Enforcement:** Maintain a dedicated `ARA Telemetry Environment` with `"json": "{}"` for container-local execution.
 
 ### 5. Invariant: SemaphoreUI 2.19+ REST API Multi-Environment Binding
+
 - **Rule:** When creating or updating Task Templates via the Semaphore REST API, ALWAYS declare both `environment_id` and `environment_ids`.
 - **Root Cause:** In SemaphoreUI v2.19+, multi-environment support was introduced. Omitting `environment_ids: [ID]` causes the template to silently reset to unbound, resulting in missing variables and skipped callback plugins.
 - **Enforcement:** Payloads must provide:
+
   ```json
   {
     "environment_id": 1,
@@ -799,6 +896,7 @@ When automating the Elastic Stack via Ansible and SemaphoreUI, human engineers a
   ```
 
 ### 6. Invariant: Kibana Fleet API JSON Bracket Notation
+
 - **Rule:** In Ansible tasks parsing Kibana Fleet API responses, Jinja expressions MUST use bracket notation `response.json['items']`.
 - **Root Cause:** Python dictionaries possess a built-in method `.items()`. Using dot notation `response.json.items` resolves to the method reference rather than the list of objects, causing template evaluation errors.
 
@@ -809,7 +907,9 @@ When automating the Elastic Stack via Ansible and SemaphoreUI, human engineers a
 After completing the upgrade, run these verification queries to confirm infrastructure health.
 
 ### 6.1 ES|QL Query: Live Node Health & Version Distribution
+
 Execute in **Kibana Discover** under **ES|QL mode**:
+
 ```esql
 FROM .monitoring-es-*
 | WHERE @timestamp >= NOW() - 15 MINUTES
@@ -821,6 +921,7 @@ FROM .monitoring-es-*
 ```
 
 ### 6.2 ES|QL Query: Firewall & Telemetry Ingestion Verification
+
 ```esql
 FROM logs-network.firewall-*
 | WHERE event.ingested >= NOW() - 30 MINUTES
@@ -830,9 +931,11 @@ FROM logs-network.firewall-*
 ```
 
 ### 6.3 CLI Health Probe: Rapid Cluster Shard Audit
-Execute from the Ansible Control Node:
+
+Execute from the Ansible Control Node using protected client configuration or environment variable credentials:
+
 ```bash
-curl -s -k -u "elastic:${ES_PASSWORD}" "https://es-master-01:9200/_cluster/health" | jq '{
+curl -s --cacert /etc/ssl/certs/ca-certificates.crt "https://es-master-01:9200/_cluster/health" | jq '{
   cluster_name: .cluster_name,
   status: .status,
   number_of_nodes: .number_of_nodes,
@@ -843,10 +946,11 @@ curl -s -k -u "elastic:${ES_PASSWORD}" "https://es-master-01:9200/_cluster/healt
 ```
 
 ### 6.4 CLI Ingestion Probe: 10-Second Delta Throughput Measurement
+
 ```bash
-COUNT1=$(curl -s -k -u "elastic:${ES_PASSWORD}" "https://es-master-01:9200/logs-*/_count" | jq .count)
+COUNT1=$(curl -s --cacert /etc/ssl/certs/ca-certificates.crt "https://es-master-01:9200/logs-*/_count" | jq .count)
 sleep 10
-COUNT2=$(curl -s -k -u "elastic:${ES_PASSWORD}" "https://es-master-01:9200/logs-*/_count" | jq .count)
+COUNT2=$(curl -s --cacert /etc/ssl/certs/ca-certificates.crt "https://es-master-01:9200/logs-*/_count" | jq .count)
 EPS=$(( (COUNT2 - COUNT1) / 10 ))
 echo "Current Ingestion Rate: ${EPS} events/sec across logs-* data streams"
 ```

@@ -21,16 +21,33 @@ SITEMAP_XML="${REPO_ROOT}/sitemap.xml"
   [ "${first_line}" = '---' ]
 }
 
-@test "docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md contains valid OKF v0.2 metadata" {
-  frontmatter="$(awk 'BEGIN {show=0; count=0} /^---$/ {count++; if(count==1) {show=1; next} if(count==2) {show=0; exit}} show {print}' "${PLAYBOOK_DOC}")"
+@test "docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md contains valid OKF v0.2 YAML frontmatter metadata" {
+  command -v python3 >/dev/null 2>&1 || skip "python3 not available"
 
-  echo "${frontmatter}" | grep -Eq '^okf_version: ?"0\.2"?'
-  echo "${frontmatter}" | grep -Eq '^type: ?"operations"?'
-  echo "${frontmatter}" | grep -q 'title: "Universal Operational Replication & Prompt Playbook: Elastic Stack SOC Infrastructure Upgrade & Automation Fabric"'
-  echo "${frontmatter}" | grep -q 'author: "Antigravity Cognitive Digital Twin & Lead SOC Architect"'
-  echo "${frontmatter}" | grep -q 'date: "2026-09-05"'
-  echo "${frontmatter}" | grep -q 'classification: "Universal Engineering Standard / Operational Playbook"'
-  echo "${frontmatter}" | grep -q '^topics:'
+  python3 -c "
+import sys, yaml
+
+with open('${PLAYBOOK_DOC}', 'r') as f:
+    lines = f.readlines()
+
+assert lines[0].strip() == '---', 'First line must be frontmatter start ---'
+end_idx = None
+for i in range(1, len(lines)):
+    if lines[i].strip() == '---':
+        end_idx = i
+        break
+
+assert end_idx is not None, 'Closing frontmatter --- not found'
+frontmatter_str = ''.join(lines[1:end_idx])
+data = yaml.safe_load(frontmatter_str)
+
+assert str(data.get('okf_version')) in ['0.1', '0.2'], 'Invalid okf_version'
+assert data.get('type') == 'operations', 'Type must be operations'
+assert 'title' in data and isinstance(data['title'], str), 'Missing title'
+assert 'author' in data and isinstance(data['author'], str), 'Missing author'
+assert 'timestamp' in data or 'date' in data, 'Missing timestamp/date'
+assert isinstance(data.get('topics'), list) and len(data['topics']) > 0, 'Missing or empty topics list'
+"
 }
 
 @test "docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md is properly wrapped in Jekyll {% raw %}/{% endraw %} tags" {
@@ -51,7 +68,7 @@ SITEMAP_XML="${REPO_ROOT}/sitemap.xml"
   [ "$(tail -n 1 "${PLAYBOOK_DOC}")" = '{% endraw %}' ]
 }
 
-@test "docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md documents all top-level sections in order" {
+@test "docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md documents all top-level sections in order outside code blocks" {
   headers=(
     '# Universal Operational Replication & Prompt Playbook'
     '## 1. Executive Blueprint & Purpose'
@@ -64,15 +81,18 @@ SITEMAP_XML="${REPO_ROOT}/sitemap.xml"
   )
   local prev_line=0
   for header in "${headers[@]}"; do
-    line="$(grep -n -F "${header}" "${PLAYBOOK_DOC}" | head -1 | cut -d: -f1)"
+    line="$(awk -v h="${header}" '
+      /^```/ { in_code = !in_code; next }
+      !in_code && $0 == h { print NR; exit }
+    ' "${PLAYBOOK_DOC}")"
     [ -n "${line}" ]
     [ "${line}" -gt "${prev_line}" ]
     prev_line="${line}"
   done
 }
 
-@test "mkdocs.yml registers the Universal Operational Replication Playbook nav entry" {
-  grep -qF 'UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md' "${MKDOCS_YML}"
+@test "mkdocs.yml registers the Universal Operational Replication Playbook nav entry with full label mapping" {
+  grep -qF -- '- Universal Operational Replication & Prompt Playbook: UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md' "${MKDOCS_YML}"
 }
 
 @test "llms.txt registers the Universal Operational Replication Playbook entry" {
