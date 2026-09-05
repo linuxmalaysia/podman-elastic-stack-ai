@@ -101,6 +101,11 @@
     <priority>0.80</priority>
   </url>
   <url>
+    <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.80</priority>
+  </url>
+  <url>
     <loc>https://linuxmalaysia.github.io/podman-elastic-stack-ai/docs/ELASTIC_9_UPGRADE_PLAN/</loc>
     <changefreq>weekly</changefreq>
     <priority>0.80</priority>

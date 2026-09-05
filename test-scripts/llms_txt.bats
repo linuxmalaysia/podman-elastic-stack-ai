@@ -68,6 +68,7 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
     "docs/WSL-3NODE-CLUSTER-GUIDE.md"
     "docs/GITEA_GUIDE.md"
     "docs/ELASTIC_9_UPGRADE_PLAN.md"
+    "docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md"
   )
   for rel_path in "${rel_paths[@]}"; do
     [ -f "${REPO_ROOT}/${rel_path}" ]
@@ -120,4 +121,8 @@ LLMS_TXT="${REPO_ROOT}/llms.txt"
 
 @test "llms.txt has the exact entry for ELASTIC_9_UPGRADE_PLAN.md" {
   grep -qF '[ELASTIC_9_UPGRADE_PLAN.md](docs/ELASTIC_9_UPGRADE_PLAN.md): Comprehensive Guide and 2-Week Plan for Upgrading the Podman-based Elastic Stack to Version 9.5.0.' "${LLMS_TXT}"
+}
+
+@test "llms.txt has the exact entry for UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md" {
+  grep -qF '[UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md](docs/UNIVERSAL_OPERATIONAL_REPLICATION_PLAYBOOK.md): Universal Operational Replication & Prompt Playbook: Elastic Stack SOC Infrastructure Upgrade & Automation Fabric.' "${LLMS_TXT}"
 }
