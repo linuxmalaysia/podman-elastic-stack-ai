@@ -1,0 +1,8 @@
+[MENTAL ANCHOR] 2026-10-31 - Google Jules Turndown & Historical Archive for Google Antigravity
+Status: EOD Palace Sync Complete | Brain Externalized & Verified
+Key Deliverables:
+- Authored `.agents/brain/jules_history.md` (OKF v0.2) detailing Jules wind-down schedule (Oct 29 announcement, Nov 11 read-only, Dec 31 sunset), export mechanics via `@google/jules` CLI, active REST API endpoints (/tasks, /sources), and Antigravity transition protocol.
+- Reconciled spatial memory in `.agents/brain/`: `task.md`, `walkthrough.md`, `palace_registry.md`, and `active_context_manifest.md`.
+- Updated test contract assertions in `test-scripts/dsom_gateway_docs.bats` (all 39 tests passing cleanly).
+- Zero secrets, tokens, or credentials committed.
+- Reanimation directive for Google Antigravity: Read `.agents/AGENTS.md` and `.agents/brain/active_context_manifest.md` upon boot.
