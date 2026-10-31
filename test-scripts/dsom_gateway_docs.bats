@@ -25,11 +25,12 @@ CURSORRULES="${REPO_ROOT}/.cursorrules"
 COPILOT_INSTRUCTIONS="${REPO_ROOT}/.github/copilot-instructions.md"
 CLAUDE_MD="${REPO_ROOT}/CLAUDE.md"
 
-# The six documents that carry full OKF YAML frontmatter.
+# The documents that carry full OKF YAML frontmatter.
 OKF_DOCS=(
   ".agents/AGENTS.md"
   "AGENTS.md"
   ".agents/brain/active_context_manifest.md"
+  ".agents/brain/jules_history.md"
   ".agents/brain/palace_registry.md"
   ".agents/brain/task.md"
   ".agents/brain/walkthrough.md"
@@ -305,6 +306,9 @@ extract_frontmatter() {
   for doc in ".cursorrules" "CLAUDE.md" ".github/copilot-instructions.md"; do
     [ -f "${REPO_ROOT}/${doc}" ]
     [ -s "${REPO_ROOT}/${doc}" ]
+    # Ensure byte-one begins with frontmatter delimiter '---' without preceding BOM or text
+    first_three="$(head -c 3 "${REPO_ROOT}/${doc}")"
+    [ "${first_three}" = "---" ]
   done
 }
 
